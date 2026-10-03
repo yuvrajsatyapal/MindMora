@@ -1,0 +1,169 @@
+@theme {
+  --*: initial;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+  --spacing: 0.25rem;
+}
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-text: var(--text);
+  --color-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-border: var(--border);
+}
+:root {
+  --brand-teal: #087f73;
+  --brand-ink: #162a2a;
+  --brand-mint: #70e0c5;
+  --brand-paper: #f6f8f5;
+  --brand-night: #102322;
+  --space-0: 0;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2rem;
+  --text-display: 3rem;
+  --leading-body: 1.6;
+  --leading-control: 1.25;
+  --leading-heading: 1.15;
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-strong: 600;
+  --tracking-label: 0.08em;
+  --tracking-heading: -0.035em;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-full: 999px;
+  --border-width: 1px;
+  --border-strong: 2px;
+  --focus-width: 2px;
+  --focus-offset: 3px;
+  --duration-fast: 120ms;
+  --duration-normal: 180ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --layer-nav: 10;
+  --layer-menu: 20;
+  --layer-overlay: 30;
+  --layer-dialog: 40;
+  --layer-toast: 50;
+  --control-height: 2.75rem;
+  --icon-sm: 1rem;
+  --icon-md: 1.25rem;
+  --icon-lg: 1.5rem;
+  --nav-width: 15rem;
+  --content-width: 80rem;
+  --reading-width: 68ch;
+  --dialog-width: 28rem;
+  --menu-width: 13rem;
+  --swatch-height: 4rem;
+  --specimen-height: 10rem;
+  --logo-width: 10rem;
+  --logo-mark: 2.5rem;
+  --skeleton-width: 75%;
+  --switch-width: 2.5rem;
+  --switch-height: 1.5rem;
+  --switch-thumb: 1rem;
+  --opacity-disabled: 0.55;
+  --canvas: var(--brand-paper);
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-hover: #edf2ee;
+  --text: var(--brand-ink);
+  --text-muted: #506560;
+  --accent: var(--brand-teal);
+  --accent-hover: #05675d;
+  --on-accent: #ffffff;
+  --accent-text: #05675d;
+  --accent-soft: #e2f3ed;
+  --border: #d4dfd8;
+  --border-control: #738b82;
+  --focus: #087f73;
+  --danger: #b32e32;
+  --danger-soft: #fff0ee;
+  --success: #166b4e;
+  --success-soft: #e9f5ed;
+  --warning: #815515;
+  --warning-soft: #fff3dc;
+  --info: #225f95;
+  --info-soft: #edf4fc;
+  --overlay: #06191699;
+  --shadow-low: 0 2px 8px #1023220d;
+  --shadow-overlay: 0 16px 48px #10232226;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --canvas: var(--brand-night);
+  --surface: #172e2b;
+  --surface-raised: #203a35;
+  --surface-hover: #28453e;
+  --text: var(--brand-paper);
+  --text-muted: #afc5bc;
+  --accent: var(--brand-mint);
+  --accent-hover: #99edd6;
+  --on-accent: var(--brand-night);
+  --accent-text: var(--brand-mint);
+  --accent-soft: #244b40;
+  --border: #39574d;
+  --border-control: #779b8c;
+  --focus: var(--brand-mint);
+  --danger: #ffa7a4;
+  --danger-soft: #482d2c;
+  --success: #95dbb7;
+  --success-soft: #214333;
+  --warning: #f3cd89;
+  --warning-soft: #433b28;
+  --info: #9acdf8;
+  --info-soft: #243c4c;
+  --overlay: #020c0bbf;
+  --shadow-low: 0 2px 8px #00000026;
+  --shadow-overlay: 0 16px 48px #00000066;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --canvas: var(--brand-night);
+    --surface: #172e2b;
+    --surface-raised: #203a35;
+    --surface-hover: #28453e;
+    --text: var(--brand-paper);
+    --text-muted: #afc5bc;
+    --accent: var(--brand-mint);
+    --accent-hover: #99edd6;
+    --on-accent: var(--brand-night);
+    --accent-text: var(--brand-mint);
+    --accent-soft: #244b40;
+    --border: #39574d;
+    --border-control: #779b8c;
+    --focus: var(--brand-mint);
+    --danger: #ffa7a4;
+    --danger-soft: #482d2c;
+    --success: #95dbb7;
+    --success-soft: #214333;
+    --warning: #f3cd89;
+    --warning-soft: #433b28;
+    --info: #9acdf8;
+    --info-soft: #243c4c;
+    --overlay: #020c0bbf;
+    --shadow-low: 0 2px 8px #00000026;
+    --shadow-overlay: 0 16px 48px #00000066;
+    color-scheme: dark;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-normal: 0ms;
+  }
+}
