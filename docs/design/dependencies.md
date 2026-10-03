@@ -9,6 +9,7 @@ Verified 2026-10-03 from npm package metadata and the locked install. All depend
 | next | 16.3.8 | MIT | runtime |
 | zod | 4.6.5 | MIT | server config runtime |
 | server-only | 0.0.1 | MIT | server/client import guard |
+| @supabase/auth-js | 2.117.2 | MIT | server auth SDK, request-local storage |
 | radix-ui | 1.6.7 | MIT | runtime |
 | react | 19.3.0 | MIT | runtime |
 | react-dom | 19.3.0 | MIT | runtime |
@@ -41,6 +42,13 @@ Source formatted using Prettier 3.9.9 (MIT, Node >=14), invoked as a one-time de
 
 ## Runtime boundary and remaining backend target
 
-The inventory includes 1A: Zod 4.6.5 and server-only 0.0.1 metadata verified on 2026-10-03, both MIT. No hosted service, fee, free-tier cap or credit-card requirement applies to these local libraries. Zod supports strict TypeScript 5.5+; actual TypeScript 6.0.3 and Node 22.22.3 validation/build checks pass. Installed Next 16.3.8 requires Node >=20.9.0; project retains >=22.12.0. Pino, Drizzle, Supabase clients, TanStack Query, Zustand, nuqs, Redis/BullMQ and API tooling remain planned; verify at installation. Runtime Next.js migration is implemented. No claim that backend hosting or workers are free/unlimited follows from these UI dependencies.
+The inventory includes 1A: Zod 4.6.5 and server-only 0.0.1 metadata verified on 2026-10-03, both MIT. No hosted service, fee, free-tier cap or credit-card requirement applies to these local libraries. Zod supports strict TypeScript 5.5+; actual TypeScript 6.0.3 and Node 22.22.3 validation/build checks pass. Installed Next 16.3.8 requires Node >=20.9.0; project retains >=22.12.0. Pino, Drizzle, Supabase database/Storage clients, TanStack Query, Zustand, nuqs, Redis/BullMQ and API tooling remain planned; verify at installation. Runtime Next.js migration is implemented. No claim that backend hosting or workers are free/unlimited follows from these UI dependencies.
 
 1A references: [Next server-only guidance](https://nextjs.org/docs/app/getting-started/server-and-client-components), [Next self-hosting](https://nextjs.org/docs/app/guides/self-hosting), [Zod requirements](https://zod.dev/).
+
+
+## Milestone 1B dependency verification — 2026-10-04
+
+Official auth-only SDK @supabase/auth-js 2.117.2 (MIT) requires Node >=22.0.0; actual Node 22.22.3 and project >=22.12.0 satisfy it. Exact version locked; no full database/Storage SDK or SSR browser client added. Custom request-local storage is supported by the SDK PKCE flow. The SDK is free local software; hosted Auth has quotas. Supabase Free social OAuth/50k MAU/2 active projects/one-week inactivity pause checked against official pricing. No project provisioning/paid/card action performed. Paid plans require a card; no blanket no-card hosting promise is made. Latest read-only existing-project settings check returned HTTP 200 with Google enabled; live start reached Google’s sign-in page. Live Google callback/session and logout (204 followed by session 401) succeeded. Subsequent live refresh/reuse/concurrency and revoked replay/isolation acceptance passed 13/13; natural JWT expiry was not awaited.
+
+[SDK source](https://github.com/supabase/supabase-js/tree/master/packages/core/auth-js) · [Supabase pricing](https://supabase.com/pricing) · [Billing setup](https://supabase.com/docs/guides/platform/get-set-up-for-billing) · [ADR-020](../decisions/ADR-020-backend-owned-auth-cookies.md)

@@ -1,6 +1,6 @@
 # API Validation, Documentation and Testing
 
-**Status:** 📋 Planned, accepted 2026-10-03. No API, schemas, Swagger UI or Postman collection exists yet.
+**Updated:** 2026-10-04. **Status:** ✅ Auth routes, safe Zod projection and auth-only OpenAPI; 📋 note APIs, Swagger UI/Postman generation/drift tooling.
 
 ## Purpose
 
@@ -22,7 +22,7 @@ Versioned OpenAPI → Swagger UI
 - `docs/api/mindmora.postman_collection.json`: generated collection with placeholder environment/session setup.
 - API docs route: Swagger UI, controlled exposure in production and CSP-compatible integration.
 
-These are plan paths, not implemented files. Select/version a compatible Zod-to-OpenAPI approach during 1H; avoid maintaining duplicate unconstrained schemas. Generated output must be reviewed and checked against routes, not blindly trusted.
+Config and auth-only OpenAPI exist; other paths remain planned. The auth projection schema was derived from implemented Zod via `z.toJSONSchema`. Select/version the broader schema/route generation approach during 1H; avoid maintaining duplicate unconstrained schemas. Generated output must be reviewed and checked against routes, not blindly trusted.
 
 ## Contract requirements
 
@@ -35,3 +35,5 @@ Swagger's Try It feature must respect origin/CSRF and safe auth flow; document h
 Zod rejects malformed fields and length limits; permission checks independently reject valid-but-unauthorized requests. API integration tests compare actual responses/errors to the contract; drift checks fail when routes/schema differ. A collection-generation check and smoke test use disposable users. Verify Postman free feature limits before relying on cloud team/runner features. Documentation itself is not an authorization or sanitization layer.
 
 [Zod](https://zod.dev/) · [OpenAPI specification](https://spec.openapis.org/oas/latest.html) · [Swagger UI](https://swagger.io/tools/swagger-ui/) · [Postman import/export](https://learning.postman.com/docs/getting-started/importing-and-exporting/importing-data/)
+
+Current auth methods/errors/cookie and Origin semantics: [implementation contract](supabase-auth.md#http-contract), [OpenAPI](../api/openapi.json). No credential examples or provider secrets are included.

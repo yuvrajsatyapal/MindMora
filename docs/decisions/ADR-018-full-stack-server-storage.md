@@ -1,6 +1,6 @@
 # ADR-018 — Full-Stack Server Storage Without a Browser Vault
 
-**Decision status:** Accepted by user, 2026-10-03. **Implementation:** ✅ Runtime migration/server boundary (1A); 📋 auth/storage/CRUD pending.
+**Decision status:** Accepted by user, 2026-10-03. **Implementation:** ✅ Runtime (1A) and auth code (1B); live Google/session lifecycle acceptance verified; 📋 storage/CRUD.
 
 ## Context
 

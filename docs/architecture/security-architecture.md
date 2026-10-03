@@ -1,6 +1,6 @@
 # Security Architecture and Acceptance Contract
 
-**Status:** 📋 Planned; revised by user authorization on 2026-10-03. Milestone 1A implements lazy Zod configuration and a compiler-enforced server-only boundary. Auth/storage/HTTP security controls remain planned. The old encrypted-vault SEC tests are superseded, not implemented or passing.
+**Status:** 📋 Planned; revised by user authorization on 2026-10-03. Milestone 1A implements lazy Zod configuration and a compiler-enforced server-only boundary. 1B implements PKCE/state, protected cookies, online identity verification, auth Origin/no-store and safe errors; live Google sign-in/session/logout and refresh/replay checks are verified. Storage/general HTTP/Pino/Redis controls remain planned. The old encrypted-vault SEC tests are superseded, not implemented or passing.
 
 ## What is protected
 
@@ -71,3 +71,10 @@ Foundation cannot complete without applicable SEC-01–08 evidence. SEC-06 local
 ## Verification and documentation
 
 Audit/lint/typecheck/unit tests/runtime build and applicable auth/database/Redis/Storage/browser tests. Two-user RLS checks use real database connections; mocks alone cannot show policy enforcement. Restore drills and quota/retention evidence precede deployment claims. Read [ADR-018](../decisions/ADR-018-full-stack-server-storage.md), [Supabase session design](../integrations/supabase-auth.md) and [hosting budget](../integrations/hosting-and-costs.md).
+
+
+## Milestone 1B evidence — 2026-10-04
+
+Auth tests exercise the official SDK and real Next/browser cookies using a test-only provider fixture. Config/PKCE/state misuse, malformed callbacks, exact Origin, expired/refreshed/revoked sessions, independent-device local logout, late refresh replay, cookie size/duplication, safe output and provider failures are covered. HTTPS cookie attributes are tested in route responses; actual production TLS/ingress remains unproven. No credentials appear in safe JSON or JS persistent stores during browser tests. SEC-01/05 remain partially evidenced overall: 1B live refresh/reuse/replay and independent-session tests passed 13/13, while general HTTP/admission/logging and deployment controls remain later work. The latest read-only live settings check returned HTTP 200 with Google enabled, and start redirected through Supabase to Google’s sign-in page. Live account/callback/session succeeded; logout returned 204, followed by same-browser session 401. Subsequent original/refreshed cookie replay and revoked refresh attempts returned 401; logout A preserved B (200). Refresh was forced by aging the expiry hint, without waiting for natural access JWT expiry. SDK network fetch timeout is ten seconds per attempt; whole refresh timing depends on retries.
+
+1D owns general admission/Pino/correlation; 1C/1E own effective RLS/data access; 1F/1G own memory-cache/draft cleanup. Auth routes are not production-ready before admission controls. [ADR-020](../decisions/ADR-020-backend-owned-auth-cookies.md) and [setup/live checklist](../integrations/supabase-auth.md) record the actual boundary and remaining evidence.

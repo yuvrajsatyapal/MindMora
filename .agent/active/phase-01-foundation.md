@@ -1,10 +1,10 @@
 # Phase 01 — Full-Stack Foundation Execution Plan
 
-**Status:** ✅ Milestone 1A implemented; remaining backend milestones planned.
-**Updated:** 2026-10-03 — Milestone 1A runtime/config boundary implemented.
+**Status:** ✅ 1A; ✅ 1B auth code/local checks; ✅ 1B live Google/session/refresh/replay acceptance verified; remaining milestones planned.
+**Updated:** 2026-10-04 — 1B backend-owned auth implementation/local verification.
 **Goal:** Preserve the shared UI and deliver authenticated, server-authoritative note CRUD with validated APIs and observable, tested security boundaries.
 **Architecture:** Next.js Node Route Handlers → verified Supabase identity → scoped Drizzle repositories → Supabase PostgreSQL. React uses temporary editor state and in-memory TanStack Query, with Zustand UI and nuqs URL state.
-**Tech stack:** Existing React/Next.js/TypeScript/Tailwind/Radix; Zod/server-only configuration; planned Supabase Auth/PostgreSQL, Drizzle, API Zod, Pino, Redis limits, TanStack Query, Zustand, nuqs, OpenAPI/Swagger/Postman.
+**Tech stack:** Existing React/Next.js/TypeScript/Tailwind/Radix; Zod/server-only configuration; Supabase auth SDK (1B code/live acceptance verified); planned PostgreSQL/Drizzle, note API Zod, Pino, Redis limits, TanStack Query, Zustand, nuqs, OpenAPI/Swagger/Postman.
 **Spec:** [PRODUCT_SPEC](../../PRODUCT_SPEC.md) §§3–6, 14, 17–21.
 **Standard:** [PLANS](../PLANS.md). Use the repository milestone/test-first execution workflow; implement only the requested milestone and stop. This plan does not authorize executing the whole phase or deploying infrastructure.
 
@@ -66,7 +66,7 @@ Google sign-in: start → code/PKCE/state exchange via Supabase/Google → backe
 
 ## 7. Phase file inventory
 
-The 1A entries are now implemented; remaining entries are proposed paths, not an implemented file map. Colocate feature code and meaningful tests.
+The 1A and 1B auth entries are now implemented; remaining entries are proposed paths, not an implemented file map. Colocate feature code and meaningful tests.
 
 | Create / modify | Responsibility | Milestone |
 |---|---|---|
@@ -74,7 +74,7 @@ The 1A entries are now implemented; remaining entries are proposed paths, not an
 | `scripts/preview.mjs`, `playwright.config.ts`, `.github/workflows/quality.yml` (modify) | Migrate static-only assumptions while preserving showcase coverage | 1A/1H |
 | `.env.example`, `.gitignore` (inspect/modify) | Placeholders only, ignore real secrets/generated output, retain Markdown docs | 1A |
 | `src/server/config.ts`, `src/server/config.test.ts` | Validated env config, server-only import boundary, safe config failures | 1A |
-| `src/server/auth/session.ts`, `src/server/auth/session.test.ts` | Backend cookie/session verification, refresh/logout and safe projection | 1B |
+| `src/server/auth/provider.ts`, `session.ts`, `routes.ts`, `config.test.ts`, `routes.test.ts` | Provider exchange and backend cookie/session verification, refresh/logout and safe projection | 1B |
 | `src/app/api/auth/start/route.ts`, `callback/route.ts`, `logout/route.ts`, `session/route.ts` under `src/app/api/auth/` | Supported Google flow and safe auth endpoints | 1B |
 | `src/features/account/types.ts`, `src/features/account/api.ts` | Safe user-facing auth shapes and typed client access | 1B/1F |
 | `src/server/db/client.ts`, `schema.ts`, `user-context.ts`, `drizzle.config.ts` | Bounded connections, minimal schemas and effective scoped RLS role/claims | 1C |
@@ -85,7 +85,7 @@ The 1A entries are now implemented; remaining entries are proposed paths, not an
 | `src/server/rate-limit/client.ts`, `limiter.ts`, `limiter.test.ts` | Redis counter/window policy and outage behavior | 1D |
 | `src/server/notes/repository.ts`, `service.ts` | Owner predicates, transaction/revision rules and public domain errors | 1E |
 | `src/app/api/notes/route.ts`, `src/app/api/notes/[id]/route.ts` | Authenticated list/create/detail/update/delete | 1E |
-| `tests/integration/notes-api.test.ts`, `rls.test.ts`, `auth.test.ts`, `rate-limit.test.ts` | Actual HTTP/session/DB/Redis isolation and failures | 1B–1E |
+| `tests/e2e/auth.spec.ts` (implemented); `tests/integration/notes-api.test.ts`, `rls.test.ts`, `rate-limit.test.ts` (planned) | Actual HTTP/session/DB/Redis isolation and failures | 1B–1E |
 | `docs/design/phase-01-foundation.md` | Accessible auth/workspace/loading/conflict design contract | 1F before UI edits |
 | `src/app/providers.tsx`, `src/lib/query-client/provider.tsx`, `src/lib/nuqs/provider.tsx` | Stable query/URL/session provider composition | 1F |
 | `src/lib/api/client.ts`, `src/features/notes/api.ts`, `hooks.ts`, `use-note-selection.ts` | Safe validated API responses, scoped cache/mutations/URL selection | 1F/1G |
@@ -236,7 +236,7 @@ Accepted ADR-016/018/019; ADR-001/002/003/017 superseded. Google/Supabase server
 - [x] Inspect existing UI and documentation; preserve source evidence.
 - [x] Update requirements/architecture/security/ADRs and full-stack milestone plan by user request.
 - [x] 1A Runtime migration.
-- [ ] 1B Google/server sessions.
+- [x] 1B Google/server sessions — code/local checks and live Google/session/refresh/reuse/replay/isolation acceptance verified; natural JWT expiry not awaited.
 - [ ] 1C Database/Zod/RLS.
 - [ ] 1D HTTP security/Pino/Redis limits.
 - [ ] 1E Notes API/repositories.
@@ -245,7 +245,7 @@ Accepted ADR-016/018/019; ADR-001/002/003/017 superseded. Google/Supabase server
 - [ ] 1H Contract/runtime verification/documentation handoff.
 - [ ] Applicable SEC-01–08 proven; separate deployment evidence recorded where applicable.
 
-The earlier docs-only revision completed no implementation milestone. 1A is now implemented; stop for user review. 1B is the next milestone and is not authorized to start.
+The earlier docs-only revision completed no implementation milestone. 1A was implemented and reviewed. User authorized only 1B; its code/local verification is now implemented, with live Google/session/refresh/replay/isolation checks verified. Stop for review; 1C is not authorized.
 
 ### Documentation revision verification — 2026-10-03
 
@@ -319,3 +319,212 @@ may be needed if Next hangs. Loopback HTTP also works in local production previe
 no production-mode TLS guarantee. Safe config errors are not HTTP API error handling (1D).
 Auth/RLS/private response security/Redis/services/TLS/provider readiness remain unverified.
 Git repository absent; no commit, deploy or 1B work performed.
+
+
+### Milestone 1B execution — 2026-10-04
+
+Authorized: Google/Supabase backend sessions only; no 1C schema/database work, UI screen,
+commit or deployment. 1A source inspected; no local Supabase project configuration present.
+Uses exact @supabase/auth-js 2.117.2 (MIT, Node >=22; workspace 22.22.3). No service-role key.
+Supabase Free social OAuth available, 50k MAU, 2 active projects, pauses after one week;
+no project provision/payment authorized. Live Google/provider evidence requires user setup.
+
+Concrete files: `src/server/auth/provider.ts`, `session.ts`, `routes.ts` and colocated tests;
+`src/app/api/auth/{start,callback,session,logout}/route.ts`; account `types.ts`/`api.ts`;
+config/auth config tests, .env.example, package/lock, auth E2E/integration tooling;
+ADR-020 and affected README/architecture/auth/security/dependency/file-map/learning/phase docs.
+
+Contract before code: per-request auth-only SDK; PKCE state kept only in short-lived HttpOnly
+cookie; fixed configured-origin callback and post-login destination `/`; no user redirect input.
+Start/logout POST require exact configured Origin; cross-site requests denied. Callback is GET
+and relies on browser-bound PKCE rather than a cross-provider Origin header. SDK generates/verifies
+PKCE; Supabase owns OAuth provider state. Application state checks/expiry protect the pending
+flow. Host-only HttpOnly SameSite=Lax cookies; Secure for HTTPS, local loopback HTTP exemption;
+HTTPS cookie names use __Host- prefix. Persist only Supabase app access/refresh credentials,
+never Google provider tokens; no browser SDK/localStorage/sessionStorage/custom token DB.
+Verify each request online with getUser; expired access refreshes server-side, then verifies user.
+Failures emit fixed responses without raw provider errors. No-store all auth outcomes, including
+redirects/errors/cookie refresh. Logout revokes current provider session and clears local cookies;
+provider outage must be reported, never falsely claimed as successful global revocation.
+No automatic browser cache/draft state to clear exists yet (1F/1G).
+
+Test-first: actual SDK with fake HTTP transport fixtures; callback PKCE mismatch/replay/expiry,
+redirect misuse, missing/expired/revoked user and refresh failure, cookie attributes and token-free
+projection, logout/origin/outage; real Next HTTP/browser tests for routing/cookies/persistence.
+Live Supabase/Google disposable-user integration remains pending if no provider is available;
+fixture tests establish application behavior only. SEC-01/05 provider acceptance not falsely complete.
+Rate limits/logging are 1D; auth routes are development verification, not production-ready admission.
+
+
+1B implementation decisions: callback is fixed APP_ORIGIN `/api/auth/callback?state=<nonce>`;
+configure only that host/path with state-query wildcard in Supabase. SDK flowId is passed to
+exchange from protected pending cookie, not appended to callback query. Single active sign-in
+flow per browser; start replaces pending cookie. Seven-day app cookie, ten-minute pending,
+30-second refresh margin; online getUser always verifies identity. HTTP methods and no-store
+apply also to unsupported method errors (Allow header). Session size capped at 3800 encoded
+characters; oversized sessions fail safely, no silent truncation/chunking implementation.
+A raw cookie expiry hint cannot grant access; provider verification is the identity authority.
+
+Actual files added/updated match the 1B scope. An auth-only OpenAPI contract was added as
+API documentation required by AGENTS; safe projection schema derived from implemented Zod.
+No Swagger/Postman/generator runtime or 1H feature introduced. ADR-020 records cookie design.
+User requested keys in `.env`: local ignored file created with placeholders, then user filled
+URL/key; no values printed/tracked. Google credentials remain provider dashboard configuration.
+
+Read-only live check on 2026-10-04: validated local config, `/auth/v1/settings` returned 200,
+`external.google` false. No live Google login/callback/revocation/refresh/reuse proven; acceptance
+remains pending user provider setup. A Git repository now exists, initial 1A commit 497e628;
+current work is uncommitted. No Git history/branch changes or deploy/cloud provisioning performed.
+
+RED evidence: config scaffold 6 failures; route scaffold 15 failures against actual SDK contract;
+browser HTTP tests 2 failures before auth Route Handlers (missing routes); client helper scaffold
+3 failures. A non-ASCII state regression exposed timingSafeEqual byte-length RangeError, fixed
+by base64url state validation. Unsupported-method regression exposed missing Allow header,
+fixed with non-cacheable 405/Allow. All then green. Initial browser request used a separate test
+cookie jar, corrected to context.request; this was a test setup failure, not an application bug.
+
+Independent read-only review found no blocking code defect; important fixture gap fixed:
+independent session IDs and scope-aware revocation prove logout A preserves B. Added coverage
+for duplicate/oversized cookies, oversized provider tokens, malformed JSON/transport errors with
+safe output/console marker checks, concurrent refresh and revoked late-cookie replay. SDK fixture
+models provider reuse behavior only; real timing/revocation policy remains pending live checks.
+Fixture type inference initially narrowed randomUUID input too far; explicit string typing fixed it.
+
+
+Fresh final local verification on 2026-10-04:
+
+| Command/check | Observed result |
+|---|---|
+| `npm run lint` | Exit 0; ESLint and semantic style contract passed |
+| `npm run typecheck` | Exit 0 |
+| `npm run test` | Exit 0; 54/54 tests across 5 files (6.58s) |
+| `npm run build` | Exit 0; public routes prerendered, four auth routes dynamic Node handlers |
+| `npm run test:e2e` | Exit 0; 11/11 Chromium showcase/runtime tests (5.2s) |
+| `npm run test:auth` | Exit 0; 2/2 Chromium/real Next auth tests with disposable provider (3.2s) |
+| `npm run test:boundary` | Exit 0; real Next client import rejection and request-time server-config probes |
+| `npm audit --audit-level=high --fetch-retries=0 --fetch-timeout=15000` | Exit 0; 0 vulnerabilities |
+| Final client configuration scan | 26 `.next/static` files; both configured Supabase values checked; 0 leaks |
+| SHA-256 baseline | Existing UI/design/spec/AGENTS unchanged; only existing `src/server/config.ts` changed as expected |
+| `git diff --check` / `git check-ignore .env` | Exit 0 / `.env` confirmed ignored |
+| Documentation validation | 31 Markdown documents, 148 local file links, 0 missing targets/unbalanced fences; OpenAPI JSON parses as 3.1.0 with four auth paths |
+
+Boundary/audit checks ran during this milestone before the final formatting-only pass;
+application checks above were rerun after formatting. CI was updated but no hosted run observed.
+Browser FORCE_COLOR/NO_COLOR warnings were cosmetic. Live Google/provider tests remain pending;
+this is local application evidence, not production SEC-01/05 or database/RLS acceptance.
+
+Stop for user review; do not start 1C. No commit or deployment.
+
+User-requested setup follow-up — 2026-10-04: added empty GOOGLE_CLIENT_ID and
+GOOGLE_CLIENT_SECRET placeholders to ignored `.env` and tracked `.env.example`, preserving
+existing values. These are local setup references only; Supabase provider settings must receive
+the credentials. No runtime code or later milestone change; live acceptance remains pending.
+Validation: both placeholder names present, existing values preserved, `.env` ignored and
+`git diff --check` passed. Application tests were not rerun for this configuration/docs-only edit.
+
+Live-provider follow-up — 2026-10-04: after user setup, `/auth/v1/settings` returned
+HTTP 200 with Google enabled. Fresh `npm run test:auth` exited 0: 2/2 fixture browser
+tests passed (3.9s). Started local Next dev at APP_ORIGIN and used a disposable native
+POST form; start → live Supabase → Google account sign-in page succeeded. No Google
+credentials entered by the agent. User sign-in/consent and subsequent callback/session/
+refresh/logout checks remain pending. Temporary form route removed after starting the
+flow; local dev remains running for the callback. No application code change, commit,
+deployment or 1C work. This supersedes the earlier disabled-provider status, not the
+historical evidence. 1B live acceptance remains open.
+
+
+Documentation/learning follow-up — 2026-10-04: current README/architecture/security/
+auth/dependency/ADR/learning statuses now reflect Google enabled and the verified live
+entry redirect. Earlier disabled-provider observations remain historical. Live acceptance
+stays unchecked until completed account/session lifecycle checks. Added a concrete auth
+reading workflow and clarified Google-to-Supabase versus Supabase-to-app callbacks and
+Google env-reference fields. No 1C or runtime edits in this documentation pass.
+
+Observed tooling side effect from the preceding live check: `next dev` appended its
+version-specific instructions block to AGENTS.md. Retained the generated instructions;
+no manual change to project policy, commit or deployment. The earlier SHA-256 claim of
+unchanged AGENTS applies to the implementation checkpoint before that dev run.
+
+Documentation-pass validation: 31 Markdown documents, 148 local file links, 0 missing
+targets/unbalanced fences; source/config/dependency/env SHA-256 baseline unchanged;
+`git diff --check` passed and `.env` remains ignored. Application checks were not rerun
+for this docs-only pass; implementation and live-entry results above retain their dates.
+
+Live callback/session/logout follow-up — 2026-10-04: user completed Google sign-in.
+The same in-app browser displayed `/api/auth/session/` with only user id/email/displayName
+(no token fields). A disposable same-origin form called POST `/api/auth/logout`: observed
+HTTP 204. GET `/api/auth/session` from the same browser afterward returned HTTP 401,
+error code `unauthenticated`. JSON-page navigation was blocked by the in-app browser after
+logout; a native page button calling the same API confirmed the 401 safely. The temporary
+verification route was removed. No personal profile values/tokens copied into tracked docs.
+
+Live sign-in/callback/session and current-cookie logout are now verified. Live refresh/reuse,
+expired access, revoked-token replay and independent-session provider checks remain pending;
+fixture tests cover those application paths but do not replace live evidence. Keep 1B live
+acceptance open for those checks; no 1C, commit or deployment. No lasting runtime code change.
+
+Follow-up validation: 31 Markdown documents/148 local file links, 0 missing targets or
+unbalanced fences; existing source/config/dependency/env hashes unchanged; temporary route
+absent; `git diff --check` passed, `.env` ignored. No application suite rerun for this
+removed-harness/evidence-only follow-up; live HTTP results are recorded above.
+
+Live refresh/replay execution started — 2026-10-04, explicitly authorized by user.
+Prepared temporary development-only `src/app/auth-check/route.ts`: loopback host/Origin
+checks; credentials captured only in module server memory; UI displays status/pass-fail
+without personal/token values. Intended checks: distinct provider session IDs, real provider
+refresh triggered by aged expiry hint, immediate parent reuse/concurrent refresh, current-
+session logout, original/refreshed credential replay, revoked refresh rejection, independent
+session survival and cleanup. This route must be removed after the checks and must not be
+committed/deployed. No production auth change or 1C work.
+
+Live start probe returned 303 with pending cookie and configured Supabase redirect host.
+Awaiting user Google login for session A, then a second independent login for session B.
+No refresh/replay result claimed yet. Forced expiry hint exercises actual live refresh but
+is not a test of waiting until natural access JWT expiry; report that limit explicitly.
+
+Live 1B acceptance completed — 2026-10-04
+
+Two Google logins in the same browser created distinct Supabase session IDs. The temporary
+local harness retained A/B app credentials only in server memory and called the real Next
+HTTP auth endpoints, which used the real Supabase provider. Browser UI displayed only
+status/pass-fail, no personal values or tokens. Observed results: 13/13 PASS.
+
+| Live check | Observed result |
+|---|---|
+| Distinct A/B provider session IDs | PASS; separate sessions of the same test user |
+| Initial A session | 200 |
+| Forced expiry hint → real provider refresh | 200; refreshed protected-cookie payload returned |
+| Refresh rotation | Refresh credential changed |
+| Immediate parent refresh reuse | 200 |
+| Concurrent refresh from the same parent | Both requests 200 |
+| Initial B session | 200 |
+| Current-session logout A | 204 |
+| Replay original A cookie after logout | 401 |
+| Replay refreshed A cookie after logout | 401 |
+| Revoked refresh attempt | 401 |
+| B survives logout A | 200 |
+| Cleanup logout B | 204 |
+
+Captured credentials were cleared; browser app cookies cleared after cleanup; temporary
+`src/app/auth-check/route.ts` removed. No lasting runtime code or credentials were added.
+Natural access JWT expiry was not awaited: changing only the app expiry hint triggered the
+actual provider refresh path. Immediate reuse/two concurrent calls prove these bounded
+cases, not every reuse interval/load/provider configuration. Independent sessions used
+one Google account, not a two-user database/RLS test. HTTPS/production ingress/admission/
+logging evidence remains later milestones. Test-only canonical paths included trailing
+slashes to avoid redirect normalization. The first native sign-in form was Origin-rejected
+in the in-app browser; same-origin fetch-based temporary adapter preserved Origin checks
+and forwarded the app's pending cookie/authorize URL. No auth protection was relaxed.
+
+Milestone 1B code/local/live acceptance is complete. Earlier pending/disabled observations
+above are historical checkpoints, superseded by this evidence. Stop for review; no 1C,
+commit, deployment or paid resource. Updated current plan/README/architecture/security/auth/
+ADR/file-map/learning statuses to match these observations.
+
+Final live-check cleanup validation: `npm run typecheck` passed during the harness and
+after removal. Initial post-removal typecheck found only a stale Next-generated type
+import for the removed route; removed that specific generated cache file, rerun exited 0.
+31 Markdown documents, 148 local file links, 0 missing targets/unbalanced fences;
+existing source/config/dependency/env hashes unchanged; temporary route absent;
+`git diff --check` passed and `.env` remains ignored. No full application suite rerun:
+production source was unchanged; earlier implementation-suite results retain their dates.

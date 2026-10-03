@@ -1,7 +1,7 @@
 # MindMora Architecture
 
-**Updated:** 2026-10-03. **Target:** accepted full-stack architecture; ✅ runtime boundary (1A), remainder planned.
-**Current implementation:** Next.js 16.3.8 Node runtime serving prerendered public pages and `/dev/design-system`, preserved Radix/React UI/Tailwind tokens/session theme, Vitest/Playwright and runtime CI. `src/server/config.ts` lazily validates APP_ORIGIN with Zod and rejects client imports through `server-only`. No app page consumes backend configuration yet. No real notes, auth, database, cache provider, application APIs, Redis, workers or storage integrations. Preview uses `next start`, not a static file server.
+**Updated:** 2026-10-04. **Target:** accepted full-stack architecture; ✅ 1A runtime and 1B auth code; live Google sign-in/session/logout and refresh/replay acceptance verified; remaining data/features planned.
+**Current implementation:** Next.js 16.3.8 Node runtime serving prerendered public pages and `/dev/design-system`, preserved Radix/React UI/Tailwind tokens/session theme, Vitest/Playwright and runtime CI. `src/server/config.ts` lazily validates APP_ORIGIN with Zod and rejects client imports through `server-only`. Four Node force-dynamic auth APIs now implement server PKCE/session/refresh/current-session logout with safe user projection. No sign-in screen, real notes/database, cache provider, Redis, workers or storage integrations. Public pages do not consume auth config; showcase preserved. Preview uses `next start`. Latest live settings returned HTTP 200 with Google enabled; the start flow reached Google’s sign-in page. Live callback/session succeeded; logout returned 204 and the same browser then received 401 unauthenticated. Subsequent live refresh/reuse/concurrency and revoked replay/isolation checks passed 13/13; natural JWT expiry was not awaited.
 
 ## Target flow
 
@@ -43,13 +43,17 @@ Google → Supabase Auth → tested backend-owned session cookies → verified r
 
 ## Phase 1 and later
 
-Phase 1 migrates runtime Next.js and adds auth, PostgreSQL/Drizzle notes, validation/logging, rate limits, in-memory query/UI/URL boundaries, API docs and tests. It preserves the design system. Phase 2 adds CodeMirror/sanitized preview/autosave. Phase 4 adds Storage/BullMQ/worker jobs. Phase 8 caches public PWA assets only. Phase 10 distinguishes local AI and server jobs and requires provider consent. Phase 13 expands account/Pro lifecycle; initial auth already exists by Phase 1. Only runtime/configuration boundary is implemented; other details remain planned.
+Phase 1 migrates runtime Next.js and adds auth, PostgreSQL/Drizzle notes, validation/logging, rate limits, in-memory query/UI/URL boundaries, API docs and tests. It preserves the design system. Phase 2 adds CodeMirror/sanitized preview/autosave. Phase 4 adds Storage/BullMQ/worker jobs. Phase 8 caches public PWA assets only. Phase 10 distinguishes local AI and server jobs and requires provider consent. Phase 13 expands account/Pro lifecycle; initial auth already exists by Phase 1. Runtime/configuration and backend auth code are implemented; live provider checks and other details remain planned.
 
 Retain the 14 phases in [spec §17](PRODUCT_SPEC.md). Automatic Drive sync, Dexie/IndexedDB knowledge, persistent offline editing and E2EE vault flows are superseded. MinIO is excluded; no separate Aiven/Neon database. Optional browser workers/Comlink/local models remain for computation, never persistence.
 
 ## Implemented UI foundation
 
 `src/design-system/tokens.css` owns semantic visual values. Controlled UI in `src/components/ui` and `src/components/mindmora` has presentation behavior only; `/dev/design-system` uses sample state. Theme remains session-only. [Design contract](docs/design/design-system.md) and [completed milestone record](.agent/active/design-system.md) describe observed behavior. Historical static output/test claims refer only to that milestone. Milestone 1A reran all nine showcase checks on the Node preview without changing the UI source. The server-only boundary is a build restriction, not permission to serialize secrets into props or responses.
+
+## Implemented auth flow (1B)
+
+Same-origin POST start → official server SDK S256 PKCE + protected pending cookie → Supabase/Google → fixed callback state/code exchange → online getUser → HttpOnly app-session cookie → safe `/session` projection. Near-expiry credentials refresh server-side; local-scope logout revokes current session and clears cookies. Exact Origin protects mutations; all auth responses no-store. No browser auth SDK, Google-token persistence or session database. [ADR-020](docs/decisions/ADR-020-backend-owned-auth-cookies.md) records trade-offs; [auth setup](docs/integrations/supabase-auth.md) records live acceptance gaps. Admission limits/Pino are still 1D; endpoints are not production-ready.
 
 ## Details and decisions
 

@@ -1,6 +1,6 @@
 # MindMora File Map
 
-**Status:** UI foundation and 1A Node runtime/config boundary implemented; auth/persistence/services planned. Updated 2026-10-03.
+**Status:** UI foundation, 1A runtime and 1B auth code implemented; live Google sign-in/session/logout and refresh/replay acceptance verified. Updated 2026-10-04.
 Only actual significant files belong here; proposed source paths live in the ExecPlan.
 
 | Existing file | Responsibility |
@@ -13,7 +13,7 @@ Only actual significant files belong here; proposed source paths live in the Exe
 | `.agent/active/phase-01-foundation.md` | Active full-stack migration milestones/proposed files/tests |
 | `.agent/active/design-system.md` | Completed static UI milestone and historical validation evidence |
 | `docs/README.md` | Document index and status conventions |
-| `docs/LEARNING.md` | Existing UI concepts and clearly planned backend explanations |
+| `docs/LEARNING.md` | Implemented UI/runtime/auth concepts, reading workflow and clearly planned backend examples |
 | `docs/architecture/full-stack-architecture.md` | API data models/save/conflict/file/job paths |
 | `docs/architecture/state-management.md` | PostgreSQL vs memory query/UI/draft/URL ownership |
 | `docs/architecture/security-architecture.md` | Current measurable SEC-01–10 and trust boundaries |
@@ -58,4 +58,23 @@ Only actual significant files belong here; proposed source paths live in the Exe
 | `scripts/test-server-boundary.mjs` | Disposable real Next compiler rejection and Node Route Handler request-time probe; cleans fixture |
 | `tests/e2e/runtime.spec.ts`, `playwright.config.ts` | Runtime 404/public output checks, fake secret markers and fresh loopback preview |
 
-No auth/database, application API, feature repository, remote provider, query/UI/URL state library, queue or worker has been introduced.
+No database, note API/repository, query/UI/URL state library, queue or worker has been introduced. Auth modules below are implemented; live refresh/replay acceptance is verified.
+
+
+## Implemented backend-owned auth — 1B
+
+| File | Responsibility |
+|---|---|
+| `src/server/config.ts` | Lazy auth URL/publishable-key validation alongside 1A origin config |
+| `src/server/auth/provider.ts` | Per-request official auth SDK, transient PKCE/session storage, exchange/refresh/getUser/local revoke, safe failure classification |
+| `src/server/auth/session.ts` | Cookie names/limits, state/expiry, validated token payload and verified refresh result |
+| `src/server/auth/routes.ts` | Auth methods/origins/query policy, fixed redirects, safe response and cookie lifecycle |
+| `src/app/api/auth/{start,callback,session,logout}/route.ts` | Node force-dynamic adapters, including non-cacheable unsupported methods |
+| `src/features/account/types.ts`, `api.ts` | Strict safe projection and memory-only browser session/logout calls; no auth SDK/provider dependency |
+| `src/server/auth/config.test.ts`, `routes.test.ts`, `src/features/account/api.test.ts` | Meaningful config/SDK/HTTP-policy/client boundary tests |
+| `src/tests/auth-provider-fixture.ts` | Test-only S256 provider transport, independent sessions and controlled error/revocation/refresh behavior |
+| `scripts/test-auth-e2e.mjs`, `playwright.auth.config.ts`, `tests/e2e/auth.spec.ts` | Disposable loopback provider and real Next/browser auth cookie/projection/refresh/logout integration |
+| `docs/api/openapi.json` | Auth-only contract; projection schema derived from implemented Zod type; no credential examples |
+| `docs/decisions/ADR-020-backend-owned-auth-cookies.md` | Cookie design, alternatives, trade-offs and live acceptance evidence |
+
+`.env` is an ignored local configuration file with user-supplied values; `.env.example` remains safe placeholders. Neither Google client secrets nor service-role credentials are needed by app auth.

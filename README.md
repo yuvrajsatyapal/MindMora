@@ -4,7 +4,7 @@
 
 MindMora is a planned full-stack personal knowledge workspace: Markdown notes, linked ideas, graph/canvas, tasks, database views and optional AI, with authenticated server storage and portable import/export.
 
-**Current status:** ✅ Milestone 1A Node runtime and server-only configuration boundary; shared UI/design-system showcase preserved. Auth, database, note APIs, Storage, Redis, queues and API documentation runtime remain planned.
+**Current status:** ✅ 1A runtime and 1B backend auth code/local verification; ✅ live Google sign-in/session/logout and refresh/replay acceptance verified. Shared design-system showcase preserved; database, notes, Storage, Redis, queues and interactive API docs remain planned.
 
 ## Proposed stack
 
@@ -46,13 +46,14 @@ npm run build
 npm run test:boundary
 npx playwright install chromium
 npm run test:e2e
+npm run test:auth
 npm run preview
 # http://127.0.0.1:4173/dev/design-system/
 ```
 
 `npm run build` creates a production Next build in `.next/`; `npm run preview` runs it on `127.0.0.1:4173`, and `npm run start -- --hostname 127.0.0.1 --port 3000` is the standard production-runtime command. Build before preview/start/E2E. Existing public pages are still prerendered, served by the Node server; no `out/` deployment is used. Playwright always starts its own preview to avoid checking a stale or differently configured server.
 
-`src/server/config.ts` uses Zod and `server-only`. Calling `getServerConfig()` requires `APP_ORIGIN`; importing the module does not. Copy `.env.example` to `.env.local` when a server consumer needs configuration. Use `http://localhost:3000` for dev or `http://127.0.0.1:4173` for preview; non-loopback origins require HTTPS. Paths, credentials, query strings and fragments are rejected. Errors never echo input. No app page consumes this helper yet; service credentials arrive in their own milestones. Never expose secrets using `NEXT_PUBLIC_` or Next's `env` config.
+`src/server/config.ts` uses Zod and `server-only`. Calling `getServerConfig()` requires `APP_ORIGIN`; importing the module does not. Copy `.env.example` to `.env.local` when a server consumer needs configuration. Use `http://localhost:3000` for dev or `http://127.0.0.1:4173` for preview; non-loopback origins require HTTPS. Paths, credentials, query strings and fragments are rejected. Errors never echo input. Public pages do not consume auth config. Auth routes lazily require SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY; database/Redis credentials arrive in their own milestones. Never expose secrets using `NEXT_PUBLIC_` or Next's `env` config.
 
 `npm run test:boundary` creates and removes a disposable Next app. It proves that client imports fail, server imports compile, and a test-only Node Route Handler reads request-time config. This fixture is not an application API. E2E checks the original showcase plus runtime 404 and marker-free public HTML/loaded JavaScript. CI supplies fake credential markers at build and preview time. For the same local build-time probe:
 
@@ -62,6 +63,14 @@ npm run test:e2e
 ```
 
 Theme remains session-only and samples do not save notes. See [design contract](docs/design/design-system.md), [component API](docs/design/component-api.md), [dependency record](docs/design/dependencies.md) and [Phase 1 outcomes](docs/phases/phase-01-foundation.md). Runtime/CI changes are local evidence; no hosted GitHub Actions run, production TLS, deployment or provider readiness is established. Docker/Nginx/workers remain planned; hosting is unselected.
+
+## Backend auth — Milestone 1B
+
+Fill the ignored `.env` with APP_ORIGIN, SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY. The exact `sb_publishable_...` key is supported; no service-role key needed. Configure Google client ID/secret in Supabase's Google provider dashboard, and the callback allowlist described in [auth setup](docs/integrations/supabase-auth.md#configure-local-google-verification). The latest read-only settings check returned HTTP 200 with Google enabled. The live flow completed Google login/callback and returned a verified safe session. Logout returned 204 and a subsequent same-browser session check returned 401. Live refresh/rotation, immediate reuse, concurrent refresh, revoked credential replay and independent-session logout checks passed (13/13); natural JWT expiry was not awaited.
+
+Current APIs: same-origin POST `/api/auth/start`, GET `/api/auth/callback`, GET `/api/auth/session` and same-origin POST `/api/auth/logout`. App cookies are HttpOnly, Secure/__Host on HTTPS (loopback HTTP exemption), and auth responses are no-store. Session returns only id/email/displayName. Homepage/showcase remain public; no sign-in/workspace screen or database is added. See [ADR-020](docs/decisions/ADR-020-backend-owned-auth-cookies.md) and the auth-only [OpenAPI contract](docs/api/openapi.json).
+
+Build first, then `npm run test:auth`: it uses the official SDK with a disposable local provider and real Next/browser cookies. The script explicitly enables Node's TypeScript stripping for test-only fixtures, compatible with the project's Node 22.12+ baseline; no new transpiler dependency. This is application integration evidence, not real Google consent/provider evidence. Redis admission/Pino/general HTTP controls remain 1D; do not deploy these endpoints as production-ready yet.
 
 ## Working milestone-by-milestone
 

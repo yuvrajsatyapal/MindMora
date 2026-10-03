@@ -1,6 +1,6 @@
 # ADR-016 — Supabase for Auth and Server Data
 
-**Decision status:** Accepted by user, 2026-10-03. **Implementation:** 📋 Planned.
+**Decision status:** Accepted by user, 2026-10-03. **Implementation:** ✅ 1B backend auth code/local checks; ✅ live Google/session lifecycle acceptance verified; 📋 PostgreSQL/Storage.
 
 ## Context
 
@@ -27,3 +27,5 @@ Network/provider availability and quotas affect note access. Authorized server/p
 Auth moves to Phase 1; knowledge persistence no longer uses Dexie/Drive. Phase 13 expands entitlements instead of introducing identity. No passwords/raw provider tokens in app tables; no Aiven/Neon database or MinIO.
 
 [Specification](../../PRODUCT_SPEC.md) · [Auth design](../integrations/supabase-auth.md) · [ADR-018](ADR-018-full-stack-server-storage.md)
+
+[ADR-020](ADR-020-backend-owned-auth-cookies.md) records the supported auth SDK/custom storage/HttpOnly cookie choice and live acceptance limitations.

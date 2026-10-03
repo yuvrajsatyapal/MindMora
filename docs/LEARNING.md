@@ -1,6 +1,6 @@
 # MindMora Learning Notes
 
-**Status:** UI and runtime/config concepts below are implemented; other backend concepts are 📋 planned examples, not runtime evidence. Updated 2026-10-03.
+**Status:** UI/runtime and 1B auth concepts below are implemented; live Google sign-in/session/logout and refresh/replay acceptance verified. Other backend concepts are 📋 planned examples. Updated 2026-10-04.
 
 ## Planned full-stack concepts
 
@@ -69,3 +69,54 @@ Record actual source file, concrete action/data flow, why this approach helps Mi
 `getServerConfig()` selects only APP_ORIGIN, validates it with Zod, and returns a frozen normalized origin. Missing config throws a fixed message with no raw value or Zod cause. Import does not read env, so public pages work before backend setup. The disposable Node route proves an origin changed after build is read on the request. TypeScript cannot validate strings arriving from the process environment. Service-specific validators must be added with their consumers; 1A has no secret/service credential loader.
 
 Zod validation is piped: URL parsing must succeed before URL-based refinements run. The initial implementation let invalid strings reach `new URL`; two tests exposed that unsafe exception path. The pipe now yields the intended fixed error. Loopback HTTP is a local test exception; it is not deployment TLS evidence.
+
+
+## Implemented auth concepts — Milestone 1B
+
+### PKCE ties the callback to its initiating browser
+
+`provider.ts` asks the official SDK for an S256 challenge and carries its verifier storage in a short-lived protected pending cookie. The callback gets a one-use code plus random app state; `routes.ts` compares state/expiry and exchanges with the original verifier. A code from another browser cannot establish an app session. Supabase separately owns Google OAuth state. Callback redirects are fixed; accepting a user-supplied return URL would add an unnecessary redirect boundary.
+
+### Identity is verified online, never read from cookie user data
+
+`session.ts` validates only token/expiry shapes; `provider.verify` calls getUser against Auth before returning id/email/displayName. A locally parsed JWT or SDK getSession is not online verification. The expiry hint decides when to refresh, but provider verification decides whether access is allowed. This adds network latency and fails closed during provider outage. Note ownership/RLS remain separate 1C/1E controls.
+
+### HttpOnly cookies require a server-owned lifecycle
+
+Standard browser auth refresh needs JS-readable tokens. MindMora uses request-local server SDK storage and manually projects only app access/refresh credentials into an HttpOnly cookie; Google provider tokens are discarded. HTTPS __Host cookies disallow a Domain attribute and require Secure/Path=/. SameSite=Lax permits the Google top-level callback; exact Origin protects start/logout POSTs. HttpOnly blocks JS reads, but XSS could still issue authenticated requests.
+
+### Refresh and logout are provider operations
+
+A session near expiry refreshes on the server, verifies the new access token and rotates the cookie. Logout calls supported current-session (`scope=local`) revocation and clears cookies. A second device remains signed in. On remote failure, 503 means local cleanup happened but provider revocation was not confirmed. Online verification prevents a late refreshed cookie from authorizing an already-revoked session; UI late-response/cache cleanup arrives later.
+
+### Tests distinguish application behavior from provider evidence
+
+`routes.test.ts` uses the real auth SDK with a controlled provider transport. `test:auth` uses real Next HTTP and browser cookies with a disposable loopback provider. Neither proves real Google consent/redirect settings or Supabase refresh/revocation timing. The latest live settings check returned HTTP 200 with Google enabled; live start reached Google’s sign-in page. Google consent/callback/session now succeeded live; logout returned 204 and subsequent session check returned 401. Live Supabase refresh/reuse, concurrent refresh, revoked replay and independent-session logout checks subsequently passed (13/13); natural JWT expiry was not awaited. The fixture models independent sessions and controlled refresh-token reuse so global logout and stale response tests are meaningful.
+
+A malformed non-ASCII state test exposed a byte-length exception in timingSafeEqual: equal JS string lengths need not mean equal byte lengths. State is now restricted to the generated base64url alphabet before constant-time comparison. A method-error test exposed missing Allow headers, now returned safely with no-store. Cookie size limits reject duplicate/corrupt/oversized input rather than guessing an identity.
+
+### Contracts and user projection
+
+`features/account/types.ts` is a strict shared Zod projection. Browser helpers validate successful JSON and never store tokens; server-only code is excluded from client imports. The initial auth OpenAPI schema is derived from that projection. Full Swagger/Postman generation/drift tooling is scheduled for 1H; no note contract exists yet.
+
+
+### Reading workflow for the implemented auth boundary
+
+Start with `features/account/types.ts` to see the only successful session shape the browser
+receives. Next read the four `app/api/auth/*/route.ts` adapters and `server/auth/routes.ts`
+for methods, Origin/query checks and redirects. Read `session.ts` for cookie limits/state/
+expiry and `provider.ts` for actual Supabase calls. `server/config.ts` shows which env
+values the runtime reads. Finally, read `routes.test.ts` for misuse/failure scenarios and
+`tests/e2e/auth.spec.ts` for browser cookie behavior. `features/account/api.ts` validates
+browser responses; it does not hold session authority.
+
+Two redirects have different owners: Google returns to Supabase `/auth/v1/callback`,
+then Supabase returns to MindMora `/api/auth/callback?state=...`. Google OAuth client
+ID/secret are configured in Supabase's provider settings. The optional `.env` Google
+placeholders are setup references only, whereas APP_ORIGIN/SUPABASE_URL/
+SUPABASE_PUBLISHABLE_KEY are read by the server.
+
+For current implementation/verification status read the active Phase 1 ExecPlan; for the
+actual outcome record read `docs/phases/phase-01-foundation.md`. Future note/RLS/cache
+examples remain planned. A successful redirect to Google proves the entry path only;
+it cannot prove the return callback, committed app session, refresh or revocation.

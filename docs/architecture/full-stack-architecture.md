@@ -1,6 +1,6 @@
 # Full-Stack Data Architecture
 
-**Status:** ✅ 1A Node runtime/config boundary; 📋 data/auth/storage flows planned; accepted 2026-10-03. See [system overview](../../ARCHITECTURE.md).
+**Status:** ✅ 1A runtime and 1B auth code; live auth acceptance verified; 📋 data/storage flows planned; accepted 2026-10-03. See [system overview](../../ARCHITECTURE.md).
 
 ## Responsibilities and flow
 
@@ -14,6 +14,10 @@ Editor draft → TanStack Query mutation → HTTPS API
 ```
 
 Identity comes from a validated backend session, never request `userId`. Routes handle HTTP/contracts; services domain rules; repositories transaction/query scope. Database/Redis/privileged Storage clients remain server-only. A verified authenticated request does not automatically authorize another user's record. Server roles/transaction-local claims must enforce RLS and be tested through the actual connection path.
+
+## Implemented identity boundary — 1B
+
+Server-only auth SDK clients and storage are request-scoped. PKCE/state callbacks establish a protected app cookie after online user verification; session/refresh/logout endpoints never return credentials. Auth data remains in Supabase Auth, not application tables. Profiles and all models below remain 1C proposals. [Auth setup/evidence](../integrations/supabase-auth.md) distinguishes local fixture tests from observed live Google/session lifecycle evidence.
 
 ## Proposed data model
 

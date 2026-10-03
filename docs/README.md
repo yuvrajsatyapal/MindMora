@@ -1,6 +1,6 @@
 # MindMora Documentation
 
-**Updated:** 2026-10-03. ✅ Shared UI and 1A Node runtime/server config boundary; 📋 auth/persistence/storage/jobs planned.
+**Updated:** 2026-10-04. ✅ Shared UI, 1A runtime and 1B backend auth code; ✅ live Google sign-in/session/logout and refresh/replay acceptance verified; 📋 persistence/storage/jobs.
 
 | Document | Job |
 |---|---|
@@ -23,6 +23,8 @@
 | [ADR-016](decisions/ADR-016-supabase-auth-and-server-data.md) | Supabase Auth/PostgreSQL/Storage |
 | [ADR-018](decisions/ADR-018-full-stack-server-storage.md) | Full-stack server storage; no E2EE/browser note DB |
 | [ADR-019](decisions/ADR-019-backend-services-and-api-tooling.md) | Accepted tooling and rollout |
+| [ADR-020](decisions/ADR-020-backend-owned-auth-cookies.md) | Implemented cookie/PKCE lifecycle and observed provider evidence |
+| [Auth OpenAPI](api/openapi.json) | Auth-only contract without credentials; broader tooling remains 1H |
 
 ## Existing UI contracts
 
