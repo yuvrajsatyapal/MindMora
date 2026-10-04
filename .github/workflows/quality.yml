@@ -16,12 +16,14 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - run: npm run test:rate-limit
       - run: npm run test:db
       - run: npm run test:boundary
       - run: npm run build
         env:
           SUPABASE_SERVICE_ROLE_KEY: mindmora-private-service-key-marker
           DATABASE_URL: postgresql://mindmora-private-database-marker
+      - run: npm run test:startup
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - run: npm run test:auth

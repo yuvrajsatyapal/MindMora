@@ -10,7 +10,14 @@ export default defineConfig({
     reuseExistingServer: false,
     env: {
       SUPABASE_SERVICE_ROLE_KEY: "mindmora-private-service-key-marker",
-      DATABASE_URL: "postgresql://mindmora-private-database-marker",
+      DATABASE_URL:
+        process.env.STARTUP_TEST_DATABASE_URL ??
+        "postgresql://mindmora-private-database-marker",
+      REDIS_URL:
+        process.env.STARTUP_TEST_REDIS_URL ??
+        "rediss://mindmora-private-redis-marker",
+      DATABASE_CA_CERT_PATH: "",
+      TRUSTED_CLIENT_IP_HEADER: "none",
     },
   },
   reporter: "list",

@@ -1,6 +1,6 @@
 # Phase 01 — Full-Stack Foundation Record
 
-**Status:** ✅ UI/runtime and 1B auth code/local verification; ✅ live Google/session/refresh/replay acceptance verified; ✅ 1C minimal schema/database/RLS; 📋 note CRUD and later milestones. Updated 2026-10-04.
+**Status:** ✅ UI/runtime and 1B auth code/local verification; ✅ live Google/session/refresh/replay acceptance verified; ✅ 1C minimal schema/database/RLS; ✅ 1D HTTP/Redis/Pino locally verified; 📋 note CRUD and later milestones. Updated 2026-10-04.
 
 ## Goal and scope
 
@@ -320,3 +320,50 @@ No fresh lint, typecheck, unit, build, database, browser, audit or live Google c
 No application/config/package/migration changes, deployment or commit were performed.
 The single non-Markdown documentation edit is OpenAPI info.description; all other JSON
 contract fields are compared against the task baseline.
+
+
+## Milestone 1D — HTTP, Redis Admission and Pino — 2026-10-04
+
+✅ Auth now uses bounded requests, no-store typed errors/correlation IDs, Redis admission
+and a validated Pino facade. Atomic Redis-compatible counters/TTL, safe timeout recovery,
+trusted-header defaults and owner-required basic fallback are implemented. No notes are
+served yet. [Services](../integrations/backend-services.md) owns flow/settings/failures;
+[ADR-022](../decisions/ADR-022-http-admission-and-safe-logging.md) owns the policy rationale.
+[Active execution record](../../.agent/active/phase-01-foundation.md#milestone-1d-execution--2026-10-04)
+owns the live checklist, exact commands, test-first evidence and recorded process deviation.
+
+Fresh checks: lint/typecheck/build passed; unit/component 87 tests in 11 files; real local
+Valkey 5 integration tests; local PostgreSQL/RLS 7 tests plus provisioning/migration checks;
+auth browser 3 tests; showcase/runtime browser 11 tests; three compiler/runtime boundaries;
+audit zero reported vulnerabilities. Initial boundary sandbox socket denial was retried with
+access. Initial throttle-browser test hit the configured 308 trailing-slash redirect; fixed
+its URL, final pass. Independent code review accepted, with logout rejection docs clarified.
+
+Hosted Redis TLS/access/quota, sanitized ingress, production log retention and fresh live
+Google acceptance were not verified. Shared public admission is deliberate until ingress
+trust exists; fallback is per process and awaits a real 1E route caller. Some helper tests
+were written after implementation and are not represented as test-first passes. No note
+CRUD/repository, queue/worker, commit, deployment or paid resource. Stop before 1E.
+
+
+## Startup health follow-up to 1D — 2026-10-04
+
+✅ Added once-per-process Redis/PostgreSQL connectivity logs through Node instrumentation,
+bounded dedicated probes, production fail-fast and development warnings. Build/Edge exclude
+Node probes. Next's explicit Node import branch fixes dev Edge compilation; production exits
+explicitly because this Next version can remain listening after instrumentation rejection.
+[Execution record](../../.agent/active/startup-health.md) owns exact checks and debugging
+evidence; [services](../integrations/backend-services.md#server-startup-health--implemented-follow-up-to-1d)
+owns settings/limits; [ADR-023](../decisions/ADR-023-startup-dependency-health.md) owns rationale.
+
+Fresh unit 94, startup protocol 4 plus real start/restart/failure/dev cases, Redis limiter 5,
+PostgreSQL/RLS 7, auth browser 3 and showcase/runtime browser 11 pass; lint/typecheck/build
+pass. Configured hosted PING/SELECT 1 also passed one temporary connectivity test; this is
+not hosted deployment/schema/quota acceptance. No new library, schema, note CRUD, queue,
+commit or deployment. Stop before 1E.
+
+
+Green success ticks added using Node terminal styling; service text resets to its normal
+color, and redirected/disabled-color output stays plain. The follow-up's fresh validation
+and red/green evidence are recorded in the [startup execution record](../../.agent/active/startup-health.md#green-success-tick-follow-up--2026-10-04).
+1E remains unstarted.

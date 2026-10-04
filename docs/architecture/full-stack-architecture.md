@@ -1,6 +1,6 @@
 # Data Flows: Current Foundation and Planned Features
 
-**Current:** 1A–1C runtime/auth/contracts/scoped SQL boundary. **Planned below:** repositories,
+**Current:** 1A–1D runtime/auth/contracts/scoped SQL and HTTP/admission/logging boundary. **Planned below:** repositories,
 note requests/UI, file storage and jobs. [ARCHITECTURE](../../ARCHITECTURE.md) is the primary
 current system architecture; this companion owns future data-flow constraints and failure
 scenarios. [Model](../features/note-model.md), [database](../integrations/supabase-database.md)
@@ -11,7 +11,8 @@ and [state](state-management.md) own existing model/SQL and planned state detail
 The public UI is a showcase. Auth HTTP routes verify sessions without SQL. A separate
 library composes verified-owner issuance and constrained transactions, exercised by real
 database integration tests; it has no private HTTP caller. Shared mutation/list/domain
-schemas exist, but no service applies them to a note operation. Profiles are not created
+schemas exist, but no service applies them to a note operation. Auth now uses the reusable
+HTTP/admission/Pino layer described in [backend services](../integrations/backend-services.md). Profiles are not created
 at login. Database defaults are initialization, not automatic revision/time updates.
 
 ## Planned note request and save flow — 1D–1G

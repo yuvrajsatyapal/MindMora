@@ -1,10 +1,10 @@
 # Phase 01 — Full-Stack Foundation Execution Plan
 
-**Status:** ✅ 1A; ✅ 1B auth code/local checks; ✅ 1B live Google/session/refresh/replay acceptance verified; ✅ 1C database/contracts/RLS verified locally and hosted; later milestones planned.
-**Updated:** 2026-10-04 — 1B backend-owned auth implementation/local verification.
+**Status:** ✅ 1A; ✅ 1B auth code/local checks; ✅ 1B live Google/session/refresh/replay acceptance verified; ✅ 1C database/contracts/RLS verified locally and hosted; ✅ 1D HTTP/Pino/Redis implemented and locally verified; later milestones planned.
+**Updated:** 2026-10-04 — 1D admission/logging/local acceptance; stop before 1E.
 **Goal:** Preserve the shared UI and deliver authenticated, server-authoritative note CRUD with validated APIs and observable, tested security boundaries.
 **Architecture:** Next.js Node Route Handlers → verified Supabase identity → scoped Drizzle repositories → Supabase PostgreSQL. React uses temporary editor state and in-memory TanStack Query, with Zustand UI and nuqs URL state.
-**Tech stack:** Existing React/Next.js/TypeScript/Tailwind/Radix; Zod/server-only configuration; Supabase auth SDK (1B code/live acceptance verified); PostgreSQL/Drizzle and shared note schemas (1C); planned note API Zod, Pino, Redis limits, TanStack Query, Zustand, nuqs, OpenAPI/Swagger/Postman.
+**Tech stack:** Existing React/Next.js/TypeScript/Tailwind/Radix; Zod/server-only configuration; Supabase auth SDK (1B code/live acceptance verified); PostgreSQL/Drizzle and shared note schemas (1C); Pino/Redis limits (1D); planned note API Zod, TanStack Query, Zustand, nuqs, OpenAPI/Swagger/Postman.
 **Spec:** [PRODUCT_SPEC](../../PRODUCT_SPEC.md) §§3–6, 14, 17–21.
 **Standard:** [PLANS](../PLANS.md). Use the repository milestone/test-first execution workflow; implement only the requested milestone and stop. This plan does not authorize executing the whole phase or deploying infrastructure.
 
@@ -66,7 +66,7 @@ Google sign-in: start → code/PKCE/state exchange via Supabase/Google → backe
 
 ## 7. Phase file inventory
 
-The 1A and 1B auth entries are now implemented; remaining entries are proposed paths, not an implemented file map. Colocate feature code and meaningful tests.
+The 1A–1D runtime/auth/database/HTTP/admission/logging entries are implemented; later entries are proposed paths, not an implemented file map. Colocate feature code and meaningful tests.
 
 | Create / modify | Responsibility | Milestone |
 |---|---|---|
@@ -80,7 +80,7 @@ The 1A and 1B auth entries are now implemented; remaining entries are proposed p
 | `src/server/db/client.ts`, `schema.ts`, `user-context.ts`, `drizzle.config.ts` | Bounded connections, minimal schemas and effective scoped RLS role/claims | 1C |
 | `supabase/migrations/0000_profiles_notes.sql` | Versioned reviewed schema and owner RLS; reconcile actual generator numbering | 1C |
 | `src/features/notes/types.ts`, `validation.ts`, `validation.test.ts` | Shared bounded note schemas and domain/API types | 1C |
-| `src/server/http/errors.ts`, `responses.ts`, `csrf.ts` and tests | Error envelope, private no-store responses, origin/CSRF rejection | 1D |
+| `src/server/http/errors.ts`, `responses.ts`, `csrf.ts`, `body.ts` and tests | Error envelope, private no-store responses, origin/CSRF rejection | 1D |
 | `src/server/logging/logger.ts`, `logger.test.ts` | Pino safe fields and redaction | 1D |
 | `src/server/rate-limit/client.ts`, `limiter.ts`, `limiter.test.ts` | Redis counter/window policy and outage behavior | 1D |
 | `src/server/notes/repository.ts`, `service.ts` | Owner predicates, transaction/revision rules and public domain errors | 1E |
@@ -238,14 +238,14 @@ Accepted ADR-016/018/019; ADR-001/002/003/017 superseded. Google/Supabase server
 - [x] 1A Runtime migration.
 - [x] 1B Google/server sessions — code/local checks and live Google/session/refresh/reuse/replay/isolation acceptance verified; natural JWT expiry not awaited.
 - [x] 1C Database/Zod/RLS — local + hosted actual-driver acceptance and review verified.
-- [ ] 1D HTTP security/Pino/Redis limits.
+- [x] 1D HTTP security/Pino/Redis limits — local counter/expiry/outage/recovery, browser and regression checks; hosted deployment evidence pending.
 - [ ] 1E Notes API/repositories.
 - [ ] 1F Protected shell/state.
 - [ ] 1G CRUD/conflict UI.
 - [ ] 1H Contract/runtime verification/documentation handoff.
 - [ ] Applicable SEC-01–08 proven; separate deployment evidence recorded where applicable.
 
-The earlier docs-only revision completed no implementation milestone. 1A was implemented and reviewed. 1B code/local/live acceptance is verified. User subsequently authorized only 1C; its execution record follows below. Stop before 1D.
+The earlier docs-only revision completed no implementation milestone. 1A was implemented and reviewed. 1B code/local/live acceptance is verified. User subsequently authorized 1C and then only 1D; their execution records follow below. Stop before 1E.
 
 ### Documentation revision verification — 2026-10-03
 
@@ -617,3 +617,112 @@ explicitly dispose its provider. Schema defaults do not advance revisions/update
 These are current limits to assess at the next integration, not newly implemented behavior.
 OpenAPI's stale live-acceptance description was corrected without endpoint/schema changes.
 Historical 1A/1B/1C evidence above remains dated; this pass performs documentation checks only.
+
+
+### Milestone 1D execution — 2026-10-04
+
+**Scope/outcome:** ✅ Reusable HTTP security/errors/body parsing, safe Pino metadata and
+Redis auth admission implemented. Basic/expensive helpers exist, with no note/job callers.
+Only 1D authorized; no 1E repository/CRUD route, deployment, commit or branch creation.
+Worked on existing main and preserved the pre-existing AGENTS.md edit. PRODUCT_SPEC and
+schema/migration sources remain unchanged.
+
+**Pre-flight and decisions.** Inspected current runtime/auth/owner contracts, active plan,
+PLANS, documentation standard, spec and ADR-016/018/019. Auth and counter modules share
+AuthAction/config but never SQL operations; basic/expensive helpers consume actual issued
+VerifiedOwner objects from 1C. Official Next Route Handler guide read before code. Exact
+MIT Pino 10.4.0/redis 6.3.0 metadata verified; Node 22.22.3 supports both. Local BSD Valkey
+8.1.10 image digest verified/pinned; no hosted resource/payment. See ADR-022 and services
+for exact budgets, bodies, proxy trust, TTLs, failure policy and command budgeting.
+
+**Ruling:** Execute the existing MindMora canonical milestone plan, without creating a
+competing Superpowers plan workspace or commits. User's requested milestone/main/no-commit
+workflow overrides generic skill task/branch/commit automation. Independent final review
+was dispatched per the plan-execution skill and accepted the scoped code.
+
+**Implementation:** `http/errors.ts`, `responses.ts`, `csrf.ts`, `body.ts`; Pino facade;
+node-redis atomic counter/client/limiter; lazy REDIS_URL/trusted-header config. Auth generates
+UUIDs, bounds requests, uses guards/state checks, admits before provider work and emits only
+safe response/log fields. Unknown exceptions lose raw causes/messages. Error messages are
+reconstructed even if a typed exception's message is modified. Basic outage fallback requires
+issued owner, caps 1,000 identities and ten operations/minute/process; expensive/auth fail
+closed. Auth budget remains shared by default. Admission rejection at logout retains cookies
+and does not revoke the session. Correlation IDs/errors and retry headers update auth OpenAPI;
+interactive docs/generation remain 1H. New integration config separates Redis from SQL tests.
+CI runs real disposable rate-limit tests; auth browser runner uses the same Valkey fixture.
+
+**Test-first evidence/process deviation:** Auth unexpected-body/correlation tests failed
+before handler changes (303 instead of 400; missing ID). Auth admission test failed (303
+instead of 503) before integration. Later safe-error-message and safe-log-code tests failed
+before reconstruction/metadata fixes, then passed. Some new HTTP/logging/limiter helper
+implementations were written before their unit tests; those tests passed on their first run.
+This did not meet the full test-first rule and is explicitly recorded, not claimed as a
+red/green cycle. Real integration tests were added after the initial counter implementation.
+
+**Observed verification (all final passes, 2026-10-04):**
+
+| Exact command | Result / evidence boundary |
+|---|---|
+| `npm run lint` | Exit 0; ESLint + style contract |
+| `npm run typecheck` | Exit 0; strict TypeScript |
+| `npm run test` | Exit 0; 11 files, 87 unit/component tests |
+| `npm run build` | Exit 0; public pages prerendered, four dynamic auth routes; no note route |
+| `npm run test:rate-limit` | Exit 0; 5 real TCP/Valkey integration tests: atomic parallel counts, expiry, TTL repair, HTTP 429, stalled socket and real timeout/circuit recovery |
+| `npm run test:db` | Exit 0; 7 PostgreSQL/RLS tests, provisioning rollback and fresh/idempotent migration checks; disposable local container |
+| `npm run test:auth` | Exit 0; 3 production-Next/Playwright tests against provider fixture + Valkey: session/refresh/logout, guards and forwarded-spoof throttling |
+| `npm run test:e2e` | Exit 0; 11 runtime/showcase/accessibility/reflow checks |
+| `npm run test:boundary` | Exit 0; three compiler/runtime boundary checks; initial sandbox EPERM loopback failure retried with socket access |
+| `npm audit --audit-level=high` | Exit 0; zero reported vulnerabilities |
+| `python3 /tmp/mindmora-1d-docs-check.py` | Exit 0; 37 Markdown files, 327 local links, 18 Mermaid fences and 16 referenced scripts; no missing targets/anchors/unbalanced fences |
+| `git diff --check` | Exit 0; whitespace checks |
+
+Initial added auth throttle browser test failed on 308 because maxRedirects=0 exposed the
+configured trailingSlash redirect; corrected the test to `/api/auth/start/`, final 3/3 pass.
+Independent reviewer accepted the code after 44 focused unit tests; required documenting
+admission-rejected logout, now covered in services/auth/ADR/security. No required code finding.
+
+**Documentation:** Updated architecture/current boundaries, README setup/commands, services,
+auth/security/budget/dependency guides, FILE_MAP/LEARNING, auth OpenAPI, ADR-022 and phase
+record. Live checklist remains here. Historical evidence above remains historical.
+
+**Limits/next:** No fresh hosted Redis TLS/ACL/quota/ingress/log-retention verification or
+live Google acceptance; existing provider acceptance remains historical. stdout/framework/
+proxy logging require operational review. Default shared auth budget can be exhausted by
+one caller; x-real-ip requires sanitizing ingress/direct-access restrictions. Local fallback
+is per process, resets on restart and awaits 1E caller/degradation handling. No note API/body
+caller, revision-safe CRUD, queues, worker, private workspace, production readiness or
+completed SEC-01–08 claim. Docker Desktop was started for local tests; disposable containers
+were removed. Stop for user review; 1E remains unchecked and unstarted.
+
+Mermaid arrows/fences reviewed against source; no diagram parser/render check was run.
+
+Final additional checks: 95 internal OpenAPI `$ref` targets resolved with a Node JSON walker;
+no REDIS_URL/Pino/node-redis strings found in emitted `.next/static` JavaScript. No temporary
+Redis/RLS containers remained on `docker ps` name filters. Prettier 3.9.9 formatted 1D source/
+test scripts without adding a dependency; the first offline attempt lacked cache metadata,
+then network-enabled execution succeeded. Final lint/type/unit checks rerun after formatting.
+
+
+### Configured Upstash connectivity check — 2026-10-04
+
+At the user's request, tested the updated ignored `.env` REDIS_URL through the actual
+`getRateLimitConfig`/`createRedisCounter` implementation using a temporary Vitest fixture.
+`node --env-file=.env node_modules/vitest/vitest.mjs run src/server/rate-limit/redis-live-check.test.ts`
+passed 1/1 with network access: TLS/authentication, EVAL counter creation, concurrent counts
+2/3 and reset to 1 after expiry. The isolated random counter had a two-second TTL; no
+production admission keys were used. No credentials were printed or `.env` modified.
+The initial sandbox-network attempt failed at connection; network-enabled retry passed.
+The temporary test source was removed afterward. This verifies the configured endpoint
+from this machine, not deployment ingress/ACL policies, quotas, retention or production
+readiness. Previous unverified-hosted statements describe the earlier checkpoint. 1E remains
+unstarted. Restart Next if it was running before the environment update.
+
+
+### Authorized startup health follow-up — 2026-10-04
+
+✅ Next Node startup now runs credential-free Redis PING and runtime PostgreSQL SELECT 1
+once per process. Production dependency failure exits nonzero; development warns and
+continues; build/Edge skip probes. [Dedicated execution record](startup-health.md) owns
+implementation, red/green/debugging evidence and exact verification. [ADR-023](../../docs/decisions/ADR-023-startup-dependency-health.md)
+records the decision; [services](../../docs/integrations/backend-services.md#server-startup-health--implemented-follow-up-to-1d)
+owns behavior and limitations. Stop for review; no 1E work, commit or deployment.

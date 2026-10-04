@@ -1,6 +1,6 @@
 # MindMora Documentation
 
-**Updated:** 2026-10-04. ✅ Shared UI, 1A runtime and 1B backend auth code; ✅ live Google sign-in/session/logout and refresh/replay acceptance verified; ✅ 1C minimal schemas/database/RLS; 📋 note CRUD/storage/jobs.
+**Updated:** 2026-10-04. ✅ Shared UI, 1A runtime and 1B backend auth code; ✅ live Google sign-in/session/logout and refresh/replay acceptance verified; ✅ 1C minimal schemas/database/RLS; ✅ 1D HTTP/Pino/Redis admission; 📋 note CRUD/storage/jobs.
 
 | Document | Job |
 |---|---|
@@ -29,6 +29,8 @@
 | [ADR-020](decisions/ADR-020-backend-owned-auth-cookies.md) | Implemented cookie/PKCE lifecycle and observed provider evidence |
 | [Note model](features/note-model.md) | Implemented profile/note schemas and input contracts; API/save behavior planned |
 | [ADR-021](decisions/ADR-021-scoped-database-role.md) | Implemented constrained login, transaction identity, effective RLS and trust limits |
+| [ADR-022](decisions/ADR-022-http-admission-and-safe-logging.md) | HTTP limits, trusted forwarding, outage fallback and allowlisted logging |
+| [ADR-023](decisions/ADR-023-startup-dependency-health.md) | Once-per-process dependency probes and production fail-fast |
 | [Auth OpenAPI](api/openapi.json) | Auth-only contract without credentials; broader tooling remains 1H |
 
 ## Existing UI contracts

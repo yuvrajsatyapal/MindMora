@@ -3,14 +3,14 @@
   "info": {
     "title": "MindMora auth API",
     "version": "0.1.0",
-    "description": "Milestone 1B auth-only contract. Bounded live Google/session/logout and refresh/replay acceptance recorded in docs/phases/phase-01-foundation.md. Notes, Swagger UI, Postman generation and full contract drift tooling are not implemented."
+    "description": "Milestone 1B auth-only contract. Bounded live Google/session/logout and refresh/replay acceptance recorded in docs/phases/phase-01-foundation.md. Notes, Swagger UI, Postman generation and full contract drift tooling are not implemented. 1D adds bounded empty-body checks, correlation IDs, Redis admission and safe Pino logging; hosted readiness remains unverified."
   },
   "paths": {
     "/api/auth/start": {
       "post": {
         "operationId": "authStart",
         "summary": "Backend-owned auth start",
-        "description": "No caller-controlled redirect. Auth responses are no-store. Development verification only until Milestone 1D admission controls.",
+        "description": "No caller-controlled redirect. Auth responses are no-store. 1D bounds empty bodies and applies Redis admission and Pino metadata. Hosted readiness remains unverified.",
         "security": [],
         "parameters": [
           {
@@ -51,6 +51,12 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
               }
             }
           },
@@ -68,6 +74,12 @@
                   "type": "string",
                   "const": "no-referrer"
                 }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
               }
             },
             "content": {
@@ -92,6 +104,12 @@
                   "type": "string",
                   "const": "no-referrer"
                 }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
               }
             },
             "content": {
@@ -116,6 +134,12 @@
                   "type": "string",
                   "const": "no-referrer"
                 }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
               }
             },
             "content": {
@@ -146,6 +170,12 @@
                   "type": "string",
                   "const": "POST"
                 }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
               }
             },
             "content": {
@@ -157,7 +187,7 @@
             }
           },
           "503": {
-            "description": "Safe auth error; raw provider errors and credentials are excluded.",
+            "description": "Provider/config or Redis admission unavailable. Admission-rejected logout retains cookies and is unsuccessful.",
             "headers": {
               "Cache-Control": {
                 "schema": {
@@ -170,6 +200,15 @@
                   "type": "string",
                   "const": "no-referrer"
                 }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Retry-After": {
+                "$ref": "#/components/headers/RetryAfter"
               }
             },
             "content": {
@@ -179,6 +218,15 @@
                 }
               }
             }
+          },
+          "413": {
+            "$ref": "#/components/responses/BoundedRequest"
+          },
+          "429": {
+            "$ref": "#/components/responses/AuthThrottled"
+          },
+          "500": {
+            "$ref": "#/components/responses/UnexpectedFailure"
           }
         }
       }
@@ -187,7 +235,7 @@
       "get": {
         "operationId": "authCallback",
         "summary": "Backend-owned auth callback",
-        "description": "No caller-controlled redirect. Auth responses are no-store. Development verification only until Milestone 1D admission controls.",
+        "description": "No caller-controlled redirect. Auth responses are no-store. 1D bounds empty bodies and applies Redis admission and Pino metadata. Hosted readiness remains unverified.",
         "security": [],
         "parameters": [
           {
@@ -237,6 +285,12 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
               }
             }
           },
@@ -254,6 +308,12 @@
                   "type": "string",
                   "const": "no-referrer"
                 }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
               }
             },
             "content": {
@@ -278,6 +338,12 @@
                   "type": "string",
                   "const": "no-referrer"
                 }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
               }
             },
             "content": {
@@ -302,6 +368,12 @@
                   "type": "string",
                   "const": "no-referrer"
                 }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
               }
             },
             "content": {
@@ -332,6 +404,12 @@
                   "type": "string",
                   "const": "GET"
                 }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
               }
             },
             "content": {
@@ -343,7 +421,7 @@
             }
           },
           "503": {
-            "description": "Safe auth error; raw provider errors and credentials are excluded.",
+            "description": "Provider/config or Redis admission unavailable. Admission-rejected logout retains cookies and is unsuccessful.",
             "headers": {
               "Cache-Control": {
                 "schema": {
@@ -356,6 +434,15 @@
                   "type": "string",
                   "const": "no-referrer"
                 }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Retry-After": {
+                "$ref": "#/components/headers/RetryAfter"
               }
             },
             "content": {
@@ -365,6 +452,15 @@
                 }
               }
             }
+          },
+          "413": {
+            "$ref": "#/components/responses/BoundedRequest"
+          },
+          "429": {
+            "$ref": "#/components/responses/AuthThrottled"
+          },
+          "500": {
+            "$ref": "#/components/responses/UnexpectedFailure"
           }
         }
       }
@@ -373,7 +469,7 @@
       "get": {
         "operationId": "authSession",
         "summary": "Backend-owned auth session",
-        "description": "No caller-controlled redirect. Auth responses are no-store. Development verification only until Milestone 1D admission controls.",
+        "description": "No caller-controlled redirect. Auth responses are no-store. 1D bounds empty bodies and applies Redis admission and Pino metadata. Hosted readiness remains unverified.",
         "security": [
           {
             "AppSession": []
@@ -398,6 +494,12 @@
                   "type": "string",
                   "const": "no-referrer"
                 }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
               }
             },
             "content": {
@@ -422,6 +524,12 @@
                   "type": "string",
                   "const": "no-referrer"
                 }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
               }
             },
             "content": {
@@ -446,6 +554,12 @@
                   "type": "string",
                   "const": "no-referrer"
                 }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
               }
             },
             "content": {
@@ -470,6 +584,12 @@
                   "type": "string",
                   "const": "no-referrer"
                 }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
               }
             },
             "content": {
@@ -500,6 +620,12 @@
                   "type": "string",
                   "const": "GET"
                 }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
               }
             },
             "content": {
@@ -511,7 +637,7 @@
             }
           },
           "503": {
-            "description": "Safe auth error; raw provider errors and credentials are excluded.",
+            "description": "Provider/config or Redis admission unavailable. Admission-rejected logout retains cookies and is unsuccessful.",
             "headers": {
               "Cache-Control": {
                 "schema": {
@@ -524,6 +650,15 @@
                   "type": "string",
                   "const": "no-referrer"
                 }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Retry-After": {
+                "$ref": "#/components/headers/RetryAfter"
               }
             },
             "content": {
@@ -533,6 +668,15 @@
                 }
               }
             }
+          },
+          "413": {
+            "$ref": "#/components/responses/BoundedRequest"
+          },
+          "429": {
+            "$ref": "#/components/responses/AuthThrottled"
+          },
+          "500": {
+            "$ref": "#/components/responses/UnexpectedFailure"
           }
         }
       }
@@ -541,7 +685,7 @@
       "post": {
         "operationId": "authLogout",
         "summary": "Backend-owned auth logout",
-        "description": "No caller-controlled redirect. Auth responses are no-store. Development verification only until Milestone 1D admission controls.",
+        "description": "No caller-controlled redirect. Auth responses are no-store. 1D bounds empty bodies and applies Redis admission and Pino metadata. Hosted readiness remains unverified.",
         "security": [
           {
             "AppSession": []
@@ -577,6 +721,12 @@
                   "type": "string",
                   "const": "no-referrer"
                 }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
               }
             }
           },
@@ -594,6 +744,12 @@
                   "type": "string",
                   "const": "no-referrer"
                 }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
               }
             },
             "content": {
@@ -618,6 +774,12 @@
                   "type": "string",
                   "const": "no-referrer"
                 }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
               }
             },
             "content": {
@@ -642,6 +804,12 @@
                   "type": "string",
                   "const": "no-referrer"
                 }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
               }
             },
             "content": {
@@ -672,6 +840,12 @@
                   "type": "string",
                   "const": "POST"
                 }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
               }
             },
             "content": {
@@ -683,7 +857,7 @@
             }
           },
           "503": {
-            "description": "Safe auth error; raw provider errors and credentials are excluded.",
+            "description": "Provider/config or Redis admission unavailable. Admission-rejected logout retains cookies and is unsuccessful.",
             "headers": {
               "Cache-Control": {
                 "schema": {
@@ -696,6 +870,15 @@
                   "type": "string",
                   "const": "no-referrer"
                 }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Retry-After": {
+                "$ref": "#/components/headers/RetryAfter"
               }
             },
             "content": {
@@ -705,6 +888,15 @@
                 }
               }
             }
+          },
+          "413": {
+            "$ref": "#/components/responses/BoundedRequest"
+          },
+          "429": {
+            "$ref": "#/components/responses/AuthThrottled"
+          },
+          "500": {
+            "$ref": "#/components/responses/UnexpectedFailure"
           }
         }
       }
@@ -786,7 +978,8 @@
             "type": "object",
             "required": [
               "code",
-              "message"
+              "message",
+              "correlationId"
             ],
             "additionalProperties": false,
             "properties": {
@@ -798,12 +991,138 @@
                   "origin_rejected",
                   "invalid_auth_request",
                   "invalid_auth_callback",
-                  "method_not_allowed"
+                  "method_not_allowed",
+                  "invalid_request",
+                  "payload_too_large",
+                  "rate_limited",
+                  "admission_unavailable",
+                  "internal_error"
                 ]
               },
               "message": {
                 "type": "string"
+              },
+              "correlationId": {
+                "type": "string",
+                "format": "uuid"
               }
+            }
+          }
+        }
+      }
+    },
+    "headers": {
+      "CorrelationId": {
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Server-generated request correlation ID."
+      },
+      "NoSniff": {
+        "schema": {
+          "type": "string",
+          "const": "nosniff"
+        }
+      },
+      "RetryAfter": {
+        "schema": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "description": "Seconds until retry; present on admission rejections."
+      }
+    },
+    "responses": {
+      "BoundedRequest": {
+        "description": "Request exceeds header, URL or body limits.",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "const": "private, no-store"
+            }
+          },
+          "Referrer-Policy": {
+            "schema": {
+              "type": "string",
+              "const": "no-referrer"
+            }
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/CorrelationId"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AuthError"
+            }
+          }
+        }
+      },
+      "AuthThrottled": {
+        "description": "Auth admission budget exhausted.",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "const": "private, no-store"
+            }
+          },
+          "Referrer-Policy": {
+            "schema": {
+              "type": "string",
+              "const": "no-referrer"
+            }
+          },
+          "Retry-After": {
+            "$ref": "#/components/headers/RetryAfter"
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/CorrelationId"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AuthError"
+            }
+          }
+        }
+      },
+      "UnexpectedFailure": {
+        "description": "Safe unexpected failure; no internal details.",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "const": "private, no-store"
+            }
+          },
+          "Referrer-Policy": {
+            "schema": {
+              "type": "string",
+              "const": "no-referrer"
+            }
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/CorrelationId"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AuthError"
             }
           }
         }

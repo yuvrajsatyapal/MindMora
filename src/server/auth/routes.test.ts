@@ -1,7 +1,14 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
-import { handleAuth } from "./routes";
+import { handleAuth as handleRealAuth } from "./routes";
+// Provider fixtures isolate auth lifecycle; 1D admission behavior uses real limiter tests.
+const handleAuth: typeof handleRealAuth = (action, request, deps) =>
+  handleRealAuth(action, request, {
+    ...deps!,
+    admission: deps?.admission ?? (async () => {}),
+    logger: () => {},
+  });
 import {
   authProviderFixture,
   fixtureUser,
@@ -544,4 +551,97 @@ describe("backend-owned auth routes through the real Supabase SDK", () => {
       vi.useRealTimers();
     }
   });
+});
+
+describe("1D auth HTTP boundary", () => {
+  it("rejects unexpected bodies before contacting the identity provider", async () => {
+    const fixture = authProviderFixture();
+    const result = await handleAuth(
+      "start",
+      new Request(config.appOrigin + "/api/auth/start", {
+        method: "POST",
+        headers: { Origin: config.appOrigin },
+        body: "private-body-marker",
+      }),
+      { config, fetcher: fixture.fetcher },
+    );
+    expect(result.status).toBe(400);
+    expect(await result.text()).not.toContain("private-body-marker");
+  });
+  it("generates a correlation ID and never echoes a supplied marker", async () => {
+    const result = await handleAuth(
+      "session",
+      new Request(config.appOrigin + "/api/auth/session", {
+        headers: { "X-Request-ID": "private-request-marker" },
+      }),
+      { config, fetcher: authProviderFixture().fetcher },
+    );
+    expect(result.status).toBe(401);
+    expect(result.headers.get("X-Request-ID")).toMatch(/^[a-f0-9-]{36}$/);
+    expect(await result.text()).not.toContain("private-request-marker");
+  });
+});
+
+it("blocks auth provider work on Redis failure and throttles spoofed IP rotation", async () => {
+  const { createLimiter, publicIdentity } =
+    await import("../rate-limit/limiter");
+  const fixture = authProviderFixture();
+  const admission = createLimiter(async () => {
+    throw new Error("private-redis-marker");
+  });
+  const result = await handleRealAuth(
+    "start",
+    request("/api/auth/start", "POST"),
+    {
+      config,
+      fetcher: fixture.fetcher,
+      logger: () => {},
+      admission: (action, req) => admission.auth(action, publicIdentity(req)),
+    },
+  );
+  expect(result.status).toBe(503);
+  expect(result.headers.get("Retry-After")).toBe("5");
+  expect(result.headers.has("Location")).toBe(false);
+  expect(await result.text()).not.toContain("private-");
+  let count = 0;
+  const limited = createLimiter(async () => ({ count: ++count, ttlMs: 60000 }));
+  for (let i = 0; i < 11; i++) {
+    const req = new Request(config.appOrigin + "/api/auth/start", {
+      method: "POST",
+      headers: {
+        Origin: config.appOrigin,
+        "X-Forwarded-For": `192.0.2.${i}`,
+        "X-Real-IP": `192.0.2.${i}`,
+      },
+    });
+    const response = await handleRealAuth("start", req, {
+      config,
+      fetcher: fixture.fetcher,
+      logger: () => {},
+      admission: (action, req) => limited.auth(action, publicIdentity(req)),
+    });
+    expect(response.status).toBe(i < 10 ? 303 : 429);
+    if (i === 10) expect(response.headers.get("Retry-After")).toBe("60");
+  }
+});
+
+it("records the safe error code and never logs provider exceptions", async () => {
+  const logs: unknown[] = [];
+  const response = await handleRealAuth(
+    "start",
+    new Request(config.appOrigin + "/api/auth/start", {
+      method: "POST",
+      headers: { Origin: config.appOrigin },
+      body: "private-request-marker",
+    }),
+    {
+      config,
+      fetcher: authProviderFixture().fetcher,
+      admission: async () => {},
+      logger: (record) => logs.push(record),
+    },
+  );
+  expect(response.status).toBe(400);
+  expect(logs[0]).toMatchObject({ errorCode: "invalid_request", status: 400 });
+  expect(JSON.stringify(logs)).not.toContain("private-");
 });

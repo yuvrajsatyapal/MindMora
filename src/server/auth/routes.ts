@@ -1,6 +1,17 @@
 import "server-only";
 import { NextResponse } from "next/server";
-import { getAuthConfig, type AuthConfig } from "../config";
+import { getAuthConfig, getRateLimitConfig, type AuthConfig } from "../config";
+import { randomUUID } from "node:crypto";
+import { assertOrigin } from "../http/csrf";
+import { assertRequestBounds, readBoundedBody } from "../http/body";
+import { HttpFailure, type ErrorCode } from "../http/errors";
+import {
+  errorResponse,
+  privateResponse,
+  responseErrorCode,
+} from "../http/responses";
+import { logRequest } from "../logging/logger";
+import { limiter, publicIdentity } from "../rate-limit/limiter";
 import { AuthFailure, createAuthProvider } from "./provider";
 import {
   clearSession,
@@ -15,38 +26,54 @@ import {
 } from "./session";
 export type AuthAction = "start" | "callback" | "session" | "logout";
 
-function response(status: number, code?: string) {
-  const result = code
-    ? NextResponse.json(
-        {
-          error: {
-            code,
-            message:
-              code === "unauthenticated"
-                ? "Authentication required."
-                : "Authentication request could not be completed.",
-          },
-        },
-        { status },
-      )
-    : new NextResponse(null, { status });
-  result.headers.set("Cache-Control", "private, no-store");
-  result.headers.set("Pragma", "no-cache");
-  result.headers.set("Expires", "0");
-  result.headers.set("Referrer-Policy", "no-referrer");
-  return result;
-}
-function redirect(location: string) {
-  const result = response(303);
-  result.headers.set("Location", location);
-  return result;
-}
+type AuthDependencies = {
+  config: AuthConfig;
+  fetcher?: typeof fetch;
+  admission?: (action: AuthAction, request: Request) => Promise<unknown>;
+  logger?: (metadata: unknown) => void;
+};
 
 export async function handleAuth(
   action: AuthAction,
   request: Request,
-  deps?: { config: AuthConfig; fetcher?: typeof fetch },
+  deps?: AuthDependencies,
 ): Promise<Response> {
+  const correlationId = randomUUID();
+  const started = performance.now();
+  let result: NextResponse;
+  try {
+    assertRequestBounds(request);
+    result = await handleAuthCore(action, request, correlationId, deps);
+  } catch (error) {
+    result = errorResponse(error, correlationId);
+  }
+  // The facade validates and drops all non-allowlisted fields. Never pass the request/error.
+  (deps?.logger ?? logRequest)({
+    correlationId,
+    operation: `auth.${action}`,
+    status: result.status,
+    errorCode: responseErrorCode(result),
+    durationMs: Math.max(0, performance.now() - started),
+  });
+  return result;
+}
+
+async function handleAuthCore(
+  action: AuthAction,
+  request: Request,
+  correlationId: string,
+  deps?: AuthDependencies,
+): Promise<NextResponse> {
+  function response(status: number, code?: ErrorCode) {
+    return code
+      ? errorResponse(new HttpFailure(code), correlationId)
+      : privateResponse(new NextResponse(null, { status }), correlationId);
+  }
+  function redirect(location: string) {
+    const result = response(303);
+    result.headers.set("Location", location);
+    return result;
+  }
   let config: AuthConfig;
   try {
     config = deps?.config ?? getAuthConfig();
@@ -61,14 +88,10 @@ export async function handleAuth(
     denied.headers.set("Allow", supportedMethod);
     return denied;
   }
-  const origin = request.headers.get("origin");
-  if (
-    action !== "callback" &&
-    ((mutation && origin !== config.appOrigin) ||
-      (origin && origin !== config.appOrigin) ||
-      request.headers.get("sec-fetch-site") === "cross-site")
-  )
-    return response(403, "origin_rejected");
+  if (action !== "callback") assertOrigin(request, config.appOrigin, mutation);
+  // Auth endpoints accept no payload; bound bytes even if Content-Length is forged.
+  const body = await readBoundedBody(request, 1024);
+  if (body.byteLength) throw new HttpFailure("invalid_request");
   if (action !== "callback" && url.search)
     return response(400, "invalid_auth_request");
   const pending = pendingSchema.safeParse(
@@ -100,6 +123,26 @@ export async function handleAuth(
       writeCookie(denied, config.appOrigin, "pending", null, 0);
       return denied;
     }
+  }
+  try {
+    if (deps?.admission) await deps.admission(action, request);
+    else {
+      const admissionConfig = getRateLimitConfig();
+      await limiter.auth(
+        action,
+        publicIdentity(request, admissionConfig.trustedClientIpHeader),
+      );
+    }
+  } catch (error) {
+    const denied = errorResponse(
+      error instanceof HttpFailure
+        ? error
+        : new HttpFailure("admission_unavailable", 5),
+      correlationId,
+    );
+    if (action === "callback")
+      writeCookie(denied, config.appOrigin, "pending", null, 0);
+    return denied;
   }
   const provider = createAuthProvider(
     config,

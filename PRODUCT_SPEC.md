@@ -3,8 +3,8 @@
 > **Your knowledge. Your files. Your control.**
 
 **Target reader:** Codex and human contributors.
-**Updated:** 2026-10-03 — user-approved full-stack architecture revision.
-**Implementation status:** Shared UI/design-system showcase exists. Authentication, backend APIs, database, queues and product CRUD are planned, not implemented.
+**Updated:** 2026-10-05 — implementation-status synchronization through 1D and startup health; v3 requirements remain unchanged.
+**Implementation status:** ✅ Shared UI/showcase, Next Node runtime (1A), backend-owned Google/Supabase auth routes (1B), profiles/notes schema and scoped PostgreSQL/RLS boundary (1C), HTTP validation/Redis admission/Pino (1D), and Redis/PostgreSQL startup connectivity checks are implemented. 📋 Note repositories/CRUD APIs, protected workspace, query/UI/URL state integration, private Storage, jobs/workers, Swagger UI and Postman generation remain planned. Auth OpenAPI contracts exist. Auth pages do not yet consume the account helpers; database note operations have no application route caller. [Current architecture](ARCHITECTURE.md) and [dated phase evidence](docs/phases/phase-01-foundation.md) distinguish implementation from provider/production acceptance.
 **Budget:** Target free tiers for approximately 3–4 daily users. Free software does not include free hosting, unlimited storage, uninterrupted availability or unlimited worker compute. Verify current limits before introducing services; no paid infrastructure or paid AI dependency without explicit user approval. Optional BYOK usage is paid by the user.
 
 ## Revision summary
@@ -49,7 +49,7 @@ Without connectivity, an existing in-memory draft may remain editable in the sam
 
 ## 3. Full-Stack Architecture
 
-Next.js App Router runs as a Node.js application with backend Route Handlers. The current static design-system implementation must be migrated in Phase 1; documenting this target does not change `next.config.ts` yet.
+Next.js App Router runs as a Node.js application with backend Route Handlers. Milestone 1A completed the Node runtime migration; public homepage/showcase pages remain prerendered and auth routes are dynamic. The diagram below describes the full target: note repositories/APIs, private Storage, queues/workers and optional ingress remain planned. Current implemented boundaries are documented in [ARCHITECTURE](ARCHITECTURE.md).
 
 ```mermaid
 flowchart TD
@@ -314,17 +314,17 @@ Design constraints:
 
 ## 12. Docker and Runtime Deployment
 
-Docker is planned for reproducible development and runtime verification. Compose may run Next.js Node, local PostgreSQL/Redis for development, a separate worker and optional Nginx. Supabase Auth/Storage integration needs an explicit dev/test project or supported local Supabase tooling; local PostgreSQL alone does not emulate those services.
+Disposable Docker PostgreSQL/Redis-compatible fixtures are implemented for local integration and production-preview tests. Application container packaging and Compose remain planned. Compose may run Next.js Node, local PostgreSQL/Redis for development, a separate worker and optional Nginx. Supabase Auth/Storage integration needs an explicit dev/test project or supported local Supabase tooling; local PostgreSQL alone does not emulate those services.
 
 Production architecture uses Supabase managed services; do not create a second production PostgreSQL just because Compose has a dev database. Server/worker secrets stay in server configuration or a managed secret store. Never embed secrets into images or client bundles. Static `out/` hosting is historical UI behavior, not the full-stack deployment target.
 
-Files planned with the relevant milestone: `Dockerfile`, `docker-compose.yml`, `.dockerignore`, worker entrypoint, optional `infra/nginx/nginx.conf`. No runtime containers or Nginx configuration are implemented by this specification update.
+Files planned with the relevant milestone: `Dockerfile`, `docker-compose.yml`, `.dockerignore`, worker entrypoint, optional `infra/nginx/nginx.conf`. Application/worker runtime containers and Nginx configuration remain planned; disposable PostgreSQL/Redis test containers already exist.
 
 ---
 
 ## 13. CI/CD and Hosting
 
-Existing GitHub Actions validates the static UI foundation; Phase 1 updates it for runtime Next.js. Target CI: locked install → dependency audit → lint → typecheck → unit/component tests → database/auth isolation tests → runtime build → Playwright; queue integration checks arrive with Phase 4. Never use real user data in CI.
+Existing GitHub Actions validates runtime Next.js and the UI: locked install → dependency audit → lint → typecheck → unit/component tests → Redis and database/RLS integration → compiler/runtime boundaries → production build → startup connectivity/process checks → Playwright showcase/runtime and auth fixtures. These local fixtures do not prove hosted-provider or production readiness. Queue integration checks arrive with Phase 4. Never use real user data in CI.
 
 CD must deploy a Node-compatible Next.js runtime and, when queued work is introduced, a separate worker process. Self-hosting may use Nginx; managed ingress may replace it. Static-only hosts cannot run backend APIs or a persistent BullMQ worker. A serverless request handler cannot be assumed to execute work after returning a response.
 

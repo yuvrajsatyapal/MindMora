@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { withTestRedis } from "./local-test-redis.mjs";
+import { withTestPostgres } from "./local-test-postgres.mjs";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import http from "node:http";
@@ -46,30 +48,39 @@ const address = server.address();
 assert.ok(address && typeof address !== "string");
 const providerUrl = `http://127.0.0.1:${address.port}`;
 try {
-  const child = spawn(
-    process.execPath,
-    [
-      fileURLToPath(
-        new URL("../node_modules/@playwright/test/cli.js", import.meta.url),
-      ),
-      "test",
-      "--config=playwright.auth.config.ts",
-    ],
-    {
-      stdio: "inherit",
-      env: {
-        ...process.env,
-        APP_ORIGIN: "http://127.0.0.1:4173",
-        SUPABASE_URL: providerUrl,
-        SUPABASE_PUBLISHABLE_KEY: "sb_publishable_fixture",
-        AUTH_TEST_PROVIDER_URL: providerUrl,
-      },
-    },
+  await withTestRedis((redisUrl) =>
+    withTestPostgres(async (databaseUrl) => {
+      const child = spawn(
+        process.execPath,
+        [
+          fileURLToPath(
+            new URL("../node_modules/@playwright/test/cli.js", import.meta.url),
+          ),
+          "test",
+          "--config=playwright.auth.config.ts",
+        ],
+        {
+          stdio: "inherit",
+          env: {
+            ...process.env,
+            REDIS_URL: redisUrl,
+            STARTUP_TEST_REDIS_URL: redisUrl,
+            STARTUP_TEST_DATABASE_URL: databaseUrl,
+            DATABASE_CA_CERT_PATH: "",
+            TRUSTED_CLIENT_IP_HEADER: "none",
+            APP_ORIGIN: "http://127.0.0.1:4173",
+            SUPABASE_URL: providerUrl,
+            SUPABASE_PUBLISHABLE_KEY: "sb_publishable_fixture",
+            AUTH_TEST_PROVIDER_URL: providerUrl,
+          },
+        },
+      );
+      for (const signal of ["SIGINT", "SIGTERM"])
+        process.once(signal, () => child.kill(signal));
+      const [code] = await once(child, "exit");
+      process.exitCode = code ?? 1;
+    }),
   );
-  for (const signal of ["SIGINT", "SIGTERM"])
-    process.once(signal, () => child.kill(signal));
-  const [code] = await once(child, "exit");
-  process.exitCode = code ?? 1;
 } finally {
   server.closeAllConnections();
   await new Promise((resolve) => server.close(resolve));

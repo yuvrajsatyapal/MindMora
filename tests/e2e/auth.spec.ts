@@ -111,3 +111,32 @@ test("PKCE flow uses protected cookies, safe projection, server refresh and revo
     ).status(),
   ).toBe(401);
 });
+
+test("public auth throttles repeated starts and ignores forged forwarded addresses", async ({
+  request,
+}) => {
+  let throttled = false;
+  for (let i = 0; i < 11; i++) {
+    const response = await request.post("/api/auth/start/", {
+      maxRedirects: 0,
+      headers: {
+        Origin: "http://127.0.0.1:4173",
+        "X-Forwarded-For": `192.0.2.${i}`,
+        "X-Real-IP": `192.0.2.${i}`,
+      },
+    });
+    if (response.status() === 429) {
+      expect(Number(response.headers()["retry-after"])).toBeGreaterThan(0);
+      expect(response.headers()["cache-control"]).toBe("private, no-store");
+      const error = await response.json();
+      expect(error.error.code).toBe("rate_limited");
+      expect(error.error.correlationId).toBe(
+        response.headers()["x-request-id"],
+      );
+      throttled = true;
+      break;
+    }
+    expect(response.status()).toBe(303);
+  }
+  expect(throttled).toBe(true);
+});

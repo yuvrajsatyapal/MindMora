@@ -67,3 +67,36 @@ export function getAuthConfig(
     publishableKey: result.data.SUPABASE_PUBLISHABLE_KEY,
   });
 }
+
+const rateLimitConfigSchema = z.object({
+  REDIS_URL: z.url().refine((value) => {
+    const url = new URL(value);
+    return (
+      (url.protocol === "rediss:" ||
+        (url.protocol === "redis:" &&
+          ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname))) &&
+      !url.search &&
+      !url.hash &&
+      ["", "/", "/0"].includes(url.pathname)
+    );
+  }),
+  TRUSTED_CLIENT_IP_HEADER: z.enum(["none", "x-real-ip"]).default("none"),
+});
+export type RateLimitConfig = Readonly<{
+  redisUrl: string;
+  trustedClientIpHeader: "none" | "x-real-ip";
+}>;
+export function getRateLimitConfig(
+  env: Record<string, string | undefined> = process.env,
+): RateLimitConfig {
+  const result = rateLimitConfigSchema.safeParse({
+    REDIS_URL: env.REDIS_URL,
+    TRUSTED_CLIENT_IP_HEADER: env.TRUSTED_CLIENT_IP_HEADER,
+  });
+  if (!result.success)
+    throw new Error("Invalid server configuration: request admission.");
+  return Object.freeze({
+    redisUrl: result.data.REDIS_URL,
+    trustedClientIpHeader: result.data.TRUSTED_CLIENT_IP_HEADER,
+  });
+}

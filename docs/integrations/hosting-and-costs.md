@@ -24,3 +24,22 @@ Choose a deployment plan only after checking current terms, quota fit, payment/c
 ## Current evidence
 
 No cloud resources, paid plan, queue runtime, database/storage setup or deployment was created by the architecture update. No runtime cost measurements exist. Check [SEC-06](../architecture/security-architecture.md) before claiming transport/rest protection or backup readiness.
+
+## 1D admission command budget — 2026-10-04
+
+Pino/node-redis are installed MIT libraries; local integration uses disposable BSD Valkey.
+Upstash remains unselected. Its official [pricing](https://upstash.com/pricing/redis) and
+[billing FAQ](https://upstash.com/docs/common/account/faq) were rechecked: Free candidate
+256 MB, 500,000 commands/month, 10 GB bandwidth; free use does not require adding a card.
+No account/resource or paid upgrade was created. These caps do not establish TLS/ACL or
+production readiness; verify actual selected settings before deployment.
+
+One admission issues EVAL with INCR and PTTL; first-hit/repair also invokes PEXPIRE.
+Providers may account script-internal commands separately: budget conservatively for
+3–4 commands per admitted request, plus connection handshakes/rejected attempts. At
+4 users × 200 requests/day × 30 days this is roughly 72k–96k counter commands/month,
+not a measurement or allowance promise. There is no polling/worker command load yet.
+Reject malformed requests before Redis; the 5-second outage circuit reduces connection
+attempts. Throttled valid requests still consume counter work; ingress abuse controls and
+quota alerts remain deployment work. Logs go to stdout without app-owned retention;
+restricted access and bounded retention must be supplied by the eventual host.

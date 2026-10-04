@@ -36,6 +36,7 @@ Respond in the user's language. Work in small milestones the user can understand
 - New screens require a design doc covering keyboard, focus, responsive and accessibility behavior. Reuse `src/components/ui`, `src/components/mindmora` and semantic tokens; record any new brand decision.
 - Existing Spartan workflows apply when explicitly invoked; ordinary questions/small tasks need no command ceremony.
 - Commit only when requested; use small Conventional Commits such as `feat: add authenticated note API` or `docs: revise full-stack architecture`. No generated-by text, AI attribution or co-author trailers. Keep Markdown docs tracked, not gitignored. Follow existing branch conventions without invented ticket IDs; no force-push/secrets.
+- User Git preference: future work should be on `main` for the user to review and commit; do not create a branch unless requested. If an explicitly requested temporary branch is used, safely return uncommitted work to `main` before handoff, preserving existing changes. Git merges commits, not uncommitted edits; do not create a commit merely to merge. This preference does not authorize merging the current `feature/phase-01-1c` commit or changing its branch now.
 
 ## Code quality and security
 
@@ -57,11 +58,17 @@ For documentation-only work validate internal links, scope and status accuracy a
 
 Read and follow `docs/DOCUMENTATION.md` for every documentation update. Its primary-home, teaching, diagram, evidence and final-check rules apply to future milestones as well as documentation-only reviews. README is for practical project setup; never add agent milestone request templates or agent permission/workflow instructions there.
 
+At every milestone handoff, review `README.md`, `PRODUCT_SPEC.md`, `ARCHITECTURE.md`, `docs/LEARNING.md` and `docs/FILE_MAP.md` against current source. Update each affected document and record any unchanged document with its reason in the execution plan. Keep PRODUCT_SPEC implementation status accurate; change its requirements or scope only with explicit authorization. Include follow-up behavior changes in this review before reporting completion.
+
+For every important implemented file in `docs/FILE_MAP.md`, keep six separate fields: linked file path, one-sentence purpose, important exports, called by, important dependencies and high-level runtime flow to the next file. Add a small ASCII flow after each major subsystem, including request flows where applicable. Identify test-only callers and helpers without product callers; include only existing implemented files, never proposed/future paths. Update this map after every milestone.
+
 Maintain `docs/FILE_MAP.md` for significant existing models/repos/services/stores/workers/hooks/integrations; skip trivial components. Maintain MindMora-specific `docs/LEARNING.md` and distinguish planned examples from implementation. Significant decisions require ADR context, decision, alternatives, rationale, trade-offs and consequences. Keep superseded ADRs clearly historical. Status: ✅ Implemented, 🚧 In progress, 📋 Planned, ❌ Removed. Phase records report observed outcomes; active plans own live checklists. Follow spec §19.3 for feature docs.
 
 ## Explain after each implementation
 
 Report what changed and why; important files and responsibilities; runtime/data flow; non-obvious logic; new libraries/concepts; exact verification; limitations; next milestone without starting it unless authorized.
+
+After every milestone, provide a **Code Understanding Summary** for each important created or modified file: file path, one-sentence purpose, important exports, 3–7 short flow steps, important project/service dependencies, security and trust-boundary logic, 2–5 specific snippets or lines the user should read, and only the concepts needed to understand the implementation. Focus on architecture, data flow, decisions and security; skip line-by-line explanations and basic language syntax. End with a small ASCII diagram of the overall milestone flow.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

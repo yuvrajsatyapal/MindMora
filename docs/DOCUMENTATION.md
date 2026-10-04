@@ -11,14 +11,16 @@ production behavior. Keep PRODUCT_SPEC authoritative and historical evidence dat
 | Root README | Project overview, prerequisites, setup, practical development commands and concise current status |
 | ARCHITECTURE | Authoritative current components, runtime/data ownership, client/server and trust boundaries, subsystem interactions and failure boundaries; separate planned architecture |
 | LEARNING | Plain-English concepts, mental models, end-to-end flows and progressive source-reading order |
-| FILE_MAP | Grouped navigation: important files, responsibility/why, exports, callers/dependencies and related files |
+| FILE_MAP | Implemented-file navigation: path, purpose, important exports, callers, dependencies and runtime flow; ASCII flow per subsystem |
 | Integration/security/feature docs | Exact subsystem behavior, validation, permissions, external services, failures and limitations |
 | ADRs | Context, decision, alternatives considered, why this approach, trade-offs and consequences |
 | Active plan | Live scope/checklist, implementation progress, decisions, exact commands and observed results |
 | Phase record | Dated observed outcomes and validation evidence, with links to the active checklist |
 
 Each explanation has one primary home. Cross-link instead of copying large explanations
-or validation ledgers. README links to deep guides; FILE_MAP remains navigational. Do not
+or validation ledgers. README links to deep guides; FILE_MAP remains navigational. FILE_MAP must keep callers separate from dependencies and show high-level control/data movement
+to the next important file. Include a small ASCII flow after every major subsystem. Document
+only implemented files; label test-only callers and helpers without product callers. Do not
 put agent milestone request templates or agent permission/workflow instructions in README.
 
 ## Teaching a significant subsystem
@@ -52,6 +54,13 @@ Use blocked or deferred with the reason and remaining action; do not present the
 Date results, record exact relevant commands, counts, outcomes and limitations when evidence
 exists. Distinguish unit mocks, browser fixtures, local PostgreSQL, hosted PostgreSQL, live
 Google acceptance and production verification. Never relabel historical runs as fresh.
+
+For every milestone and implementation follow-up, review README, PRODUCT_SPEC, ARCHITECTURE,
+LEARNING and FILE_MAP against source before handoff. Update affected facts, links and
+implementation labels; record why any document needs no change in the active execution
+record. PRODUCT_SPEC status updates must not silently alter target requirements or scope.
+README owns setup/current status, ARCHITECTURE boundaries, LEARNING concepts and FILE_MAP
+source navigation; keep exact test evidence in the execution record.
 
 For application work update affected docs after validation and before the review handoff.
 For documentation-only work check references and source consistency; application tests are

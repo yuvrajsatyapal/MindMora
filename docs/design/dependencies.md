@@ -1,6 +1,6 @@
 # Dependency record
 
-Current locked inventory through 1C; metadata/license verification dates are recorded below. This documentation review does not recheck registry metadata or audits. All dependencies run locally without paid tiers or accounts. UI packages remain browser-compatible; Zod config and server-only are used on the Node server; tooling runs at development/build time. No external fonts or services are needed.
+Current locked inventory through 1D; metadata/license verification dates are recorded below. This documentation review does not recheck registry metadata or audits. All dependencies run locally without paid tiers or accounts. UI packages remain browser-compatible; Zod config and server-only are used on the Node server; tooling runs at development/build time. No external fonts or services are needed.
 
 | Package | Exact version | License | Scope |
 |---|---|---|---|
@@ -11,6 +11,8 @@ Current locked inventory through 1C; metadata/license verification dates are rec
 | server-only | 0.0.1 | MIT | server/client import guard |
 | @supabase/auth-js | 2.117.2 | MIT | server auth SDK, request-local storage |
 | drizzle-orm | 0.45.3 | Apache-2.0 | server SQL ORM/schema |
+| pino | 10.4.0 | MIT | server JSON metadata logging |
+| redis | 6.3.0 | MIT | server Redis-compatible TCP client |
 | postgres | 3.4.9 | Unlicense | server/CLI PostgreSQL driver |
 | drizzle-kit | 0.31.11 | MIT | development migration generation |
 | radix-ui | 1.6.7 | MIT | runtime |
@@ -45,7 +47,7 @@ Source formatted using Prettier 3.9.9 (MIT, Node >=14), invoked as a one-time de
 
 ## Runtime boundary and remaining backend target
 
-The inventory includes 1A: Zod 4.6.5 and server-only 0.0.1 metadata verified on 2026-10-03, both MIT. No hosted service, fee, free-tier cap or credit-card requirement applies to these local libraries. Zod supports strict TypeScript 5.5+; dated TypeScript 6.0.3 and Node 22.22.3 validation/build results are recorded in the Phase 1 record. Installed Next 16.3.8 requires Node >=20.9.0; project retains >=22.12.0. Drizzle/PostgreSQL dependencies are implemented in 1C below. Pino, Supabase Storage clients, TanStack Query, Zustand, nuqs, Redis/BullMQ and API tooling remain planned; verify at installation. Runtime Next.js migration is implemented. No claim that backend hosting or workers are free/unlimited follows from these UI dependencies.
+The inventory includes 1A: Zod 4.6.5 and server-only 0.0.1 metadata verified on 2026-10-03, both MIT. No hosted service, fee, free-tier cap or credit-card requirement applies to these local libraries. Zod supports strict TypeScript 5.5+; dated TypeScript 6.0.3 and Node 22.22.3 validation/build results are recorded in the Phase 1 record. Installed Next 16.3.8 requires Node >=20.9.0; project retains >=22.12.0. Drizzle/PostgreSQL dependencies are implemented in 1C below. Pino/Redis clients are implemented in 1D. Supabase Storage clients, TanStack Query, Zustand, nuqs, BullMQ and API tooling remain planned; verify at installation. Runtime Next.js migration is implemented. No claim that backend hosting or workers are free/unlimited follows from these UI dependencies.
 
 1A references: [Next server-only guidance](https://nextjs.org/docs/app/getting-started/server-and-client-components), [Next self-hosting](https://nextjs.org/docs/app/guides/self-hosting), [Zod requirements](https://zod.dev/).
 
@@ -71,4 +73,15 @@ project was explicitly authorized; Free hosted DB has quotas/pausing rather than
 uptime. Current pricing is [provider-published](https://supabase.com/pricing); hosting
 selection and production budget remain pending. Connection behavior follows
 [official Supabase](https://supabase.com/docs/guides/database/connecting-to-postgres) and
-[Drizzle](https://orm.drizzle.team/docs/rls) guides. API/Pino/Redis/state tooling is still planned.
+[Drizzle](https://orm.drizzle.team/docs/rls) guides. Pino/Redis are implemented in 1D; API/state tooling is still planned.
+
+## Milestone 1D dependency verification — 2026-10-04
+
+Registry metadata and official [Pino](https://github.com/pinojs/pino)/[node-redis](https://github.com/redis/node-redis)
+guidance checked at installation: Pino 10.4.0 and redis 6.3.0 are MIT, pinned exactly.
+Redis declares Node >=20; project Node >=22.12 and tested Node 22.22.3 satisfy it.
+Pino runs on Node; production build and real JSON serialization passed. No library payment,
+account or credit card is needed. Both remain server-only. Test-only BSD Valkey 8.1.10
+is pinned by image digest in `scripts/local-test-redis.mjs`; [official release inventory](https://valkey.io/download/)
+was checked. No production Redis provider, paid resource or hosted account was created.
+[Hosting/budget](../integrations/hosting-and-costs.md) owns candidate service caps and remaining evidence.

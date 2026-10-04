@@ -1,7 +1,7 @@
 # Security Boundaries and Acceptance
 
-**Current inspection:** 2026-10-04, through 1C. Auth/cookie validation, server-only configuration
-and scoped SQL controls are implemented. General HTTP/Pino/Redis, private UI/cache lifecycle,
+**Current inspection:** 2026-10-04, through 1D. Auth/cookie validation, server-only configuration,
+scoped SQL controls and HTTP/Pino/Redis admission are implemented. Private UI/cache lifecycle,
 revision-safe writes, rendering/files/jobs and deployment controls remain planned. This is
 not a complete security certification. Exact historical checks live in the [phase record](../phases/phase-01-foundation.md).
 
@@ -81,8 +81,9 @@ roles/pooled state and rejects transaction failures without exposing private val
 not automatically retry mutations; uncertain commit outcomes need future reconciliation.
 Credential setup retains pending secrets rather than overwriting/rotating blindly.
 
-Current auth handlers emit safe HTTP output; there is no installed Pino redaction layer,
-rate limiter, overall request timeout or proven framework/access-log scrubber. In particular,
+Current auth handlers use bounded HTTP input, Redis admission and an allowlisted Pino facade.
+Body/Redis deadlines are bounded, but no total-provider-operation deadline or proven
+framework/access-log scrubber exists. In particular,
 callback URLs contain code/state and logging exposure must be assessed in future deployment/
 HTTP work. Auth SDK per-fetch and DB per-statement limits are not total-operation deadlines.
 
@@ -100,25 +101,36 @@ These are the current IDs; historical vault-specific SEC checks are superseded.
 |---|---|---|
 | SEC-01 | Invalid/revoked sessions denied; callback/origin misuse rejected; logout revokes session | Auth fixtures/browser plus bounded live provider checks recorded; full private API/UI lifecycle still planned |
 | SEC-02 | Foreign-owner list/read/update/delete and spoofed ownership rejected; actual roles/pool isolation | 1C actual SQL two-user/anonymous/privileged/reuse checks; note HTTP/repository owner filters remain 1E |
-| SEC-03 | Bounded validated input before work; matching form/API contracts | Shared model/config tests and SQL constraints; HTTP body/form enforcement remains planned |
+| SEC-03 | Bounded validated input before work; matching form/API contracts | Shared model/config tests and SQL constraints; HTTP body helper/auth bounds verified in 1D; note route/form enforcement remains 1E/1G |
 | SEC-04 | No private persistent browser cache; logout/switch clears memory/late results | Auth fixture browser checks and public memory-only UI; private cache/draft lifecycle remains 1F/1G |
-| SEC-05 | No private markers in logs/bundles/errors/exported contracts | Safe response/DB error/compiler/bundle evidence; Pino/access logs/Swagger/Postman scans remain planned |
+| SEC-05 | No private markers in logs/bundles/errors/exported contracts | Safe response/DB error/compiler/bundle evidence; Pino marker scans verified in 1D; external access logs/Swagger/Postman remain open |
 | SEC-06 | Encrypted production transport and verified storage/backup encryption | Server boundary and development DB verified-CA TLS evidence; production ingress, at-rest/backups/restore/Storage remain open |
-| SEC-07 | Rate limits/Retry-After, trusted IP handling and outage policy | Planned 1D; no installed limiter or observed Redis behavior |
+| SEC-07 | Rate limits/Retry-After, trusted IP handling and outage policy | 1D auth/default-forwarding/outage and local real Redis count/TTL/recovery verified; basic fallback helper tested; hosted ingress/TLS/quota evidence and note callers remain open |
 | SEC-08 | Concurrent revisions cannot silently overwrite; uncertain writes/drafts reconcile | Positive revision/schema exists; atomic operations and UI evidence remain 1E/1G |
 | SEC-09 | Owner-scoped private files/jobs/results, retries/outbox and safe payloads | Planned Phase 4; no Storage/BullMQ runtime |
 | SEC-10 | Sanitized rendering/plugin permissions/provider consent | Planned with editor/AI/plugins; no renderer/BYOK integration |
 
-Passing 1C does not complete SEC-01–08 or authorize production deployment. Local HTTP and
+Passing 1D does not complete SEC-01–08 or authorize production deployment. Local HTTP and
 loopback PostgreSQL TLS exceptions are deliberate; production evidence must be real.
 Hosted SQL tests exercise Session pooler, not every provider topology. The database's
 controlled Auth transport is not live Google consent.
+
+## HTTP/admission evidence — 1D
+
+Auth now applies byte/deadline bounds, no-store errors with correlation IDs, Redis admission
+and allowlisted Pino metadata. Forwarded addresses are ignored unless configured ingress
+trust is proven. Auth/expensive outage rejects admission; the basic helper demands issued
+verified ownership and returns a bounded degraded local budget. No note route consumes it
+yet. Admission-rejected logout retains cookies and is unsuccessful. [Services](../integrations/backend-services.md)
+owns exact windows, budgets, guard ordering and TLS/timeout configuration. Local Valkey,
+provider-fixture/browser and marker tests are layer-specific evidence, not a completed
+SEC-01–08 or production gate. External framework/proxy logs remain to be controlled.
 
 ## Planned constraints when features arrive
 
 - Private APIs/SSR must remain no-store through browser/Next/edge/ingress/service-worker
   layers. Clear account-scoped caches/drafts and invalidate late async results on switch/logout.
-- Pino must allowlist metadata and exclude payloads, note titles/bodies, credential fields,
+- Existing Pino facade allowlists metadata and excludes payloads, note titles/bodies, credential fields,
   signed URLs and private SQL parameters. Framework/proxy logs need compatible controls.
 - Redis holds counters/reference jobs, not knowledge/session authority. Auth/expensive work
   fails closed on limiter outage; basic API fallback must keep unchanged authentication/ownership.
@@ -131,3 +143,13 @@ controlled Auth transport is not live Google consent.
 [ADR-018](../decisions/ADR-018-full-stack-server-storage.md) ·
 [ADR-020](../decisions/ADR-020-backend-owned-auth-cookies.md) ·
 [ADR-021](../decisions/ADR-021-scoped-database-role.md) · [Dated hosting constraints](../integrations/hosting-and-costs.md).
+
+## Startup checks — authorized 1D follow-up
+
+Node startup probes use existing verified remote TLS and runtime-only credentials, finite
+deadlines, dedicated clients and allowlisted terminal errors. Production failures terminate;
+development warnings never authorize a failed session/admission request. Startup does not
+validate RLS/schema or ongoing availability. No credential/raw-exception logging is added.
+[Services](../integrations/backend-services.md#server-startup-health--implemented-follow-up-to-1d)
+owns behavior and limits; [ADR-023](../decisions/ADR-023-startup-dependency-health.md) records
+production/development/readiness trade-offs. This is not a completed security/deployment gate.

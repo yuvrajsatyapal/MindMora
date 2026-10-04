@@ -9,7 +9,7 @@
     "lint": "eslint . && node scripts/check-styles.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "playwright test",
+    "test:e2e": "node scripts/test-showcase-e2e.mjs",
     "start": "next start",
     "test:boundary": "node scripts/test-server-boundary.mjs",
     "test:auth": "node --experimental-strip-types scripts/test-auth-e2e.mjs",
@@ -17,7 +17,9 @@
     "db:migrate": "node --env-file=.env --conditions=react-server --experimental-strip-types scripts/migrate-database.mjs",
     "db:provision": "node --env-file=.env --conditions=react-server --experimental-strip-types scripts/provision-database.mjs",
     "test:db": "node --conditions=react-server --experimental-strip-types scripts/test-database.mjs",
-    "test:db:hosted": "node --env-file=.env node_modules/vitest/vitest.mjs run --config vitest.database.config.ts"
+    "test:db:hosted": "node --env-file=.env node_modules/vitest/vitest.mjs run --config vitest.database.config.ts",
+    "test:rate-limit": "node scripts/test-rate-limit.mjs",
+    "test:startup": "node scripts/test-startup-health.mjs"
   },
   "engines": {
     "node": ">=22.12.0"
@@ -28,10 +30,12 @@
     "drizzle-orm": "0.45.3",
     "lucide-react": "1.51.0",
     "next": "16.3.8",
+    "pino": "10.4.0",
     "postgres": "3.4.9",
     "radix-ui": "1.6.7",
     "react": "19.3.0",
     "react-dom": "19.3.0",
+    "redis": "6.3.0",
     "server-only": "0.0.1",
     "tailwindcss": "4.3.3",
     "zod": "4.6.5"

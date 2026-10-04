@@ -1,7 +1,7 @@
 # Learning MindMora
 
-**Source inspected:** 2026-10-04, through 1C. Study the system that exists first: public UI,
-backend auth, shared contracts and a database library boundary. There is no note-save
+**Source inspected:** 2026-10-05, through 1D and startup-health/terminal-styling follow-ups. Study the system that exists first: public UI,
+backend auth, shared contracts, a database library boundary, HTTP/admission/logging and startup probes. There is no note-save
 request flow yet. [Architecture](../ARCHITECTURE.md) owns the system overview,
 [FILE_MAP](FILE_MAP.md) owns navigation, and subsystem guides own exact operating rules.
 
@@ -22,6 +22,9 @@ files, not proposed examples.
 | 8 | [verified owner](../src/server/db/user-context.ts), [DB client](../src/server/db/client.ts), [DB config](../src/server/db/config.ts) | Why do identity, login role and LOCAL claims all matter? |
 | 9 | [role provision](../scripts/provision-role.ts), [credential staging](../scripts/provision-files.ts), [CLI coordinator](../scripts/provision-database.mjs) | What happens when database setup and file publication cannot commit together? |
 | 10 | [RLS tests](../tests/integration/rls.test.ts), [Docker harness](../scripts/test-database.mjs), [browser tests](../tests/e2e/) | Which guarantees are exercised with real systems, and which services are fixtures? |
+
+| 11 | [HTTP policy](../src/server/http/), [admission](../src/server/rate-limit/), [logging facade](../src/server/logging/) | Why are validation, admission and safe observability distinct from authentication? |
+| 12 | [instrumentation](../src/instrumentation.ts), [startup coordinator](../src/server/startup/health.ts), [probes](../src/server/startup/probes.ts), [color/once tests](../src/server/startup/health.test.ts) | What runs once at startup, what runs per request, and what does connectivity fail to prove? |
 
 ## 1. Presentation, state and persistence are different things
 
@@ -252,10 +255,103 @@ and the credential-file tests.
 ## What to study later
 
 The following are accepted plans, not installed runtime systems: Query in-memory cache,
-Zustand UI state, nuqs URL state, revision-safe repositories/HTTP saves, Redis limits,
-Pino, private Storage, BullMQ/outbox/worker, Swagger/Postman. Their reasoning belongs in
+Zustand UI state, nuqs URL state, revision-safe repositories/HTTP saves,
+private Storage, BullMQ/outbox/worker, Swagger/Postman. Their reasoning belongs in
 [planned data architecture](architecture/full-stack-architecture.md), [state ownership](architecture/state-management.md),
 [backend services](integrations/backend-services.md) and [API tooling](integrations/api-tooling.md).
 Automatic Drive-authoritative sync and the browser E2EE vault are superseded, not future
 features under the current scope. Deployment/provider encryption/restore guarantees
 remain open. Do not use a roadmap diagram as evidence that those systems exist.
+
+## Request admission and safe observability — implemented 1D
+
+**Concept.** Authentication answers who a caller is; validation checks shape/size; admission
+limits how much work a caller can request. None replaces ownership checks. Logs explain
+what happened operationally without collecting the caller’s content or credentials.
+
+**Why needed.** Before note routes exist, public auth already performs provider/network work.
+Malformed bodies, forged forwarding and dependency failures need predictable rejection.
+Stable error codes help future UI handle failures, and correlation IDs connect an error
+response to a safe server log without echoing caller-supplied markers.
+
+**Current flow.** Auth starts with a new server UUID. The handler checks request/config/method,
+Origin or callback state, query/body bounds, then Redis admission. Only admitted requests
+reach the existing Supabase session/PKCE work. Responses apply no-store and fixed errors;
+Pino receives only approved metadata. No database or note route is added to this flow.
+
+```mermaid
+sequenceDiagram
+  participant B as Browser
+  participant H as handleAuth / HTTP helpers
+  participant R as Redis-compatible counters
+  participant A as Supabase Auth
+  participant L as Pino facade
+  B->>H: Untrusted cookie / Origin / query
+  H->>H: UUID + bounded request / origin or callback-state checks
+  H->>R: Atomic scoped count + TTL
+  alt Rejected or unavailable
+    H-->>B: Fixed 429/503 + Retry-After + no-store
+  else Admitted
+    H->>A: Existing PKCE or verified-session operation
+    A-->>H: Provider outcome
+    H-->>B: Protected response / safe projection
+  end
+  H->>L: UUID, operation, status, duration, safe error code
+```
+
+**Counters and failure behavior.** A Lua script runs increment and expiry checks atomically,
+so concurrent requests do not create immortal counters. Windows begin on first hit.
+Remaining TTL supplies Retry-After. The client has bounded network work and a short outage
+circuit; later requests reconnect. Redis contains counts and hashed identities, never notes
+or sessions. Public auth uses a shared budget until real ingress IP trust is configured.
+
+**Fallback and trust.** A future basic-note caller must obtain a fresh online-verified owner
+before using the helper; arbitrary user-ID objects are refused. Redis outage permits a
+small per-process budget and returns degradation. Process-local state disappears on restart
+and does not coordinate instances. Authentication/DB ownership remain mandatory. This
+helper has no real note endpoint caller yet. Auth/expensive requests instead fail closed;
+rejected logout leaves its cookies and must not be presented as success.
+
+**Logging and trade-offs.** An allowlist prevents unknown fields from reaching Pino, while
+static redaction adds another layer. Fixed messages prevent raw exception serialization.
+Request IDs are diagnostic, not authentication secrets. Stdout, framework/proxy logs and
+host retention still need deployment controls; tests do not prove every external log safe.
+Local Valkey demonstrates Redis-compatible behavior without selecting a hosted provider.
+
+**Read next.** Start at `src/server/auth/routes.ts`, then `http/errors.ts`/`responses.ts`,
+`http/body.ts`/`csrf.ts`, `rate-limit/limiter.ts`/`client.ts`, and `logging/logger.ts`.
+[Services](integrations/backend-services.md) owns exact budgets/config/body limits;
+[security](architecture/security-architecture.md) distinguishes local evidence from
+remaining production controls. Revision-safe notes/repositories are the next milestone, 1E.
+
+## Startup health versus request security — implemented follow-up
+
+**Concept and purpose.** A startup probe establishes that a server process can reach a
+required service now. It is useful before admitting production traffic and gives a clear
+local diagnostic, but it cannot establish the caller’s identity, future availability or RLS.
+
+**Current flow.** Next Node register dynamically imports startup health. A global promise
+runs Redis PING and PostgreSQL SELECT 1 concurrently with deadlines, closes both dedicated
+clients and prints fixed safe results. Repeated registrations/HMR in that process reuse the
+promise; restarting creates fresh checks. Production failure exits nonzero. Local development
+warns and continues, while request-level auth/admission remains mandatory. Build/Edge skip it.
+
+**Terminal styling.** `styleText("green", "✓")` and `styleText("red", "✗")` from Node
+`node:util` color only the status glyph and reset the foreground before the service text.
+ANSI sequences control terminal appearance; they do not change probe outcomes or admission.
+Node detects color support: ordinary redirected logs remain plain, NO_COLOR can disable
+styling and FORCE_COLOR can explicitly override detection. Read the output branch in
+[health.ts](../src/server/startup/health.ts) and the controlled color tests in
+[health.test.ts](../src/server/startup/health.test.ts). Exact environment behavior lives in
+the [services guide](integrations/backend-services.md#server-startup-health--implemented-follow-up-to-1d).
+
+**Trade-offs and security.** PING does not test EVAL permissions, and SELECT 1 does not inspect
+notes, RLS or migrations. Later failures still need request-level handling. Startup latency
+and provider cold starts can cause failure even after an earlier successful check. Restricting
+errors to known messages protects credentials but loses root-cause detail. Next's early Ready
+banner is not a dependable readiness signal; actual health logs/process behavior matter.
+
+**Read next.** `src/instrumentation.ts` → `server/startup/health.ts` → `probes.ts` → existing
+Redis/database config. [Services](integrations/backend-services.md#server-startup-health--implemented-follow-up-to-1d)
+owns deadlines and operational rules; [ADR-023](decisions/ADR-023-startup-dependency-health.md)
+owns the decision. Production browser tests use disposable dependencies, not a bypass flag.

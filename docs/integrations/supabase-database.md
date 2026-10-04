@@ -202,3 +202,12 @@ one-connection pool to make backend reuse observable. It validates bounded cases
 all connection poisoning, all role drift, load or a second production pooler topology.
 Cleanup in afterAll/finally is ordinary completion behavior; process termination can
 interrupt cleanup. Exact successful historical runs and limits are in the phase record.
+
+## Startup connectivity — authorized 1D follow-up
+
+Node startup now validates runtime DATABASE_URL/TLS config and runs SELECT 1 with a dedicated
+short-lived connection. Production exits nonzero on failure; development warns and continues.
+The request-scoped pool stays lazy. No note row/schema/RLS test runs at startup, and migration
+credentials are not used. [Services](backend-services.md#server-startup-health--implemented-follow-up-to-1d)
+owns exact deadlines, safe messages, once-per-process lifecycle and tests; SQL acceptance
+remains separate. Builds do not require database connectivity.

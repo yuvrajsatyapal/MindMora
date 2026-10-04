@@ -1,6 +1,6 @@
 # MindMora Architecture
 
-**Inspected:** 2026-10-04, current source after Milestone 1C. This document owns the technical
+**Inspected:** 2026-10-05, current source through Milestone 1D, startup health and terminal styling. This document owns the technical
 system overview. Detailed operating rules live in the linked integration/security guides;
 validation evidence lives in the [phase record](docs/phases/phase-01-foundation.md).
 
@@ -20,8 +20,11 @@ flowchart LR
   end
   subgraph Node["Next.js Node process"]
     Public["Prerendered public pages"]
+    Startup["Node instrumentation: once per process"]
     Routes["Four dynamic auth adapters"]
-    Policy["handleAuth: method / Origin / flow checks"]
+    Policy["handleAuth: bounded input / Origin / state / admission"]
+    Redis["Redis counters"]
+    Log["Pino metadata facade"]
     SDK["Fresh server AuthClient"]
     DBCode["Database modules — no HTTP caller yet"]
   end
@@ -29,20 +32,26 @@ flowchart LR
   Cookie --> Routes
   Helper -.-> Routes
   Routes --> Policy --> SDK
+  Policy --> Redis
+  Policy --> Log
   SDK --> Auth["External Supabase Auth"]
   Auth <--> Google["External Google sign-in"]
+  Startup -->|PING| Redis
+  Startup -->|SELECT 1 through dedicated client| PG
   Tests["Database integration tests"] --> DBCode
   DBCode --> PG["Supabase PostgreSQL — profiles/notes"]
 ```
 
 Solid edges are existing flows; the dotted account-helper edge is an implemented API
 helper that product pages do not call. The disconnected database path is deliberate:
-`handleAuth` does not import database modules, create a profile or save a note.
+`handleAuth` does not import database modules, create a profile or save a note. Startup
+checks connect directly through dedicated probe clients; they do not invoke the scoped
+knowledge transaction API or establish user ownership.
 
 | Boundary | Current responsibility | Excluded from that boundary |
 |---|---|---|
 | UI components/showcase | Controlled presentation and page-lifetime demo/theme state | Identity authority, DB clients, confirmed saves |
-| Auth Route Handlers / `handleAuth` | HTTP policy, cookie lifecycle, redirects and safe responses | Profiles, note operations, general admission/logging |
+| Auth Route Handlers / `handleAuth` | HTTP policy, cookie lifecycle, redirects and safe responses | Profiles and note operations |
 | `provider.ts` / `session.ts` | Supabase protocol, token shape/refresh and online identity verification | Local JWT claims as authorization |
 | Shared Zod feature contracts | Runtime data shapes and inferred types | Ownership permission or Markdown sanitization |
 | `user-context.ts` | Issue a frozen verified-owner object after online verification | Expiring capability or per-operation revalidation |
@@ -68,6 +77,32 @@ The cookie is base64url JSON containing bearer credentials, not an application-e
 or signed envelope. Fields are untrusted; the server uses Supabase online verification
 for identity. HttpOnly protects browser-JS access, not XSS-issued requests, server compromise
 or stolen credentials. Cookie lifetime and provider validity are distinct.
+
+## Startup dependency boundary — implemented 1D follow-up
+
+Node instrumentation checks Redis PING and runtime PostgreSQL SELECT 1 once per process,
+through short-lived bounded clients. Build/Edge do not probe. Dev warns and continues;
+production exits nonzero when either fails. This changes production preview requirements
+without initializing a note repository or changing request pool ownership. The early Next
+Ready banner is not evidence of completed health checks. Terminal success ticks are green
+and failure ticks red when color is enabled; service text resets to its normal foreground.
+Safe fixed messages exclude raw provider errors. Node terminal detection keeps ordinary
+redirected output free of color sequences. [Services](docs/integrations/backend-services.md#server-startup-health--implemented-follow-up-to-1d)
+owns exact deadlines/logging/failure behavior; [ADR-023](docs/decisions/ADR-023-startup-dependency-health.md)
+owns alternatives and consequences. Public rendering still does not access SQL.
+
+## HTTP, admission and logging — implemented 1D
+
+Auth owns a server-generated correlation ID and emits typed fixed errors with no-store.
+Reusable HTTP helpers enforce Origin and bounded bodies/schema validation. Auth routes
+apply admission before Supabase work. Redis owns expiring atomic counters, using hashed
+identity keys and safe timeouts; it holds no note/session credentials. Public auth uses
+shared budgets unless an explicitly trusted ingress IP header is configured. A future
+basic API helper requires issued verified ownership and returns degraded local admission
+on Redis outage; note endpoints do not yet call it. Pino receives only validated request
+metadata. [Services](docs/integrations/backend-services.md) owns exact budgets, guard
+ordering, config, failure behavior and operational limits. [ADR-022](docs/decisions/ADR-022-http-admission-and-safe-logging.md)
+records the choices. This adds a temporary counter dependency, not a canonical data store.
 
 ## Database flow: implemented library, not a note request path
 
@@ -143,6 +178,8 @@ and SEC acceptance matrix; [ADR-021](docs/decisions/ADR-021-scoped-database-role
 
 | Failure boundary | Current observable behavior |
 |---|---|
+| Redis/PostgreSQL startup failure | Fixed safe logs; production exits 1, development warns and continues; restart required to rerun |
+| Redis auth admission unavailable | Safe 503 before provider work; public auth fails closed |
 | Invalid auth config/provider unavailable | Auth route returns safe 503; auth never grants access |
 | Bad flow, method, Origin or credentials | 400/405/403/401 according to auth policy; cookies cleared as specified in the guide |
 | Browser session helper network/bad JSON/non-success | Fixed error; session HTTP 401 alone maps to null |
@@ -157,7 +194,8 @@ provider encryption at rest/backups/restore and private cache lifecycle are not 
 
 ## Accepted target, separately from implementation
 
-1D adds general HTTP policy/Pino/Redis admission; 1E adds profile creation and owner-filtered,
+1D is implemented, including general HTTP policy/Pino/Redis admission and the startup
+follow-up. The next authorized milestone would be 1E: profile creation and owner-filtered,
 revision-safe note repositories/APIs; 1F/1G add protected UI, temporary cache/state and save
 feedback; 1H completes contract tooling. Phase 4 adds private Storage/BullMQ/outbox/worker.
 [Planned data flows](docs/architecture/full-stack-architecture.md) describe those future
