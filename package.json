@@ -12,7 +12,12 @@
     "test:e2e": "playwright test",
     "start": "next start",
     "test:boundary": "node scripts/test-server-boundary.mjs",
-    "test:auth": "node --experimental-strip-types scripts/test-auth-e2e.mjs"
+    "test:auth": "node --experimental-strip-types scripts/test-auth-e2e.mjs",
+    "db:generate": "NODE_OPTIONS=--conditions=react-server drizzle-kit generate",
+    "db:migrate": "node --env-file=.env --conditions=react-server --experimental-strip-types scripts/migrate-database.mjs",
+    "db:provision": "node --env-file=.env --conditions=react-server --experimental-strip-types scripts/provision-database.mjs",
+    "test:db": "node --conditions=react-server --experimental-strip-types scripts/test-database.mjs",
+    "test:db:hosted": "node --env-file=.env node_modules/vitest/vitest.mjs run --config vitest.database.config.ts"
   },
   "engines": {
     "node": ">=22.12.0"
@@ -20,8 +25,10 @@
   "dependencies": {
     "@supabase/auth-js": "2.117.2",
     "@tailwindcss/postcss": "4.3.3",
+    "drizzle-orm": "0.45.3",
     "lucide-react": "1.51.0",
     "next": "16.3.8",
+    "postgres": "3.4.9",
     "radix-ui": "1.6.7",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -40,6 +47,7 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.1",
+    "drizzle-kit": "0.31.11",
     "eslint": "9.39.5",
     "eslint-plugin-jsx-a11y": "6.10.2",
     "eslint-plugin-react-hooks": "7.1.1",
@@ -48,5 +56,8 @@
     "typescript-eslint": "8.71.0",
     "vitest": "5.0.3"
   },
-  "type": "module"
+  "type": "module",
+  "overrides": {
+    "esbuild": "0.28.2"
+  }
 }

@@ -1,27 +1,53 @@
 # ADR-019 — Backend Services and API Tooling
 
-**Decision status:** Accepted for planning, 2026-10-03. **Implementation:** ✅ Zod for server configuration in 1A; 📋 other tooling/services; none deployed.
+**Decision:** Accepted for staged planning 2026-10-03. **Current:** Zod config/auth/note
+contracts and an auth-only OpenAPI artifact exist. Pino, Redis/BullMQ, Swagger/Postman
+and optional Nginx are planned, not installed/deployed by this decision.
 
 ## Context
 
-The user agreed to Redis/BullMQ workers, optional Nginx, structured Pino logging, Zod validation and OpenAPI/Swagger/Postman documentation while reviewing the full-stack design. MinIO was explicitly excluded.
+The accepted full-stack model needs runtime input checks, understandable API contracts,
+abuse controls and future long-running work. The user agreed to these tools while explicitly
+excluding MinIO. Naming tools must not create a worker/ingress deployment or make quotas disappear.
 
 ## Decision
 
-Use Redis for expiring request limits and job coordination; BullMQ OSS with a separate Node worker for exports/indexing/attachments and scoped optional AI. Regular saves go to PostgreSQL without queue dependency. Pino logs safe metadata; Zod validates runtime boundaries. Version OpenAPI, expose Swagger UI and generate Postman collections. Nginx is self-hosted ingress when needed; managed ingress may replace it.
+Use Zod for runtime boundaries, Pino for safe structured metadata, Redis for expiring limits
+and job coordination, BullMQ with a separate Node worker for long work, and versioned
+OpenAPI/Swagger/generated Postman for APIs. Nginx is optional self-hosted ingress; managed
+ingress may replace it. Normal note saves go directly to PostgreSQL, independent of queues.
 
-## Alternatives
+## Alternatives considered
 
-Synchronous long tasks inside request handlers; ad-hoc in-process queues; unstructured console logs; duplicated manually maintained API schemas; custom ingress on every managed host.
+- Synchronous long tasks in request handlers: simpler first implementation, but ties work
+  to request/runtime duration and lacks durable retry coordination.
+- Ad-hoc in-process queue: low setup cost, but loses coordination on process restart and
+  becomes harder to operate across instances.
+- Unstructured logs/manual unrelated contracts: fewer dependencies, but private-error
+  review and schema/route consistency are harder to maintain.
+- Custom ingress on every host: redundant where a managed provider already supplies it.
 
-## Rationale
+## Why this approach
 
-Separate fast note APIs from long work; keep runtime input and API contracts explicit and operations traceable without collecting private content. Delay queue implementation until a real job needs it.
+The accepted separation keeps fast record writes independent of future long work and
+keeps inputs/contracts explicit. Queue implementation waits for real jobs, avoiding an
+unused worker. Zod is already used; the broader contract generation approach is not selected yet.
 
 ## Trade-offs
 
-Redis/worker introduce hosting, command quotas, retry/idempotency and operational work. Worker polling can consume resources without users. Optional Nginx needs TLS/configuration maintenance. RLS, ownership and session checks remain mandatory; these tools don't grant confidentiality themselves. Free libraries do not include free unlimited service hosting.
+Redis/worker add command quotas, hosting, retry/idempotency and operational complexity;
+background polling may cost resources without users. Pino needs deliberate field selection
+and framework/proxy-log review. Contracts need drift checks, not merely generated files.
+Nginx adds TLS/configuration maintenance if self-hosted. Free libraries do not imply free
+unlimited hosting or complete security.
 
 ## Consequences
 
-Phase 1 adds Zod/Pino/Redis limits/API contracts; Phase 4 adds jobs/files, durable outbox/reconciliation and scoped result APIs. No note bodies/secrets in queues, logs or Redis caches. Select/verify provider/worker/ingress topology before deployment. [Service design](../integrations/backend-services.md), [API tooling](../integrations/api-tooling.md) and [hosting budget](../integrations/hosting-and-costs.md) define planned acceptance.
+1D owns admission/Pino; 1H owns interactive/generated tooling. Phase 4 owns jobs/files,
+outbox/reconciliation and private result APIs. No bodies/secrets in queue payloads/logs or
+canonical notes in Redis. Security gates activate with the feature; provider/topology/cost
+must be checked before installation/deployment. The existing OpenAPI file is not proof of
+automated route drift enforcement or Postman acceptance.
+
+[Services](../integrations/backend-services.md) · [API tooling](../integrations/api-tooling.md) ·
+[Dated hosting research](../integrations/hosting-and-costs.md) · [Phase 1 progress](../../.agent/active/phase-01-foundation.md).

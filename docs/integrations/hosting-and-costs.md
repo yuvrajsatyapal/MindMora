@@ -1,6 +1,6 @@
 # Hosting and Free-Tier Budget
 
-**Status:** 📋 Deployment unselected. Checked official pricing 2026-10-03; recheck before integration/deployment. Budget target: approximately 3–4 daily users, no automatic paid upgrades.
+**Status:** 📋 Deployment unselected. Historical official-pricing research dated 2026-10-03; not rechecked in this documentation pass. Recheck before integration/deployment. Budget target: approximately 3–4 daily users, no automatic paid upgrades.
 
 ## Hosted quotas
 
@@ -11,7 +11,7 @@ Do not assume Redis encryption at rest is included on every free tier. Redis hol
 
 ## Software versus hosting
 
-BullMQ OSS, Pino and Zod are MIT libraries; Drizzle and OpenAPI/Swagger tooling are open-source choices to verify at exact selected versions. Nginx OSS software is free. Next/worker/Nginx server resources, disks, logs, bandwidth, certificates/domain and backups have separate hosting/operational requirements. Postman uses its available free local/collection features, not assumed unlimited cloud collaboration.
+BullMQ OSS, Pino and Zod are MIT libraries; Drizzle ORM/kit and postgres-js are installed at exact versions recorded in [dependencies](../design/dependencies.md); broader OpenAPI/Swagger tooling is unselected. Nginx OSS software is free. Next/worker/Nginx server resources, disks, logs, bandwidth, certificates/domain and backups have separate hosting/operational requirements. Postman uses its available free local/collection features, not assumed unlimited cloud collaboration.
 
 Runtime Next.js and a separately running worker need explicit hosting. Static-only hosting cannot satisfy these requirements. Managed ingress may remove the need for custom Nginx. No particular host, always-on free worker, no-card deployment or uptime guarantee is selected. Do not use keep-alive traffic to disguise a provider's sleep policy.
 

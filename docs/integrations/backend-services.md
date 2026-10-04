@@ -1,6 +1,6 @@
 # Redis, Jobs, Ingress and Logging
 
-**Status:** 📋 Planned, accepted 2026-10-03. No backend service is installed/configured by this documentation task.
+**Status:** 📋 Planned, accepted 2026-10-03. No Redis, BullMQ, Pino or Nginx runtime exists in current source. Supabase Auth/database are separate implemented integrations. The behaviors below are requirements for future work, not observed service behavior.
 
 ## Roles
 

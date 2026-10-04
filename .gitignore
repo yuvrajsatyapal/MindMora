@@ -9,3 +9,7 @@ next-env.d.ts
 playwright-report/
 test-results/
 work/
+
+# Local database CA (obtain from Supabase Dashboard)
+supabase-ca.crt
+prod-ca-2021.crt

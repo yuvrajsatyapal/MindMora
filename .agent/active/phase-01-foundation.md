@@ -1,10 +1,10 @@
 # Phase 01 — Full-Stack Foundation Execution Plan
 
-**Status:** ✅ 1A; ✅ 1B auth code/local checks; ✅ 1B live Google/session/refresh/replay acceptance verified; remaining milestones planned.
+**Status:** ✅ 1A; ✅ 1B auth code/local checks; ✅ 1B live Google/session/refresh/replay acceptance verified; ✅ 1C database/contracts/RLS verified locally and hosted; later milestones planned.
 **Updated:** 2026-10-04 — 1B backend-owned auth implementation/local verification.
 **Goal:** Preserve the shared UI and deliver authenticated, server-authoritative note CRUD with validated APIs and observable, tested security boundaries.
 **Architecture:** Next.js Node Route Handlers → verified Supabase identity → scoped Drizzle repositories → Supabase PostgreSQL. React uses temporary editor state and in-memory TanStack Query, with Zustand UI and nuqs URL state.
-**Tech stack:** Existing React/Next.js/TypeScript/Tailwind/Radix; Zod/server-only configuration; Supabase auth SDK (1B code/live acceptance verified); planned PostgreSQL/Drizzle, note API Zod, Pino, Redis limits, TanStack Query, Zustand, nuqs, OpenAPI/Swagger/Postman.
+**Tech stack:** Existing React/Next.js/TypeScript/Tailwind/Radix; Zod/server-only configuration; Supabase auth SDK (1B code/live acceptance verified); PostgreSQL/Drizzle and shared note schemas (1C); planned note API Zod, Pino, Redis limits, TanStack Query, Zustand, nuqs, OpenAPI/Swagger/Postman.
 **Spec:** [PRODUCT_SPEC](../../PRODUCT_SPEC.md) §§3–6, 14, 17–21.
 **Standard:** [PLANS](../PLANS.md). Use the repository milestone/test-first execution workflow; implement only the requested milestone and stop. This plan does not authorize executing the whole phase or deploying infrastructure.
 
@@ -78,14 +78,14 @@ The 1A and 1B auth entries are now implemented; remaining entries are proposed p
 | `src/app/api/auth/start/route.ts`, `callback/route.ts`, `logout/route.ts`, `session/route.ts` under `src/app/api/auth/` | Supported Google flow and safe auth endpoints | 1B |
 | `src/features/account/types.ts`, `src/features/account/api.ts` | Safe user-facing auth shapes and typed client access | 1B/1F |
 | `src/server/db/client.ts`, `schema.ts`, `user-context.ts`, `drizzle.config.ts` | Bounded connections, minimal schemas and effective scoped RLS role/claims | 1C |
-| `supabase/migrations/0001_profiles_notes.sql` | Versioned reviewed schema and owner RLS; reconcile actual generator numbering | 1C |
+| `supabase/migrations/0000_profiles_notes.sql` | Versioned reviewed schema and owner RLS; reconcile actual generator numbering | 1C |
 | `src/features/notes/types.ts`, `validation.ts`, `validation.test.ts` | Shared bounded note schemas and domain/API types | 1C |
 | `src/server/http/errors.ts`, `responses.ts`, `csrf.ts` and tests | Error envelope, private no-store responses, origin/CSRF rejection | 1D |
 | `src/server/logging/logger.ts`, `logger.test.ts` | Pino safe fields and redaction | 1D |
 | `src/server/rate-limit/client.ts`, `limiter.ts`, `limiter.test.ts` | Redis counter/window policy and outage behavior | 1D |
 | `src/server/notes/repository.ts`, `service.ts` | Owner predicates, transaction/revision rules and public domain errors | 1E |
 | `src/app/api/notes/route.ts`, `src/app/api/notes/[id]/route.ts` | Authenticated list/create/detail/update/delete | 1E |
-| `tests/e2e/auth.spec.ts` (implemented); `tests/integration/notes-api.test.ts`, `rls.test.ts`, `rate-limit.test.ts` (planned) | Actual HTTP/session/DB/Redis isolation and failures | 1B–1E |
+| `tests/e2e/auth.spec.ts`, `tests/integration/rls.test.ts` (implemented); `tests/integration/notes-api.test.ts`, `rate-limit.test.ts` (planned) | Actual HTTP/session/DB/Redis isolation and failures | 1B–1E |
 | `docs/design/phase-01-foundation.md` | Accessible auth/workspace/loading/conflict design contract | 1F before UI edits |
 | `src/app/providers.tsx`, `src/lib/query-client/provider.tsx`, `src/lib/nuqs/provider.tsx` | Stable query/URL/session provider composition | 1F |
 | `src/lib/api/client.ts`, `src/features/notes/api.ts`, `hooks.ts`, `use-note-selection.ts` | Safe validated API responses, scoped cache/mutations/URL selection | 1F/1G |
@@ -237,7 +237,7 @@ Accepted ADR-016/018/019; ADR-001/002/003/017 superseded. Google/Supabase server
 - [x] Update requirements/architecture/security/ADRs and full-stack milestone plan by user request.
 - [x] 1A Runtime migration.
 - [x] 1B Google/server sessions — code/local checks and live Google/session/refresh/reuse/replay/isolation acceptance verified; natural JWT expiry not awaited.
-- [ ] 1C Database/Zod/RLS.
+- [x] 1C Database/Zod/RLS — local + hosted actual-driver acceptance and review verified.
 - [ ] 1D HTTP security/Pino/Redis limits.
 - [ ] 1E Notes API/repositories.
 - [ ] 1F Protected shell/state.
@@ -245,7 +245,7 @@ Accepted ADR-016/018/019; ADR-001/002/003/017 superseded. Google/Supabase server
 - [ ] 1H Contract/runtime verification/documentation handoff.
 - [ ] Applicable SEC-01–08 proven; separate deployment evidence recorded where applicable.
 
-The earlier docs-only revision completed no implementation milestone. 1A was implemented and reviewed. User authorized only 1B; its code/local verification is now implemented, with live Google/session/refresh/replay/isolation checks verified. Stop for review; 1C is not authorized.
+The earlier docs-only revision completed no implementation milestone. 1A was implemented and reviewed. 1B code/local/live acceptance is verified. User subsequently authorized only 1C; its execution record follows below. Stop before 1D.
 
 ### Documentation revision verification — 2026-10-03
 
@@ -528,3 +528,92 @@ import for the removed route; removed that specific generated cache file, rerun 
 existing source/config/dependency/env hashes unchanged; temporary route absent;
 `git diff --check` passed and `.env` remains ignored. No full application suite rerun:
 production source was unchanged; earlier implementation-suite results retain their dates.
+
+
+### Milestone 1C execution — 2026-10-04
+
+Authorized only schemas/database/RLS; stop before 1D, no commit/deploy. Inspected clean
+1B commit 2c2fef3; no existing DB code. Work branch feature/phase-01-1c. User authorized
+current Supabase project as disposable development verification; URL and CA supplied by user.
+Docker runtime started for ephemeral PostgreSQL tests; no production second database.
+
+Expected additions: notes types/validation/tests; db config/client/schema/user-context;
+Drizzle config and reviewed SQL migration; migration/provision/test scripts and real RLS
+integration; .env placeholders, exact package/lock and CI; ADR-021 and affected docs.
+
+Design before code: public profiles (auth-user keyed display name/timestamps) and notes
+(UUID, owner/profile FK, title, Markdown content, UTC timestamps, positive revision, soft
+delete). Title trimmed/nonempty <=200 Unicode code points; content <=1 MiB UTF-8; list
+limit 1..100 default20, cursor UTC time+UUID; strict inputs reject owner/plan/timestamps.
+Request role mindmora_request is NOLOGIN/NOBYPASSRLS; runtime mindmora_app is NOINHERIT
+with no direct table grants. Connection/login privilege checks reject admin connections.
+Per transaction SET LOCAL role + verified claims, bounded timeouts; FORCE RLS and owner
+policies. Profiles/auth-user and notes/profile FKs enforce relation integrity: project
+model requirements take precedence over generic toolkit no-FK advice. Revisions/conflict
+service operations are 1E; only schema constraints/contracts land now. No APIs/screens.
+
+Pinned verified drizzle-orm0.45.3 Apache-2.0, drizzle-kit0.31.11 MIT, postgres3.4.9 Unlicense
+(Node>=12); smoke/checks will prove Node22/strict TS compatibility. Supabase pooler requires
+prepare:false; remote TLS verification required. ORM/tooling free; hosted quotas checked
+on official pricing; no paid upgrade/provisioning. Initial install reports 4 moderate dev
+tooling advisories; inspect and record mitigation rather than force-upgrade production.
+
+1C test-first ledger: forged owner accepted → strict create schema (RED/GREEN);
+empty/oversized note input accepted → Unicode title/UTF-8 body bounds (RED/GREEN);
+NUL accepted and malformed credential escape threw URIError → fixed text/config boundary
+(2 RED → 4 GREEN); empty patch accepted → changed-field rule (RED → 5 GREEN);
+boolean list limit coerced → numeric/digit-only union (RED → 8 schema/config GREEN).
+Real PostgreSQL profile insert failed without claims → SET LOCAL verified claims (RED →
+1 GREEN); privileged runtime URL admitted → actual role/grant/pool-state guard (RED →
+2 GREEN). Expanded actual-driver isolation/constraint/reuse tests: 7/7 local PASS.
+Setup failures (Docker access, PostgreSQL format parameter type, TLS CA filename) were
+infrastructure diagnostics, not counted as TDD RED. Hosted migration now applied using
+user-provided Supabase CA with certificate verification enabled; app provisioning and
+hosted checks underway. The user supplied MIGRATION_DATABASE_URL and CA separately;
+no credentials were printed. esbuild 0.28.2 global dev-tool override resolves the kit
+transitive advisory; fresh install audit reports 0 vulnerabilities, generator drift check
+reports no schema changes. Manual migration role/grant/FORCE clauses intentionally remain
+outside generated snapshot; future migrations must review both.
+
+Final review (fresh reviewer): two P2 provisioning findings fixed. Direct env write had
+truncated the original and kept pre-existing permissions; regression observed RED, then
+private fsynced pending file + unchanged-env check + atomic publish gave GREEN. Generated
+login/membership now share a transaction; actual local missing-role GRANT test confirms
+rollback removes the login. A pending ignored credential file survives failure/interruption
+for manual verified recovery, without implicit rotation. Existing .env chmod0600. Profile
+NUL input also observed RED then rejected. Reviewer Unicode-size concern did not reproduce:
+pinned Zod counts code points; 200-emoji regression passed. Follow-up review clean, targeted
+10/10; no source edits by reviewer. SQL/schema migration hash remains as applied.
+
+Hosted first 6/7 result was a probe issue: request role lacks direct Auth schema USAGE
+(Supabase migration login cannot effectively grant it). RLS's pre-resolved auth.uid policy
+reference still enforces two-user ownership. Direct identity probe now reads LOCAL claims;
+actual-policy access checks remain intact. No privilege broadening/disabled RLS/TLS. Hosted
+7/7 subsequently passed. Schema grants requested in the initial migration can differ from
+provider-effective privileges; effective behavior, not SQL text, is the acceptance evidence.
+
+1C final acceptance: lint/typecheck/build Exit0; unit66/66(8files); boundary3PASS;
+localDB7/7 plus failed-GRANT rollback/fresh+repeat migration probes; hostedDB7/7
+(PostgreSQL17.11, verified-CA Session pooler5432); showcase/runtime browser11/11;
+auth browser2/2; generator no drift; audit0vulnerabilities. Hosted migration re-run PASS,
+profiles/notes0 after disposable cleanup. Client scan26files0credentialmatches. Original
+source/AGENTS/spec hashes0changes. Markdown33files172links0missing/unbalanced; diffcheckPASS.
+Exact results, scope and provider/provisioning limitations in docs/phases/phase-01-foundation.md.
+No commit/deploy; stop for user review. 1D HTTP/Pino/Redis controls remain planned and
+unauthorized until the user requests the next milestone.
+
+
+### Documentation review — 2026-10-04 (no milestone advancement)
+
+The current-implementation review refreshed setup, architecture, learning/navigation,
+auth/database/security/state/model guides and ADR-016/018/019/020/021. Primary homes and
+future authoring rules are retained in [documentation standard](../../docs/DOCUMENTATION.md)
+and AGENTS. The [documentation review plan](documentation-current-implementation.md) owns
+this review's checklist/results. Phase 1D remains planned; application work did not advance.
+
+Source inspection clarified that no HTTP/page caller uses verifyDatabaseSession/getDatabase;
+owner contexts do not expire/reverify on run, and the database verification helper does not
+explicitly dispose its provider. Schema defaults do not advance revisions/update timestamps.
+These are current limits to assess at the next integration, not newly implemented behavior.
+OpenAPI's stale live-acceptance description was corrected without endpoint/schema changes.
+Historical 1A/1B/1C evidence above remains dated; this pass performs documentation checks only.

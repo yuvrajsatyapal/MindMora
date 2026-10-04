@@ -1,37 +1,58 @@
 # ADR-020 — Backend-Owned Supabase Auth Cookies
 
-**Decision:** implemented for 1B local verification, 2026-10-04. **Live Google/provider acceptance:** Google sign-in/session/logout and refresh/replay verified (13/13 live checks).
+**Decision:** Implemented 2026-10-04, Milestone 1B. Dated fixture/browser/live evidence is
+in the [phase record](../phases/phase-01-foundation.md); this ADR owns rationale, not the live test log.
 
 ## Context
 
-MindMora requires backend-owned HttpOnly session cookies and a token-free browser projection. Supabase's standard SSR/browser pattern expects JavaScript-readable tokens for browser refresh; simply copying that integration would violate the selected boundary. 1B has no database/profile/session table and must preserve the public showcase.
+MindMora requires a browser-safe identity projection and HttpOnly credentials. A standard
+browser-managed Supabase session would expose tokens to JavaScript for refresh. The initial
+auth milestone also had to preserve public pages without adding profile/session tables.
 
 ## Decision
 
-Use official auth-only `@supabase/auth-js` 2.117.2 in fresh request-local clients. Custom transient storage holds SDK PKCE verifier state; the browser-bound pending flow is carried in a protected ten-minute cookie with random app state. Supabase owns Google OAuth state/code validation; the app checks callback state/expiry and uses SDK code exchange with its recorded flow ID.
+Use the auth-only official SDK with fresh server clients and transient Map storage. Carry
+SDK PKCE verifier storage/flowId plus random app state in a protected pending cookie. Store
+only app access/refresh credentials and expiry hint in the protected session cookie; online
+getUser decides identity, and server refresh/local-scope logout own lifecycle. Fixed redirects,
+exact mutation Origin and no-store responses protect the HTTP boundary.
 
-Persist only Supabase app access/refresh credentials and expiry hint in a host-only HttpOnly cookie; discard Google tokens and provider/user metadata. HTTPS uses Secure/__Host names, SameSite=Lax, Path=/; loopback HTTP is an explicit local exception. Every session request verifies identity online via getUser, with server refresh near expiry. POST start/logout require exact Origin, callback redirect destination is fixed, and auth responses are non-cacheable. Logout revokes scope=local, clears local cookies and reports remote outage accurately.
+Cookie payloads are encoded JSON, not application-signed/encrypted envelopes. Their fields
+are not identity authority; provider verification is. Exact mechanics/limits/guard order
+belong in the [auth guide](../integrations/supabase-auth.md).
 
-## Alternatives
+## Alternatives considered
 
-1. Standard browser/SSR Supabase SDK: maintained default, but needs browser token access/refresh and does not meet MindMora's HttpOnly boundary.
-2. Opaque cookie with custom DB/Redis session authority: requires extra token storage/schema/coordination before 1C, and duplicates session ownership; deferred.
-3. Handwritten GoTrue REST/PKCE: fewer SDK dependencies but duplicates maintained provider protocol details; rejected.
+- Standard browser/SSR Supabase session integration: maintained default, but browser token
+  handling does not meet the chosen HttpOnly boundary.
+- Opaque cookie with custom DB/Redis session authority: could avoid bearer tokens in the
+  browser cookie, but adds sensitive token storage/schema/coordination and duplicate lifecycle.
+- Handwritten provider REST/PKCE: reduces SDK dependency but duplicates maintained protocol work.
 
-## Rationale
+## Why this approach
 
-Reuse supported provider APIs while keeping auth credentials out of browser JS and avoiding custom passwords/session cryptography. An auth-only package avoids introducing database/Storage clients before their milestones. Lazily validated configuration keeps the public showcase available before provider setup.
+Reuse supported provider exchange/refresh/verification/revocation while projecting no
+tokens into browser JavaScript. The auth-only package avoids adding an unused broader
+Storage/database SDK. Lazy configuration lets public pages remain available before setup.
+This is the documented boundary choice, not proof of immunity from XSS or compromised cookies.
 
 ## Trade-offs
 
-Online verification adds provider latency and fails closed during outage. Protected cookies still contain bearer credentials; HttpOnly does not prevent XSS-authenticated requests or stolen-cookie replay before provider revocation. Cookie size is bounded; oversized sessions fail safely, requiring reviewed chunking if needed. A single pending cookie supports one active sign-in per browser. Concurrent refresh behavior depends on Supabase's documented reuse policy and was observed in a live two-request check; that bounded result does not prove every timing/load pattern. SDK retry timing can exceed a per-fetch timeout.
+Online verification adds latency/availability dependence. Cookies still hold bearer
+credentials; HttpOnly does not stop same-origin authenticated requests or stolen-cookie
+use before provider invalidation. Cookie size is bounded and chunking absent. One pending
+flow limits parallel sign-in tabs. Concurrent refresh depends on provider reuse behavior;
+SDK retry duration can exceed an individual fetch timeout. Native in-app-browser form
+Origin behavior required a temporary adapter for prior live verification, now removed.
 
 ## Consequences
 
-No browser auth SDK, local/session storage tokens, service-role key, custom password/token table or Google provider-token persistence. Session projection/HTTP helpers exist without product screens. Cache/draft cleanup remains 1F/1G. Redis/Pino/admission controls remain 1D and endpoints are not production-ready before that work. Initial auth OpenAPI is maintained; Swagger/Postman generation remains 1H. Live provider checks must finish before 1B acceptance is checked off.
+No browser auth SDK, token UI store, app password/token table or Google provider-token
+persistence. Current pages have no sign-in/workspace consumer. General admission/logging
+and cache/draft cleanup remain later milestones. `handleAuth` explicitly disposes its
+provider; the existing database verification helper does not yet do so and must be assessed
+when integrated. Every private adapter must verify its own request and propagate refresh
+cookies, rather than trusting a cached projection or the mere existence of a cookie.
 
-## Evidence
-
-Test-first config/routes/client helper failures preceded implementation. Real-SDK fixture and Next/browser tests verify application cookie/PKCE/Origin/refresh/local-revocation behavior. The initial live settings check found Google disabled. After user setup, a fresh check returned HTTP 200 with Google enabled; the live start flow reached Google’s sign-in page. The user then completed sign-in/consent; the browser received the safe live session projection. Same-origin logout returned 204 and session afterward returned 401. Subsequent live refresh/rotation, immediate reuse/concurrent refresh, revoked original/refreshed cookie replay and independent-session isolation checks passed 13/13. Refresh was triggered by an aged expiry hint; natural JWT expiry was not awaited.
-
-[Auth implementation/setup](../integrations/supabase-auth.md) · [Phase 1 plan](../../.agent/active/phase-01-foundation.md) · [ADR-016](ADR-016-supabase-auth-and-server-data.md)
+[Auth source navigation](../FILE_MAP.md#backend-auth-and-browser-projection) ·
+[Security](../architecture/security-architecture.md) · [ADR-016](ADR-016-supabase-auth-and-server-data.md).

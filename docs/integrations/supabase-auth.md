@@ -1,101 +1,202 @@
-# Supabase Auth and Server Data
+# Google Authentication through Supabase
 
-**Updated:** 2026-10-04. **Status:** ✅ 1B backend auth code/local verification; ✅ live Google sign-in/session/logout and refresh/replay acceptance verified. PostgreSQL/Drizzle/Storage remain planned.
+**Current:** ✅ backend auth routes and browser-safe helpers, through 1B/1C. No sign-in screen
+or private workspace yet. This guide owns protocol, HTTP/cookie rules, setup and failure
+behavior. [ADR-020](../decisions/ADR-020-backend-owned-auth-cookies.md) owns the decision;
+[phase record](../phases/phase-01-foundation.md) owns dated local/live validation.
 
-## Purpose and scope
+## Purpose and participants
 
-Google sign-in establishes a Supabase identity. MindMora verifies it on the server and gives the browser only a safe user projection. 1B introduces start/callback/session/logout routes; no sign-in screen, profile table, workspace, note API or database client. No custom passwords, Google-token table or independent session database.
+Supabase manages Google identity and session lifecycle. MindMora verifies identity on the
+server, keeping bearer credentials in protected cookies and exposing a minimal projection.
+Google client credentials are configured in Supabase, not consumed by app auth code.
+The app uses the auth-only SDK with fresh transient storage instead of a browser SDK or
+custom password/session database. Auth routes do not touch application profiles/notes.
 
-## Implemented flow
+## Sign-in sequence
 
-```text
-Same-origin POST /api/auth/start
-→ fresh server AuthClient creates S256 PKCE challenge
-→ short-lived HttpOnly pending cookie holds app state + SDK verifier storage
-→ browser navigates to Supabase Auth → Google
-→ fixed /api/auth/callback?state=...&code=...
-→ compare app state/expiry, SDK exchanges code with browser-bound verifier
-→ online getUser verifies identity
-→ host-only HttpOnly app-session cookie; discard Google provider tokens
-→ redirect to fixed homepage /
-
-GET /api/auth/session → validate cookie → refresh if near expiry
-→ online getUser → {user: {id, email, displayName}}
-POST /api/auth/logout → exact Origin → verify/refresh → revoke scope=local
-→ clear pending/session cookies → 204
+```mermaid
+sequenceDiagram
+  participant B as Browser
+  participant R as handleAuth / session helpers
+  participant S as Request-local AuthClient
+  participant A as Supabase Auth
+  participant G as Google
+  B->>R: Same-origin POST start
+  R->>R: Config, method, Origin and query checks
+  R->>S: start(fixed app callback + random state)
+  S-->>R: Authorize URL, flowId, verifier storage
+  R-->>B: 303 + protected pending cookie
+  B->>A: Navigate to validated authorize URL
+  A-->>B: Google sign-in redirect
+  B->>G: Sign-in / consent
+  G-->>B: Redirect to Supabase provider callback
+  B->>A: Google OAuth callback
+  A-->>B: Redirect to app callback with code/state
+  B->>R: GET callback + pending cookie
+  R->>R: Check fields, state, code and pending expiry
+  R->>S: exchange(code, recorded flowId)
+  S->>A: Code + PKCE verifier
+  A-->>S: App session credentials
+  R->>S: verify(accessToken)
+  S->>A: getUser(accessToken)
+  A-->>S: User identity
+  R-->>B: 303 fixed homepage + session cookie; clear pending
 ```
 
-Supabase owns Google OAuth state and the one-time code. The additional random app state matches the pending browser flow; PKCE proves possession of its verifier. No client-supplied return URL is accepted. Beginning a second sign-in replaces the single pending flow; use one browser tab per sign-in. Browser UI and authenticated workspace arrive in 1F.
+The SDK constructs the S256 challenge from its verifier state. The app captures that
+storage plus SDK flowId in the pending cookie. Supabase owns provider OAuth state; the
+app also checks its own random state. A browser request cannot choose a post-login return
+URL. Starting another flow replaces the one pending cookie, so concurrent sign-in tabs
+can invalidate each other's pending flow.
 
-## Files and responsibilities
+## HTTP contract and guard order
 
-- `src/server/auth/provider.ts`: request-local official `@supabase/auth-js` 2.117.2 client, transient SDK storage, bounded per-fetch timeout, code exchange/refresh/live verification/local revocation. No browser auth SDK or privileged key.
-- `src/server/auth/session.ts`: cookie parsing/limits, state comparison, expiry hint, refresh and verified session result.
-- `src/server/auth/routes.ts`: HTTP method/origin/query checks, fixed redirects, safe responses, cookies and request cleanup.
-- `src/app/api/auth/{start,callback,session,logout}/route.ts`: thin Node/force-dynamic adapters; unsupported methods also receive non-cacheable responses.
-- `src/features/account/types.ts`: strict Zod user projection; `api.ts`: non-persisting session/logout fetches. Future callers own cache clearing/cancellation.
-- `src/server/config.ts`: lazy APP_ORIGIN/SUPABASE_URL/SUPABASE_PUBLISHABLE_KEY validation. Uses publishable keys (`sb_publishable_...`), rejects secret keys, and exposes no raw input in errors. Legacy anon JWT keys are intentionally not this configuration contract.
+Paths below use canonical trailing slashes for browser requests; adapters reside under
+`src/app/api/auth`. Configuration is checked first. If invalid, any action returns 503
+before method/Origin checks. Unsupported methods are explicitly routed to the same policy.
 
-## Cookie and request policy
-
-On HTTPS, `__Host-mindmora-session` and `__Host-mindmora-pending` are HttpOnly, Secure, SameSite=Lax, Path=/, with no Domain. Local loopback HTTP uses unprefixed names and omits Secure for development/preview. Pending flow expires after ten minutes; session cookie lasts seven days and is renewed on refresh. Browser expiry is not provider revocation. Every accepted session request performs online `getUser`; no locally decoded user, `getSession` result or cached projection authorizes access.
-
-The session payload includes only Supabase app access/refresh credentials and an expiry hint, not Google provider tokens/user metadata. These bearer credentials are in protected cookies, never browser JS stores, UI state, URL or returned JSON. HttpOnly does not stop XSS from issuing authenticated requests. Server-readable transport/storage trust still applies.
-
-Cookie values are capped at 3800 encoded characters; duplicate/oversized/malformed values fail closed. Unusually large provider sessions may need a separately reviewed chunking strategy later; no truncation or partial session issuance. Expiry hints only choose when to refresh; online provider verification establishes identity. No custom signed/encrypted session protocol is implemented.
-
-Start/logout require exact matching Origin and reject cross-site Fetch Metadata. Session GET rejects a foreign Origin or cross-site metadata when present. Callback is deliberately exempt from Origin because it is a top-level provider navigation; app state/PKCE/cookie expiry enforce the callback boundary. All auth responses, errors, redirects and refreshed cookies use `Cache-Control: private, no-store`, plus Pragma/Expires and no-referrer. Ingress must honor this policy.
-
-## HTTP contract
-
-| Route | Method | Result |
+| Path | Method / policy | Successful result |
 |---|---|---|
-| `/api/auth/start` | POST, exact Origin, no query | 303 Supabase authorize redirect + pending cookie |
-| `/api/auth/callback` | GET, code/state | 303 fixed homepage + app cookie; pending cookie removed |
-| `/api/auth/session` | GET, app cookie | 200 strict user projection; may rotate cookie |
-| `/api/auth/logout` | POST, exact Origin | 204 current-session revocation/local cleanup; no cookie is idempotent 204 |
+| `/api/auth/start/` | POST; exact APP_ORIGIN; no nonempty query | 303 validated Supabase authorize URL + pending cookie |
+| `/api/auth/callback/` | GET; external navigation permitted; pending state/PKCE instead of Origin gate | 303 fixed `/` + app session; pending removed |
+| `/api/auth/session/` | GET; absent Origin allowed, foreign Origin or cross-site fetch rejected; no nonempty query | 200 `{user: {id, email, displayName}}`; may refresh cookie |
+| `/api/auth/logout/` | POST; exact APP_ORIGIN; no nonempty query | 204 current-session revocation and cookie cleanup |
 
-Errors: 400 malformed flow/query, 401 rejected credentials, 403 foreign/missing mutation Origin, 405 unsupported method with Allow, 503 missing config/provider unavailable/unsafe provider response. JSON errors contain only `{error: {code, message}}`. General correlation IDs/Pino/Redis admission are 1D; interactive Swagger/generated Postman/drift tooling are 1H. The initial auth-only [OpenAPI contract](../api/openapi.json) documents current routes without credentials.
+Start/logout reject missing or different Origin, and non-callback requests reject
+`Sec-Fetch-Site: cross-site`. Callback accepts only singular `state`, `code`, `error`,
+`error_description`, `error_code` parameters. Provider-error callbacks, absent/oversized
+code, missing/expired pending flow or bad state yield a safe 400 without exposing provider
+descriptions. Unsupported methods yield 405 with Allow when config is valid.
 
-## Refresh, logout and failures
+All policy responses set `Cache-Control: private, no-store`, Pragma/Expires and
+`Referrer-Policy: no-referrer`. Errors expose `{error: {code, message}}`, never raw SDK
+payloads. [Auth OpenAPI](../api/openapi.json) is the existing contract; broader generation,
+Swagger and Postman tooling are planned. No auth admission limiter or Pino exists yet.
 
-Refresh is server-side only and triggered within 30 seconds of expiry. The fresh token is verified online before issuing a new protected cookie. Network/provider errors fail closed with 503; ordinary session outages preserve the existing cookie for a later retry. Invalid/revoked sessions produce 401 and clear cookies.
+## Credential and cookie trust
 
-Logout uses the user's access token with supported local-session revocation; it does not require an admin/service-role key or intentionally log out other devices. On remote failure, local cookies are cleared but 503 explicitly means provider revocation was not confirmed. A delayed refreshed cookie cannot authorize a revoked provider session because the next request verifies online. Client cache/draft cleanup and late-response UI suppression remain 1F/1G work.
+Session cookies contain base64url JSON of `accessToken`, `refreshToken`, `expiresAt`.
+They are not application-signed/encrypted cookie envelopes. The token fields and expiry
+hint are untrusted; identity always comes from online provider verification. Google
+provider tokens and raw user metadata are not copied into the app session cookie.
 
-Supabase refresh-token reuse exceptions accommodate concurrent requests. Fixture tests model controlled refresh-token reuse and independent sessions; real provider timing/revocation behavior remains a live acceptance check. SDK refresh may retry transient failures; each HTTP fetch has a ten-second timeout, not a promised ten-second whole-operation deadline.
+| Property | Implemented behavior |
+|---|---|
+| Cookie names | HTTPS `__Host-mindmora-pending` / `__Host-mindmora-session`; unprefixed on configured loopback HTTP |
+| Attributes | HttpOnly, SameSite=Lax, Path=/, no Domain; Secure when APP_ORIGIN is HTTPS |
+| Pending flow | Ten-minute app expiry/max-age, random base64url state, verifier storage/flowId |
+| App session cookie | Seven-day max-age; renewed after server refresh; not proof of provider validity |
+| Input size/ambiguity | Duplicate same-name cookies or cookie values over 3900 characters are ignored; JSON parse failures become null |
+| Output size | Encoded value over 3800 characters rejected; no chunking implementation |
+| Identity projection | Strict id/email/displayName; provider full_name is sliced to 200 JS string units before projection validation |
 
-## Live acceptance evidence — 2026-10-04
+HttpOnly reduces JS token access, not authenticated XSS requests or stolen-cookie use.
+Do not cache a returned projection as authorization. The SDK's `persistSession:true`
+uses a fresh server Map, not browser/durable storage; auto-refresh and URL detection are
+explicitly disabled. `handleAuth` disposes the SDK and clears its Map in finally after
+provider operations. The database helper's differing cleanup behavior is described in the
+[database guide](supabase-database.md#verified-owner-and-trusted-caller).
 
-The real Next/Supabase two-session check passed 13/13: actual refresh/credential rotation,
-immediate parent reuse, two concurrent refresh requests, logout/revoked original and
-refreshed-cookie replay (401), revoked refresh (401), independent-session survival (200),
-and cleanup (204). The app expiry hint was aged to trigger live refresh; natural JWT
-expiry was not awaited. Same-user independent sessions do not establish database/RLS
-isolation. Temporary test route and captured credentials were removed. Full evidence is
-in the active Phase 1 plan and phase outcome record.
+## Session, refresh and logout
 
-## Configure local Google verification
+```mermaid
+sequenceDiagram
+  participant B as Browser
+  participant R as Auth route
+  participant V as verifySession
+  participant A as Supabase Auth
+  B->>R: Session GET or logout POST + cookie
+  R->>V: Decoded untrusted fields
+  V->>V: tokenSchema validation
+  opt expiresAt is within 30 seconds or earlier
+    V->>A: refreshSession(refreshToken)
+    A-->>V: New token tuple
+  end
+  V->>A: getUser(current accessToken)
+  A-->>V: Verified identity
+  V-->>R: projection + tokens + refreshed
+  alt Session action
+    R-->>B: 200 projection; new cookie if refreshed
+  else Logout action
+    R->>A: admin.signOut(user accessToken, local)
+    A-->>R: Revocation result
+    R-->>B: 204 + clear pending/session
+  end
+```
 
-1. Fill ignored `.env` with APP_ORIGIN (usually `http://localhost:3000`), Supabase project URL and **publishable** key. `.env.example` contains placeholders; never paste keys into chat or commit `.env`.
-2. In Google Cloud, configure OAuth consent/test users and a Web client. Use the exact Supabase Google-provider callback URI displayed in the dashboard. Optional `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` placeholders in ignored `.env` are a local setup reference only; the application does not read them. Put the same values in Supabase provider settings and enable Google. Filling `.env` alone does not enable the provider.
-3. Set Supabase Site URL to APP_ORIGIN. Allow only the corresponding callback path with dynamic state query, for example `http://localhost:3000/api/auth/callback?state=*`. Add the explicit HTTPS equivalent when deploying; avoid a whole-origin wildcard. SDK flow ID is stored in the pending cookie, not appended to the redirect URL.
-4. Run `npm run dev`. From the same-origin browser console, use this test-only POST form (UI is scheduled for 1F):
+The SDK method name `admin.signOut` does **not** mean this call uses a service-role key:
+it supplies the user's access token with local scope. Missing/corrupt decoded cookie on
+logout follows idempotent 204 cleanup without provider verification; a structured but
+invalid token tuple instead follows the 401 path. Other device sessions are not intentionally
+revoked. A late cookie from a completed refresh still needs online verification next time.
+
+## Failure behavior
+
+| Failure | Result and cleanup |
+|---|---|
+| Config invalid | 503 auth_unavailable; early return, no cookie cleanup |
+| Wrong method / Origin / non-callback query | 405 / 403 / 400; early return, no provider operation/cookie cleanup |
+| Callback query/state/expiry/provider error | 400 invalid_auth_callback; pending cleared, existing session not automatically cleared |
+| Missing/invalid structured credentials or rejected provider identity | 401 unauthenticated; pending/session cleared |
+| Provider outage/network/unsafe response on ordinary session | 503 auth_unavailable; existing cookie preserved for a later caller retry |
+| Provider failure inside logout branch | 503; local cookies cleared, remote revocation unconfirmed |
+| Provider failure inside callback branch | Pending cleared; 503 normally retains an existing session; 401 clears both |
+
+The provider maps 4xx errors other than 429 to unauthenticated; 429/5xx become unavailable.
+Each SDK fetch uses a ten-second AbortSignal and no-store. The SDK can retry refresh;
+there is no total ten-second operation deadline or route-level retry policy. Browser
+`readSession` maps HTTP 401 to null, validates successful JSON and otherwise throws a
+fixed error, including abort/network failures. `logout` resolves only on 204. Both helpers
+have no page caller, persistence, automatic retry or account-cache cleanup yet.
+
+## Setup and manual verification
+
+1. Set ignored `.env`: APP_ORIGIN matching the browser address, project SUPABASE_URL and
+   SUPABASE_PUBLISHABLE_KEY in the supported `sb_publishable_...` format. Legacy anon JWT
+   keys/service-role keys are not accepted by this configuration contract. Configured
+   non-loopback origins require HTTPS; the public showcase needs none of these values.
+2. Configure a Google Web OAuth client/consent/test users. Use the **exact** Callback URL
+   displayed by Supabase's Google provider settings in Google's Authorized redirect URIs.
+   Google returns to Supabase `/auth/v1/callback`, not directly to MindMora. Put client
+   ID/secret in Supabase and enable Google. Optional `.env` Google fields are reference
+   placeholders only. Provider dashboard state cannot be inferred from repository files.
+3. Set Supabase Site URL to APP_ORIGIN and allow the callback generated by app code,
+   e.g. `http://localhost:3000/api/auth/callback?state=*`; add the explicit deployment
+   equivalent when that is selected. The app callback includes state, not flowId.
+4. Run the dev server. No permanent sign-in button/auth-check route currently exists.
+   Ordinary Chromium form POST was exercised by the fixture browser tests:
 
 ```js
 const form = document.createElement("form");
 form.method = "POST";
-form.action = "/api/auth/start";
+form.action = "/api/auth/start/";
 document.body.append(form);
 form.submit();
 ```
 
-5. Sign in with a disposable Google test account. Check `/api/auth/session` returns only id/email/displayName and no-store, then POST logout from the same origin. Check invalid callback/replay, expiry refresh, provider revocation and a second independent session. Record observed results in the active plan before marking live acceptance complete; do not copy tokens into tracked fixtures.
+5. The in-app browser's native form previously lacked an acceptable Origin and received
+   origin_rejected. A temporary same-origin adapter was used for live verification and
+   removed; it is not a current route. Do not relax Origin checks or assume fetch-following
+   redirects supplies a working interactive OAuth flow. Use a browser that sends the
+   required Origin or implement/review an adapter in a separately authorized milestone.
+6. Use a disposable Google account and examine `/api/auth/session/`, then same-origin POST
+   logout. Provider setup/acceptance should be rechecked when configuration changes;
+   do not copy session credentials into tracked examples.
 
-## Verification and current limits
+[Official setup reference](https://supabase.com/docs/guides/auth/social-login/auth-google)
+is external guidance, not fresh provider-state verification in this docs pass.
 
-`npm run test` exercises the actual SDK with an isolated transport fixture. `npm run test:auth` starts a disposable loopback provider, then Playwright against the production Next build. Browser tests cover the complete redirect/cookie/projection/refresh/logout path and absence of JS cookie visibility/localStorage/sessionStorage credentials. The fixture is test-only and is never imported by application routes; no production test bypass or user seeding endpoint exists.
+## Evidence and current limits
 
-An initial read-only live settings check on 2026-10-04 returned HTTP 200 with Google disabled. After user configuration, a fresh check returned HTTP 200 with Google enabled. The live start route redirected through Supabase to Google’s sign-in page with the configured callback and PKCE flow. The user completed Google sign-in/consent; the live app session returned the strict user projection. A same-origin logout returned 204; the same browser then received session HTTP 401 with `unauthenticated`. A subsequent live two-session check passed 13/13: actual provider refresh/rotation, immediate parent reuse, concurrent refresh, original/refreshed cookie replay rejection after logout (401), revoked refresh rejection (401) and independent B survival (200). The expiry hint was aged to trigger refresh; natural access JWT expiry was not awaited. Both sessions were cleaned up with logout 204. No cloud resource, paid upgrade or deployment was created. Redis admission/logging and private workspace security remain pending: these endpoints are not production-ready until 1D controls are integrated. Database owner/RLS and Storage policies belong to 1C/1E/Phase 4, not this auth result.
+The phase record preserves successful real Google/session/logout and bounded live refresh/
+replay checks, with dates and natural-expiry limitations. Fixture tests use actual SDK and
+Next/browser cookies against controlled provider transport. Database tests separately
+exercise real PostgreSQL with fabricated test transport responses; they do not repeat
+Google consent. Current results must not be extrapolated to every provider setting, reuse
+interval or load pattern.
 
-[Official Google setup](https://supabase.com/docs/guides/auth/social-login/auth-google) · [SDK storage/PKCE guidance](https://supabase.com/docs/guides/auth/server-side/advanced-guide) · [Session/reuse semantics](https://supabase.com/docs/guides/auth/sessions) · [ADR-020](../decisions/ADR-020-backend-owned-auth-cookies.md) · [Security acceptance](../architecture/security-architecture.md)
+No product login/workspace, general HTTP admission/logging, custom cookie encryption,
+Google Drive scope/token integration, profile creation, browser cache lifecycle or production
+TLS deployment. Supabase Auth can revoke sessions; cookie presence alone cannot establish
+that it has. The database is a separate integration, described [here](supabase-database.md).

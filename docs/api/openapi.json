@@ -3,7 +3,7 @@
   "info": {
     "title": "MindMora auth API",
     "version": "0.1.0",
-    "description": "Milestone 1B auth-only contract. Live Google acceptance pending. Notes, Swagger UI, Postman generation and full contract drift tooling are not implemented."
+    "description": "Milestone 1B auth-only contract. Bounded live Google/session/logout and refresh/replay acceptance recorded in docs/phases/phase-01-foundation.md. Notes, Swagger UI, Postman generation and full contract drift tooling are not implemented."
   },
   "paths": {
     "/api/auth/start": {

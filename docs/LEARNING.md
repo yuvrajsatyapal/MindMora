@@ -1,122 +1,261 @@
-# MindMora Learning Notes
+# Learning MindMora
 
-**Status:** UI/runtime and 1B auth concepts below are implemented; live Google sign-in/session/logout and refresh/replay acceptance verified. Other backend concepts are 📋 planned examples. Updated 2026-10-04.
+**Source inspected:** 2026-10-04, through 1C. Study the system that exists first: public UI,
+backend auth, shared contracts and a database library boundary. There is no note-save
+request flow yet. [Architecture](../ARCHITECTURE.md) owns the system overview,
+[FILE_MAP](FILE_MAP.md) owns navigation, and subsystem guides own exact operating rules.
 
-## Planned full-stack concepts
+## A progressive source-reading path
 
-### Why PostgreSQL is authoritative
+Use each question to check understanding before moving on. All links below are existing
+files, not proposed examples.
 
-When a note is saved, the backend commits a scoped Drizzle transaction before returning success. Two devices read the same record. Unlike the superseded browser database, server access needs connectivity; an unsaved browser draft can be lost on refresh.
+| Order | Read | Question to answer |
+|---|---|---|
+| 1 | [homepage](../src/app/page.tsx), [layout](../src/app/layout.tsx), [showcase](../src/app/dev/design-system/showcase.tsx) | What does a user actually see, and which interactions are only samples? |
+| 2 | [tokens](../src/design-system/tokens.css), [UI exports](../src/components/ui/index.ts), [theme](../src/components/ui/theme.tsx), [product patterns](../src/components/mindmora/index.tsx) | Which layer owns appearance, state and callbacks? |
+| 3 | [account projection](../src/features/account/types.ts), [browser helpers](../src/features/account/api.ts), [server config](../src/server/config.ts) | What data is allowed to cross the browser/server boundary? |
+| 4 | [auth adapters](../src/app/api/auth/), [auth routes](../src/server/auth/routes.ts) | Where are methods, Origin, redirects and cookies controlled? |
+| 5 | [session](../src/server/auth/session.ts), [provider](../src/server/auth/provider.ts), [auth tests](../src/server/auth/routes.test.ts) | How is a token-shaped cookie different from verified identity? |
+| 6 | [note inputs](../src/features/notes/validation.ts), [domain types](../src/features/notes/types.ts), [model contract](features/note-model.md) | Which constraints describe data, and which would require authorization? |
+| 7 | [Drizzle schema](../src/server/db/schema.ts), [migration](../supabase/migrations/0000_profiles_notes.sql) | What exists in PostgreSQL beyond the TypeScript model? |
+| 8 | [verified owner](../src/server/db/user-context.ts), [DB client](../src/server/db/client.ts), [DB config](../src/server/db/config.ts) | Why do identity, login role and LOCAL claims all matter? |
+| 9 | [role provision](../scripts/provision-role.ts), [credential staging](../scripts/provision-files.ts), [CLI coordinator](../scripts/provision-database.mjs) | What happens when database setup and file publication cannot commit together? |
+| 10 | [RLS tests](../tests/integration/rls.test.ts), [Docker harness](../scripts/test-database.mjs), [browser tests](../tests/e2e/) | Which guarantees are exercised with real systems, and which services are fixtures? |
 
-### TanStack Query cache versus database
+## 1. Presentation, state and persistence are different things
 
-Query holds fetched notes temporarily in browser memory and refetches/invalidate after API writes. It is not durable storage. User/session-scoped query keys and logout cancellation/cleanup prevent one account's cached notes appearing under another. Zustand controls UI; nuqs controls selected ID/view in the URL.
+**Concept.** Rendering a note row or a “saved” badge does not save data. A controlled
+component receives values and callbacks; its parent chooses the state and side effects.
+This keeps visual behavior reusable without turning UI into storage authority.
 
-### Zod versus TypeScript
+**MindMora implementation and flow.** The layout installs ThemeProvider and CSS. The
+showcase holds demo React state and passes it to reusable controls/product patterns.
+Clicks/keyboard callbacks update that state, causing a new render. CSS semantic tokens
+provide light/dark colors and motion rules; changing theme projects a document data
+attribute, while system mode leaves CSS to follow OS preference.
 
-TypeScript helps while writing code. A browser request can still contain malformed JSON, wrong lengths or forged ownership fields; Zod checks runtime data. A valid schema does not mean the user owns the requested note: authorization is a separate backend check.
+```mermaid
+flowchart LR
+  Action["Keyboard / pointer action"] --> Callback["Controlled callback"]
+  Callback --> State["Showcase React state"]
+  State --> Render["UI pattern renders new props"]
+  Tokens["Semantic CSS tokens"] --> Render
+  Reload["Page reload"] --> Reset["System theme + initial samples"]
+```
 
-### Repository and RLS layers
+**Security and trade-offs.** Components contain no DB credentials or real note ownership.
+Page-lifetime state is simple and easy to test, but disappears on reload; “session-only”
+here does not mean sessionStorage. Shared CSS/Radix reduce duplicated visual/focus logic,
+while callers still must provide meaningful labels and valid controlled state. Existing
+save/sync labels and metadata contain historical local-first wording; that wording is a
+presentation limitation, not an implemented sync mechanism.
 
-The backend repository owns owner filters, revisions and transaction rules. RLS is another database protection, but privileged Drizzle connections can bypass policies. The real role/claim configuration must be tested with two users, including pooled connection reuse.
+**Read next:** [design contract](design/design-system.md), [component API](design/component-api.md),
+then [runtime config](../src/server/config.ts).
 
-### Redis, BullMQ and workers
+## 2. A runtime boundary protects imports, not every output
 
-Redis stores expiring counters and reference jobs; BullMQ coordinates delivery/retries; a separate Node worker performs exports/indexing. A duplicate retry must not create duplicate side effects. An outbox/status record recovers work when the database commits but enqueue fails. Browser Web Workers are a different kind of worker for tab-local computation.
+**Concept.** Browser code and server code have different access: only the server should
+read credentials or use a database connection. A backend does not require every page to
+render anew on each request; static public content and dynamic APIs can coexist.
 
-### Server encryption and browser memory
+**MindMora implementation and flow.** Next builds the public pages ahead of time; Node
+serves them and dispatches dynamic auth requests. `server-only` rejects guarded modules
+in Client Component imports. Config loaders read selected environment variables only when
+called, validate them with Zod and emit fixed errors. Public pages do not call those loaders.
 
-HTTPS protects transport; infrastructure encryption protects stored disks/files/backups. Authorized server/provider can still read notes. No vault passphrase/recovery key is involved. The browser needs readable temporary content to display/edit; XSS/device compromise remains a risk even without persistent browser storage.
+**Security and trade-offs.** Lazy config lets someone run the showcase without cloud
+setup. The compiler guard prevents accidental imports, but cannot protect a secret manually
+copied into JSON/React props. Runtime validation cannot prove a hosted service is reachable.
+The real compiler fixture tests the import restriction rather than assuming a mocked
+unit environment reproduces Next's boundary.
 
-### Logs and contracts
+**Read next:** [boundary harness](../scripts/test-server-boundary.mjs), then account projection
+and [auth guide](integrations/supabase-auth.md).
 
-Pino creates safe operation/status/duration/correlation metadata, not note/body/token logs. OpenAPI describes endpoints; Swagger lets developers inspect/try them; Postman runs requests from the same generated contract. Tracked examples contain placeholders/disposable fixtures only.
+## 3. Authentication tells us who; authorization tells us what they may access
 
-### Nginx and hosting
+**Concept.** A credential is evidence to verify, not a trustworthy user object. A valid
+account still cannot read another account's note. Input validation, identity verification
+and row authorization solve different problems.
 
-Nginx can handle HTTPS and routing on our own server. A managed host may already perform ingress. Naming Redis/worker/Nginx libraries doesn't supply free server capacity; monitor actual quotas and choose hosting before deployment.
+**MindMora implementation and flow.** Supabase Auth owns Google identity and sessions.
+The server accepts a cookie containing token fields, validates their shape, refreshes
+near expiry, then asks the provider for the user. Only id/email/displayName cross back to
+browser JSON. The database boundary separately uses this verified identity for owner RLS.
 
-## Evidence to add during milestones
+```mermaid
+flowchart TD
+  Cookie["Untrusted cookie fields"] --> Shape["tokenSchema: shape/size"]
+  Shape --> Expiry["Refresh when expiry hint is near"]
+  Expiry --> Online["Provider getUser: actual identity check"]
+  Online --> Projection["Safe user projection"]
+  Projection --> Context["Database owner issuance when helper is called"]
+  Context --> Row["SQL policy: may this owner access this row?"]
+```
 
-Record actual source file, concrete action/data flow, why this approach helps MindMora, one trade-off and verification. Don't label hypothetical failures as encountered bugs. No backend examples here imply implementation.
+**Security and trade-offs.** Editing cookie expiry does not forge a verified account.
+Base64url is encoding, not encryption/signing. HttpOnly keeps JS from reading the cookie
+but does not stop JS issuing authenticated requests. Online verification costs a provider
+round trip and fails closed on outages. The database helper is not called by an HTTP route
+yet, so this diagram shows composition of implemented functions, not a current note API.
 
-## Implemented design-system concepts
+**Read next:** [session.ts](../src/server/auth/session.ts), [provider.ts](../src/server/auth/provider.ts),
+[ADR-020](decisions/ADR-020-backend-owned-auth-cookies.md).
 
-### Semantic tokens keep meaning stable
+## 4. PKCE and app state bind the returning sign-in to its browser flow
 
-`src/design-system/tokens.css` maps `--accent` to teal on light surfaces and mint on dark ones. A button consumes `--accent` and `--on-accent`, so a feature does not choose its own color pair. CSS system preference works before React hydration; `ThemeSelect` later sets an explicit document attribute. The trade-off is a theme that resets on refresh until authenticated server preferences are implemented.
+**Concept.** A sign-in callback arrives from outside the app. PKCE ties code exchange to
+possession of a verifier; the app's random state ties the callback to its pending browser
+flow. Those checks allow an external redirect without treating arbitrary callback input
+as authenticated.
 
-### Controlled patterns separate UI from persistence
+**MindMora implementation and flow.** POST start creates a fresh SDK client and verifier
+storage, asks for the provider URL, validates that URL and sets a short-lived pending
+cookie. Google returns to Supabase; Supabase returns to the configured app callback.
+The app checks permitted query fields, state/expiry and code before SDK exchange and
+online verification. It sets the app session and redirects to the fixed homepage.
 
-`TaskRow` emits `onCheckedChange` and renders its `checked` prop. The showcase updates component state; a future feature hook must commit or preserve its draft according to repository behavior. `SaveStatus` cannot know whether a write succeeded, so its contract requires callers to pass saved only after a successful commit. Unit tests verify the callback and failure wording.
+**Security and trade-offs.** Supabase owns Google OAuth state; MindMora's app state is an
+additional boundary. Start/logout require exact Origin, while callback uses state/PKCE.
+One pending cookie means one active sign-in flow per browser. Beginning another flow
+replaces the earlier one. Configuration of Google consent/callbacks is external to source,
+so a successful fixture does not prove a real project's settings.
 
-### Accessibility belongs to the shared contract
+**Read next:** [auth sequence/setup/failures](integrations/supabase-auth.md), route tests and
+[historical live evidence](phases/phase-01-foundation.md).
 
-`TextField` connects its label and description using generated IDs. `Button` retains its name while busy and blocks duplicate clicks. Radix supplies dialog focus trapping, Escape and focus restoration. The benefit is consistent behavior across future screens; the cost is maintaining the wrapper contract and testing it whenever composition changes.
+## 5. Refresh, revocation and browser lifetime are separate clocks
 
-## Implemented runtime concepts — Milestone 1A
+**Concept.** Browser cookie expiry, access-token expiry and provider revocation are not
+the same event. A cookie may exist after its provider session has been revoked. Refresh
+can succeed concurrently within a provider's reuse rules; that is not an unlimited replay
+promise.
 
-### A Node server can serve prerendered pages
+**MindMora implementation and flow.** Session verification uses the expiry hint to decide
+whether to refresh, verifies the resulting access token and returns `refreshed` metadata.
+Auth routes write the new cookie when needed. Logout verifies/refreshes, asks for local
+session revocation and clears cookies. Missing/corrupt decoded cookie follows idempotent
+local cleanup; invalid structured credentials can produce 401.
 
-`next.config.ts` no longer selects static export. `npm run build` creates `.next/`; `scripts/preview.mjs` runs Next's production server on loopback. Next still prerenders public HTML and React hydrates controls. This preserves fast public pages while allowing request-time Route Handlers later. It requires a running Node process instead of only a file host. There is still no knowledge API or database.
+**Failures/security/trade-offs.** A provider outage yields 503 instead of access. Ordinary
+session failure of that kind preserves the cookie; logout failure inside the provider
+branch clears local cookies but cannot confirm remote revocation. Earlier config/Origin
+rejection does not execute that cleanup. There is no automatic browser retry or cache-
+cleanup mechanism in account helpers. SDK retries make a ten-second fetch timeout distinct
+from a ten-second whole operation. See the auth guide for the exact error matrix.
 
-### Server-only is an import boundary
+**Read next:** [account helpers](../src/features/account/api.ts), auth tests, then note inputs.
 
-`src/server/config.ts` imports `server-only`, so Next rejects a Client Component that imports it, including through another module. `scripts/test-server-boundary.mjs` proves this with the actual Next compiler; the unit-test mock is only necessary to run pure validation outside Next's RSC compiler. This guard does not stop a developer from copying a secret into a server response/React prop; output still needs review and leakage tests.
+## 6. Types, validators and database constraints overlap without replacing one another
 
-### Lazy configuration and runtime validation
+**Concept.** TypeScript checks code before execution; Zod checks actual values; PostgreSQL
+constraints protect persisted rows. Permission is separate from all three. Sharing input
+schemas reduces drift, but only a caller that parses data actually enforces them.
 
-`getServerConfig()` selects only APP_ORIGIN, validates it with Zod, and returns a frozen normalized origin. Missing config throws a fixed message with no raw value or Zod cause. Import does not read env, so public pages work before backend setup. The disposable Node route proves an origin changed after build is read on the request. TypeScript cannot validate strings arriving from the process environment. Service-specific validators must be added with their consumers; 1A has no secret/service credential loader.
+**MindMora implementation and flow.** Shared note schemas reject unknown owner/plan fields,
+trim/bound titles, bound UTF-8 content, require meaningful updates and constrain revisions/
+cursors. Domain schemas describe output shape. Drizzle defines SQL columns and migration
+constraints. No note route or serializer consumes these contracts yet.
 
-Zod validation is piped: URL parsing must succeed before URL-based refinements run. The initial implementation let invalid strings reach `new URL`; two tests exposed that unsafe exception path. The pipe now yields the intended fixed error. Loopback HTTP is a local test exception; it is not deployment TLS evidence.
+**Security and trade-offs.** Unicode code points differ from UTF-8 bytes; 200 emoji need
+more than 200 bytes. NUL cannot reach PostgreSQL TEXT. Zod title trim is broader than SQL
+space trim; a stored value valid under SQL can fail the stricter domain schema. Parsing a
+note's Markdown does not sanitize HTML. Current output schemas validate timestamp shape,
+not cross-field chronology; SQL checks protect persisted timestamp order.
 
+**Read next:** [note model](features/note-model.md), validation tests and schema/migration.
 
-## Implemented auth concepts — Milestone 1B
+## 7. Migrations turn code descriptions into real database structure
 
-### PKCE ties the callback to its initiating browser
+**Concept.** A schema file describes intended structure; a migration is versioned SQL
+applied to a database. A journal records application; a snapshot supports later model diffs.
+Neither a TypeScript definition nor successful generation proves a hosted role is effective.
 
-`provider.ts` asks the official SDK for an S256 challenge and carries its verifier storage in a short-lived protected pending cookie. The callback gets a one-use code plus random app state; `routes.ts` compares state/expiry and exchanges with the original verifier. A code from another browser cannot establish an app session. Supabase separately owns Google OAuth state. Callback redirects are fixed; accepting a user-supplied return URL would add an unnecessary redirect boundary.
+**MindMora implementation and flow.** Drizzle generation reads `schema.ts`; the reviewed
+initial migration adds tables, foreign keys, checks, index and policies, plus manual
+role/grant/FORCE clauses. The CLI migrator applies that journaled SQL. Auth user deletion
+cascades through profile to notes. The request role cannot perform normal hard deletion.
 
-### Identity is verified online, never read from cookie user data
+**Security and trade-offs.** FKs prevent orphaned ownership records. Defaults initialize
+UUID/revision/timestamps; no trigger advances revision/updatedAt later. The partial index
+is useful for future cursor queries but does not implement them. Manual privilege SQL
+requires review beyond generator snapshots; applied migration edits do not update an
+existing database. Hosted Auth schema permissions differed from requested GRANT text,
+which is why real role/query evidence matters.
 
-`session.ts` validates only token/expiry shapes; `provider.verify` calls getUser against Auth before returning id/email/displayName. A locally parsed JWT or SDK getSession is not online verification. The expiry hint decides when to refresh, but provider verification decides whether access is allowed. This adds network latency and fails closed during provider outage. Note ownership/RLS remain separate 1C/1E controls.
+**Read next:** [database guide](integrations/supabase-database.md), then verified context/client.
 
-### HttpOnly cookies require a server-owned lifecycle
+## 8. A verified owner is a capability inside the server process
 
-Standard browser auth refresh needs JS-readable tokens. MindMora uses request-local server SDK storage and manually projects only app access/refresh credentials into an HttpOnly cookie; Google provider tokens are discarded. HTTPS __Host cookies disallow a Domain attribute and require Secure/Path=/. SameSite=Lax permits the Google top-level callback; exact Origin protects start/logout POSTs. HttpOnly blocks JS reads, but XSS could still issue authenticated requests.
+**Concept.** A capability is something possession of which admits a specific operation.
+Here an object identity carries evidence that the app ran its verification helper. A UUID
+string alone supplies no such evidence.
 
-### Refresh and logout are provider operations
+**MindMora implementation and flow.** `verifyDatabaseSession` uses the existing online
+verification, freezes `{userId}`, registers that actual object in a module-private WeakSet
+and returns it with session/refresh metadata. `run` asserts membership before opening a
+transaction. Copying/spreading the owner creates a different object and is rejected.
 
-A session near expiry refreshes on the server, verifies the new access token and rotates the cookie. Logout calls supported current-session (`scope=local`) revocation and clears cookies. A second device remains signed in. On remote failure, 503 means local cleanup happened but provider revocation was not confirmed. Online verification prevents a late refreshed cookie from authorizing an already-revoked session; UI late-response/cache cleanup arrives later.
+**Security and trade-offs.** The object has no built-in expiry/revocation check; it must
+remain request-scoped and future private routes must reverify each request. Its properties
+are readonly, but trusted server code still chooses callbacks and holds credentials. The
+helper currently does not explicitly call provider disposal, unlike `handleAuth`'s finally
+block. No app route currently exercises that helper. These are implementation limits,
+not hidden assumptions about automatic lifecycle behavior.
 
-### Tests distinguish application behavior from provider evidence
+**Read next:** [user-context.ts](../src/server/db/user-context.ts), [client.ts](../src/server/db/client.ts),
+[ADR-021](decisions/ADR-021-scoped-database-role.md).
 
-`routes.test.ts` uses the real auth SDK with a controlled provider transport. `test:auth` uses real Next HTTP and browser cookies with a disposable loopback provider. Neither proves real Google consent/redirect settings or Supabase refresh/revocation timing. The latest live settings check returned HTTP 200 with Google enabled; live start reached Google’s sign-in page. Google consent/callback/session now succeeded live; logout returned 204 and subsequent session check returned 401. Live Supabase refresh/reuse, concurrent refresh, revoked replay and independent-session logout checks subsequently passed (13/13); natural JWT expiry was not awaited. The fixture models independent sessions and controlled refresh-token reuse so global logout and stale response tests are meaningful.
+## 9. Connection pooling makes identity scope a security issue
 
-A malformed non-ASCII state test exposed a byte-length exception in timingSafeEqual: equal JS string lengths need not mean equal byte lengths. State is now restricted to the generated base64url alphabet before constant-time comparison. A method-error test exposed missing Allow headers, now returned safely with no-store. Cookie size limits reject duplicate/corrupt/oversized input rather than guessing an identity.
+**Concept.** A pool reuses connections to avoid opening one for every operation. A session-
+level identity setting could remain for the next user. Transaction-local settings end
+with commit/rollback, keeping scope aligned with a single operation.
 
-### Contracts and user projection
+**MindMora implementation and flow.** The app login is NOINHERIT with no direct table/
+column grants. The wrapper inspects actual flags/membership/initial claims, then SET LOCAL
+switches to the non-login request role and verified claims. Parameterized Drizzle queries
+run through `auth.uid() = user_id` policies. Callback success commits; failure rejects and
+rolls back. The factory's pool is bounded; the optional singleton is lazy.
 
-`features/account/types.ts` is a strict shared Zod projection. Browser helpers validate successful JSON and never store tokens; server-only code is excluded from client imports. The initial auth OpenAPI schema is derived from that projection. Full Swagger/Postman generation/drift tooling is scheduled for 1H; no note contract exists yet.
+**Security and trade-offs.** NOBYPASSRLS and FORCE RLS are important, but not proof against
+administrators or stolen server credentials. RLS trusts server-supplied claims. Role
+checks/SQL setup introduce round trips and are not a total-duration deadline. No explicit
+DB retry/reconciliation exists; an ambiguous commit cannot safely be equated with “unsaved.”
+Real tests check two users, no claims, privileged login and reused connections. Fixture
+Auth responses are distinct from real PostgreSQL/provider role behavior.
 
+**Read next:** [exact grants, timeouts and failures](integrations/supabase-database.md), RLS tests.
 
-### Reading workflow for the implemented auth boundary
+## 10. Provisioning crosses two systems that cannot commit together
 
-Start with `features/account/types.ts` to see the only successful session shape the browser
-receives. Next read the four `app/api/auth/*/route.ts` adapters and `server/auth/routes.ts`
-for methods, Origin/query checks and redirects. Read `session.ts` for cookie limits/state/
-expiry and `provider.ts` for actual Supabase calls. `server/config.ts` shows which env
-values the runtime reads. Finally, read `routes.test.ts` for misuse/failure scenarios and
-`tests/e2e/auth.spec.ts` for browser cookie behavior. `features/account/api.ts` validates
-browser responses; it does not hold session authority.
+**Concept.** PostgreSQL can atomically create a role and grant its membership. It cannot
+atomically commit a credential file on the developer's disk in the same transaction.
+The recovery plan must preserve the generated password before SQL can leave a login behind.
 
-Two redirects have different owners: Google returns to Supabase `/auth/v1/callback`,
-then Supabase returns to MindMora `/api/auth/callback?state=...`. Google OAuth client
-ID/secret are configured in Supabase's provider settings. The optional `.env` Google
-placeholders are setup references only, whereas APP_ORIGIN/SUPABASE_URL/
-SUPABASE_PUBLISHABLE_KEY are read by the server.
+**MindMora implementation and flow.** First-time provisioning refuses an existing login/
+nonempty runtime URL, generates a password and fsyncs private pending env content. CREATE
+ROLE/GRANT share a DB transaction. After commit, `publish` compares the original env and
+atomically renames the pending file into place. Failures retain recovery material.
 
-For current implementation/verification status read the active Phase 1 ExecPlan; for the
-actual outcome record read `docs/phases/phase-01-foundation.md`. Future note/RLS/cache
-examples remain planned. A successful redirect to Google proves the entry path only;
-it cannot prove the return callback, committed app session, refresh or revocation.
+**Security and trade-offs.** Staging prevents credential loss during process interruption
+and avoids truncating env, but leaves a second secret file needing protection. No automatic
+resume/password rotation exists; a failed or ambiguous setup needs state verification.
+The unchanged-env check is not a cross-process locking protocol; it cannot guarantee
+against every simultaneous editor write. Power-loss/backup durability is unproven.
+
+**Read next:** [provisioning state diagram/recovery](integrations/supabase-database.md#migration-and-provisioning-flow)
+and the credential-file tests.
+
+## What to study later
+
+The following are accepted plans, not installed runtime systems: Query in-memory cache,
+Zustand UI state, nuqs URL state, revision-safe repositories/HTTP saves, Redis limits,
+Pino, private Storage, BullMQ/outbox/worker, Swagger/Postman. Their reasoning belongs in
+[planned data architecture](architecture/full-stack-architecture.md), [state ownership](architecture/state-management.md),
+[backend services](integrations/backend-services.md) and [API tooling](integrations/api-tooling.md).
+Automatic Drive-authoritative sync and the browser E2EE vault are superseded, not future
+features under the current scope. Deployment/provider encryption/restore guarantees
+remain open. Do not use a roadmap diagram as evidence that those systems exist.

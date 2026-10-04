@@ -1,0 +1,229 @@
+{
+  "id": "399872b7-46e1-46ed-9b95-0341148c9e9c",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.notes": {
+      "name": "notes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content": {
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "notes_owner_active_cursor": {
+          "name": "notes_owner_active_cursor",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "updated_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"notes\".\"deleted_at\" IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "notes_user_id_profiles_user_id_fk": {
+          "name": "notes_user_id_profiles_user_id_fk",
+          "tableFrom": "notes",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "user_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "notes_owner": {
+          "name": "notes_owner",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "mindmora_request"
+          ],
+          "using": "auth.uid() = user_id",
+          "withCheck": "auth.uid() = user_id"
+        }
+      },
+      "checkConstraints": {
+        "notes_title_bound": {
+          "name": "notes_title_bound",
+          "value": "char_length(\"notes\".\"title\") BETWEEN 1 AND 200 AND \"notes\".\"title\" = btrim(\"notes\".\"title\")"
+        },
+        "notes_content_bound": {
+          "name": "notes_content_bound",
+          "value": "octet_length(\"notes\".\"content\") <= 1048576"
+        },
+        "notes_revision_positive": {
+          "name": "notes_revision_positive",
+          "value": "\"notes\".\"revision\" > 0"
+        },
+        "notes_time_order": {
+          "name": "notes_time_order",
+          "value": "\"notes\".\"updated_at\" >= \"notes\".\"created_at\" AND (\"notes\".\"deleted_at\" IS NULL OR \"notes\".\"deleted_at\" >= \"notes\".\"created_at\")"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.profiles": {
+      "name": "profiles",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "profiles_user_id_users_id_fk": {
+          "name": "profiles_user_id_users_id_fk",
+          "tableFrom": "profiles",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "profiles_owner": {
+          "name": "profiles_owner",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "mindmora_request"
+          ],
+          "using": "auth.uid() = user_id",
+          "withCheck": "auth.uid() = user_id"
+        }
+      },
+      "checkConstraints": {
+        "profiles_display_name_bound": {
+          "name": "profiles_display_name_bound",
+          "value": "\"profiles\".\"display_name\" IS NULL OR char_length(\"profiles\".\"display_name\") <= 200"
+        },
+        "profiles_time_order": {
+          "name": "profiles_time_order",
+          "value": "\"profiles\".\"updated_at\" >= \"profiles\".\"created_at\""
+        }
+      },
+      "isRLSEnabled": true
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

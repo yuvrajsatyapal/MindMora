@@ -14,7 +14,7 @@ Respond in the user's language. Work in small milestones the user can understand
 
 ## Architectural boundaries
 
-1. Next.js App Router runs a Node backend with Route Handlers. The existing static UI config is current implementation, not the target; migrate it in the requested Phase 1 milestone.
+1. Next.js App Router runs a Node backend with Route Handlers. Milestone 1A implemented the Node runtime; public pages remain prerendered. Distinguish implemented auth/database boundaries from remaining milestone work.
 2. Supabase PostgreSQL is authoritative for notes and all persistent knowledge/profile/entitlement data. Drizzle schemas/migrations and server repositories own access. Components never import database clients/tables or credentials.
 3. Supabase Auth provides Google sign-in. Backend verifies each private request and derives owner from the session; never trust submitted user IDs or plans. Use tested server-owned protected cookies, refresh/logout and CSRF/origin controls.
 4. Owner filters and effective RLS are required. Direct Drizzle connections/privileged roles may bypass RLS; verify actual role/claim behavior with two-user integration tests. Privileged workers must still recheck owner/revision/deletion.
@@ -54,6 +54,8 @@ For application milestones run `npm run lint`, `npm run typecheck`, `npm run tes
 For documentation-only work validate internal links, scope and status accuracy and verify source/config remain untouched; don't claim application tests ran. Fix failures before completion. Record exact commands/results/limitations; prior tests are historical evidence, not a fresh run.
 
 ## Documentation and learning
+
+Read and follow `docs/DOCUMENTATION.md` for every documentation update. Its primary-home, teaching, diagram, evidence and final-check rules apply to future milestones as well as documentation-only reviews. README is for practical project setup; never add agent milestone request templates or agent permission/workflow instructions there.
 
 Maintain `docs/FILE_MAP.md` for significant existing models/repos/services/stores/workers/hooks/integrations; skip trivial components. Maintain MindMora-specific `docs/LEARNING.md` and distinguish planned examples from implementation. Significant decisions require ADR context, decision, alternatives, rationale, trade-offs and consequences. Keep superseded ADRs clearly historical. Status: ✅ Implemented, 🚧 In progress, 📋 Planned, ❌ Removed. Phase records report observed outcomes; active plans own live checklists. Follow spec §19.3 for feature docs.
 

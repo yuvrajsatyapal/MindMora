@@ -1,33 +1,57 @@
-# State Management
+# State Ownership
 
-**Status:** 📋 Target revised 2026-10-03. Existing UI uses controlled React specimen state and session theme only; state libraries are not installed yet.
+**Current:** React state for public showcase samples and theme; backend auth cookies;
+implemented PostgreSQL schema/boundary without an app caller. **Planned:** Query/Zustand/
+nuqs, editor drafts and private cache lifecycle. This guide owns state ownership rules,
+not a claim that planned state libraries are installed.
 
-| Owner | MindMora example | Must not own |
+## Existing ownership
+
+| Owner | Current state | Reset / limit |
 |---|---|---|
-| PostgreSQL / Drizzle server repository | Notes, folders, settings, versions, profiles, entitlements | Browser-only modal state |
-| Private Storage | Attachment/export bytes | Record/session authority |
-| TanStack Query (memory) | Fetch note/list; mutation result; invalidate/refetch; API jobs/profile | Durable/offline knowledge, raw auth/BYOK tokens |
-| Editor/component state | Unsaved text and save/conflict feedback | Confirmed durable saved status before commit |
-| Zustand | Sidebar/pane/modal UI | Duplicate note body, URL selected ID or credentials |
-| nuqs | `?note=`, `?view=`, `?filter=`, `?q=` | Private bodies, keys or tokens |
-| Backend auth lifecycle | Verified user/session and secure cookies | User-supplied identity or Redis cache as authority |
-| Redis | Expiring rate counters and queue coordination | Canonical notes or plaintext knowledge cache |
+| React components/context | Showcase controlled samples and theme preference | Page reload resets; no sessionStorage/localStorage persistence |
+| Protected browser cookie | App access/refresh tuple and expiry hint; pending sign-in state | Server cookie lifecycle; provider verification determines identity |
+| Request-local auth SDK Map | PKCE/session protocol state | Auth route finally disposes it; DB helper lacks explicit disposal |
+| WeakSet-backed owner object | Evidence of identity verification at issuance | In-process object identity, not expiring/cached session authority |
+| PostgreSQL | Profiles/notes model and database truth for SQL callers | Real persistence; no HTTP save path yet |
 
-## Notes and saves
+Account fetch helpers return values/errors; they own no store. Product component props
+are presentation inputs, not canonical note records. For detailed auth/context rules see
+[auth](../integrations/supabase-auth.md) and [database](../integrations/supabase-database.md).
 
-```text
-PostgreSQL → API → TanStack Query cache → editor starts draft
-Editor draft → API mutation → database commit → cache invalidation/update
+## Accepted future ownership
+
+| Owner | Planned responsibility | Must not own |
+|---|---|---|
+| PostgreSQL / server repository | Knowledge, profiles/settings/entitlements | Modal/pane interaction state |
+| Private Storage | Attachment/export bytes; DB owns metadata | Account/session authority |
+| TanStack Query memory | Fetched API records and confirmed mutation result | Durable/offline knowledge or auth/BYOK credentials |
+| Editor/component state | Unsaved draft and save/conflict feedback | “Saved” status before confirmed commit |
+| Zustand | Sidebar/pane/modal state | Duplicate note body, URL-selected ID or session tokens |
+| nuqs | Selected IDs/views/filters in URL | Private content or permission authority |
+| Redis | Expiring rate counters/queue coordination | Canonical notes or default general session authority |
+
+## Planned save and account-switch flow
+
+```mermaid
+flowchart LR
+  DB["PostgreSQL"] --> API["Owner-scoped note API — planned"]
+  API --> Cache["User/session-scoped Query cache — planned"]
+  Cache --> Draft["Editor draft — planned"]
+  Draft --> Write["Validated mutation — planned"]
+  Write --> Commit["Confirmed SQL commit"]
+  Commit --> Update["Invalidate/update memory cache; show saved"]
+  Switch["Logout / account switch"] --> Clear["Cancel + clear private state; reject late generation"]
 ```
 
-Scope query keys by verified account/session generation. Keep editor drafts separate from refetches; do not overwrite unsaved text after focus/refetch. Cancel pending work and clear queries/drafts on logout/account switch before new account data renders. A cancelled fetch alone is insufficient if completion callbacks can still update state; guard the session generation. Never duplicate API data in a Zustand persistence store.
+Keep unsaved drafts separate from refetches. Cancellation alone is insufficient if late
+callbacks can still update state; session-generation checks must accompany cleanup.
+Network failures should preserve same-tab drafts; reload/close can lose them. No durable
+offline queue or browser knowledge cache is authorized. Theme's future durable preference
+belongs in authenticated server data, not automatic local persistence.
 
-Private responses use `Cache-Control: no-store` and bypass server/edge/Nginx/service-worker caches. No TanStack Query persister, IndexedDB, localStorage/sessionStorage knowledge, or offline mutation replay. In-memory cache disappears on reload; drafts can be lost. Same-tab network outage preserves unsaved draft for explicit retry, not a saved promise.
-
-## Preferences and URLs
-
-Theme is currently session-only. Later durable preferences belong in PostgreSQL behind authenticated APIs; React theme context reflects returned preference. Resolve active note from nuqs URL, not mirrored Zustand state. Unknown/deleted/inaccessible note IDs show safe states; URLs do not authorize access.
-
-## Planned tests
-
-One owner per state; mutation confirmation/invalidation; refetch doesn't clobber a draft; two-account query separation; expired session clears private rendering; late result cannot render after logout; no private browser/cache storage entries. See [security SEC-04](security-architecture.md).
+These lifecycle tests remain planned: private account separation, stale result suppression,
+failed-save draft retention, refetch not clobbering a draft and persistent-store/cache scans.
+Their existing public/auth fixture counterparts do not complete the private-workspace gates.
+See [SEC-04/08](security-architecture.md#sec-acceptance-matrix-evidence-versus-remaining-work)
+and the [active plan](../../.agent/active/phase-01-foundation.md).

@@ -1,39 +1,50 @@
-# API Validation, Documentation and Testing
+# API Contracts and Tooling
 
-**Updated:** 2026-10-04. **Status:** ✅ Auth routes, safe Zod projection and auth-only OpenAPI; 📋 note APIs, Swagger UI/Postman generation/drift tooling.
+**Current:** Four auth Route Handlers, strict safe session projection, shared config/note
+Zod contracts and an auth-only `openapi.json`. **Planned:** note endpoints, broader schema/
+route generation and drift enforcement, Swagger UI and generated Postman collections.
 
-## Purpose
+## Existing contract boundary
 
-Zod checks actual form/request/job/config data at runtime; TypeScript alone cannot validate incoming JSON. OpenAPI defines endpoints, schemas, auth, errors and pagination. Swagger UI exposes that contract interactively. A generated Postman collection uses the same contract for repeatable local/staging checks.
+The auth provider validates a shared projection before routes return it. Browser account
+helpers validate successful JSON again; TypeScript alone does not validate a fetch response.
+Auth HTTP policy owns methods/origins/cookies/errors. Note input/domain schemas are exported
+but no note route parses them yet. [Model](../features/note-model.md) owns their exact rules.
 
-```text
-Shared Zod schemas → API input/output validation
-             ↓ compatible schema generation
-Versioned OpenAPI → Swagger UI
-             └→ generated Postman collection
+[openapi.json](../api/openapi.json) describes auth routes without real credentials. Its
+projection schema was derived from Zod during implementation; there is no current npm
+script automatically regenerating the whole contract or failing on route drift. A machine-
+readable file is not the same as Swagger/Postman integration or an executed acceptance test.
+Its description now links the recorded live acceptance; that status is historical evidence,
+not a freshly executed provider check.
+[Auth guide](supabase-auth.md#http-contract-and-guard-order) owns exact guard/error behavior.
+
+## Planned contract flow — 1H
+
+```mermaid
+flowchart LR
+  Z["Shared Zod contracts"] --> G["Broader generation approach — not selected"]
+  G --> O["Versioned OpenAPI"]
+  O --> W["Planned Swagger UI"]
+  O --> P["Planned Postman collection"]
+  Routes["Actual routes"] --> Drift["Planned request/response drift checks"]
+  O --> Drift
 ```
 
-## Proposed files and responsibilities
+The selected generation library/version, interactive route/exposure policy and automated
+collection runner are unresolved implementation choices. Proposed errors/admission helpers
+and note/file/job APIs belong in their milestone plans, not as current source references.
 
-- `src/features/notes/validation.ts`: bounded note create/update schemas; no client-controlled owner/plan.
-- `src/server/http/errors.ts`: stable public error codes/envelope, correlation ID, safe messages.
-- `src/server/config.ts`: Zod-validated server config; no logging of parsed secrets.
-- `docs/api/openapi.json`: versioned machine-readable contract generated/verified as routes appear.
-- `docs/api/mindmora.postman_collection.json`: generated collection with placeholder environment/session setup.
-- API docs route: Swagger UI, controlled exposure in production and CSP-compatible integration.
+## Constraints, failure and trade-offs
 
-Config and auth-only OpenAPI exist; other paths remain planned. The auth projection schema was derived from implemented Zod via `z.toJSONSchema`. Select/version the broader schema/route generation approach during 1H; avoid maintaining duplicate unconstrained schemas. Generated output must be reviewed and checked against routes, not blindly trusted.
+Contracts must describe supported methods, cookie/Origin controls, error envelope and
+actual response/status schemas. Future note APIs add cursors and expected revisions; they
+must not independently invent owner/plan inputs. Swagger Try It must respect cookie/CSRF
+policy; exported Postman examples use placeholders/disposable fixtures, never copied tokens,
+private note data or signed URLs. Production exposure/CSP/provider pricing needs review.
 
-## Contract requirements
-
-Phase 1 endpoints: auth start/callback/logout/safe session; notes list/create/read/update/delete. Record supported methods, cookie/CSRF behavior, request/response validation, revisions/If-Match or equivalent, cursor pagination, error envelope and 400/401/403/404/409/429/5xx behavior. Later file/jobs/search APIs extend the same contract. Public responses never include server credentials or foreign-owner details.
-
-Swagger's Try It feature must respect origin/CSRF and safe auth flow; document how local disposable accounts establish cookies. Postman uses callback/session fixtures or supported auth flow, not copied Google tokens in collection JSON. No real note data, bearer tokens, cookies or signed URLs in tracked examples. Restrict interactive docs as needed in production.
-
-## Testing and explanation
-
-Zod rejects malformed fields and length limits; permission checks independently reject valid-but-unauthorized requests. API integration tests compare actual responses/errors to the contract; drift checks fail when routes/schema differ. A collection-generation check and smoke test use disposable users. Verify Postman free feature limits before relying on cloud team/runner features. Documentation itself is not an authorization or sanitization layer.
-
-[Zod](https://zod.dev/) · [OpenAPI specification](https://spec.openapis.org/oas/latest.html) · [Swagger UI](https://swagger.io/tools/swagger-ui/) · [Postman import/export](https://learning.postman.com/docs/getting-started/importing-and-exporting/importing-data/)
-
-Current auth methods/errors/cookie and Origin semantics: [implementation contract](supabase-auth.md#http-contract), [OpenAPI](../api/openapi.json). No credential examples or provider secrets are included.
+Sharing schemas reduces drift but generated output still needs route verification and
+review. Input validity does not authorize access or sanitize content. A contract cannot
+establish provider reachability, RLS effectiveness or production security. No runtime
+failure of Swagger/collection generation can be described yet because those systems do
+not exist. Historical API/projection evidence is in the [phase record](../phases/phase-01-foundation.md).

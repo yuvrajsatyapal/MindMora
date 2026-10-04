@@ -1,6 +1,6 @@
 # Phase 01 — Full-Stack Foundation Record
 
-**Status:** ✅ UI/runtime and 1B auth code/local verification; ✅ live Google/session/refresh/replay acceptance verified; 📋 persistence planned. Updated 2026-10-04.
+**Status:** ✅ UI/runtime and 1B auth code/local verification; ✅ live Google/session/refresh/replay acceptance verified; ✅ 1C minimal schema/database/RLS; 📋 note CRUD and later milestones. Updated 2026-10-04.
 
 ## Goal and scope
 
@@ -200,3 +200,123 @@ import for the removed route; removed that specific generated cache file, rerun 
 existing source/config/dependency/env hashes unchanged; temporary route absent;
 `git diff --check` passed and `.env` remains ignored. No full application suite rerun:
 production source was unchanged; earlier implementation-suite results retain their dates.
+
+## Milestone 1C outcome — 2026-10-04
+
+✅ Implemented only minimal profiles/notes schema, strict shared contracts, reviewed Drizzle
+migration and the verified-owner transaction boundary. The user authorized the existing
+Supabase development project; migration and constrained login were provisioned there.
+Hosted Session pooler (5432) uses verified TLS with the user-downloaded CA. PostgreSQL
+version observed: 17.11. Versioned migration re-run succeeded; hosted profiles/notes counts
+were both zero after disposable test cleanup. Existing Auth account was preserved.
+
+Important responsibilities: validation/types own bounded contracts; schema/migration own
+FKs/defaults/checks/index/owner RLS; user-context issues request-scoped online-verified
+identity; client checks actual roles/grants and applies LOCAL claims in bounded transactions;
+config owns lazy server URL/pool/CA; CLI scripts alone use privileged credentials. The
+[model](../features/note-model.md), [ADR-021](../decisions/ADR-021-scoped-database-role.md),
+[file map](../FILE_MAP.md) and [learning flow](../LEARNING.md) explain the code and concepts.
+
+### Fresh verification
+
+| Command/check | Observed result |
+|---|---|
+| `npm run lint` | Exit 0; ESLint/style contract passed |
+| `npm run typecheck` | Exit 0; strict TypeScript passed |
+| `npm run test` | Exit 0; 66/66 tests, 8 files |
+| `npm run build` | Exit 0; public pages prerendered, four auth routes dynamic; no note routes |
+| `npm run test:boundary` | Exit 0; 3 checks: client config rejection, client DB config rejection, Node request-time route |
+| `npm run test:db` | Exit 0; 7/7 actual PostgreSQL/Drizzle tests; failed-GRANT rollback and fresh/repeated migration probes also passed |
+| `npm run test:db:hosted` | Exit 0; same 7/7 against real Supabase Session pooler, two disposable Auth identities |
+| `npm run test:e2e` | Exit 0; 11/11 showcase/runtime/secret-marker browser tests against final build |
+| `npm run test:auth` | Exit 0; 2/2 real Next/browser auth tests with controlled provider transport |
+| `npm run db:generate -- --name=drift_check` | Exit 0; no schema changes, nothing to migrate |
+| `npm audit --audit-level=high` | Exit 0; 0 vulnerabilities |
+| Hosted migration journal/re-run/cleanup probe | PASS; no repeat DDL; profiles/notes both 0 after cleanup |
+| Actual credential scan | 26 `.next/static` files; 0 credential matches; no credential values printed |
+| Original source/AGENTS/PRODUCT_SPEC SHA-256 comparison | 0 changes; design system, showcase and existing auth source preserved |
+| Markdown file targets/fences + `git diff --check` | 33 Markdown files, 172 local links; 0 missing targets/unbalanced fences; diff clean |
+| Fresh review + follow-up | Two provisioning P2s fixed with RED/GREEN regressions; follow-up clean |
+
+TDD failures were behavioral: forged fields, empty/oversized/NUL text, empty update,
+boolean list limit, malformed credential error, missing RLS claims, privileged runtime
+role and credential truncation. Tests preceded fixes. Setup issues were recorded as
+infrastructure failures, not meaningful RED. Initial sandbox loopback/network/Docker
+checks failed; authorized retries completed. Browser output includes only benign
+NO_COLOR/FORCE_COLOR warnings. No hosted GitHub Actions run was observed.
+
+### Limitations and scope boundary
+
+No note CRUD service/repository/HTTP route, first-request profile creation, atomic expected-
+revision operations, editor/save UI, cache/state library, Redis/Pino, Storage or worker.
+RLS allows only the verified owner's rows, including own soft-deleted records; future
+repositories must explicitly filter active rows, owner and expected revision. 1E owns
+revision conflicts/reconciliation. Titles validate JS whitespace more strictly than SQL
+space trim. Domain timestamps are ISO strings; Drizzle rows contain Date instances and
+future services must normalize them. Auth response projection remains unchanged.
+
+Database integration uses the official SDK with a controlled Auth transport to issue
+capabilities for actual disposable auth.users rows. Hosted policies/function/driver/pooler
+are real; these tests do not repeat Google consent. Direct `auth.uid()` probing was denied
+by hosted Auth schema privileges; reading LOCAL claim settings fixed the probe, while
+unchanged two-user RLS queries proved stored auth.uid policies. Transaction pooler mode
+is configured-compatible (`prepare:false`) but not live-tested; observed mode is Session.
+
+Privileged operators/server credential holders remain trusted and can impersonate claims;
+FORCE RLS does not restrain a superuser/BYPASSRLS role. Database development TLS is verified,
+not production ingress/at-rest/backup/restore readiness. Local Docker explicitly uses
+non-TLS loopback TCP and a test-only minimal auth schema. Default runtime pool is 3, maximum
+10; each app instance has its own pool. SQL setup incurs round trips; load testing is pending.
+
+Provisioning now stages fsynced private recovery credentials before transactional role/
+membership creation and atomically publishes env if unchanged. SQL/filesystem cannot
+commit together; interrupted/ambiguous setup leaves ignored `.env.database-pending` for
+verified operator recovery. Existing role/URL is never automatically rotated/overwritten.
+The initial successful hosted setup was not rerun or rotated after review; the corrected
+same role helper was exercised on fresh local PostgreSQL, including forced-GRANT rollback.
+.env was restricted to 0600. Env/cert/pending files remain ignored; no secrets committed.
+
+Updated active plan, README/architecture/index, FILE_MAP/LEARNING, full-stack/state/security,
+Supabase/dependency docs; added note-model and ADR-021. No historical docs deleted and no
+PRODUCT_SPEC change. Milestone 1C is ready for user review. 1D remains planned; no commit,
+deployment, paid resource or later milestone implementation.
+
+
+## Current-implementation documentation review — 2026-10-04
+
+This is a documentation-only review after 1C; it does not implement 1D or repeat the
+application/provider checks recorded above. [Review plan](../../.agent/active/documentation-current-implementation.md)
+owns its completed checklist; [authoring standard](../DOCUMENTATION.md) defines future updates.
+
+README now owns setup, ARCHITECTURE current boundaries, LEARNING concept-first study and
+FILE_MAP concise file connections. Auth/database guides own protocol/SQL details, including
+trust, failures, provisioning recovery and limitations. ADR-016/018/019/020/021 include
+alternatives and trade-offs. Planned save/cache/file/job flows remain separately labeled.
+The auth OpenAPI documentation description no longer says live acceptance is pending;
+its endpoint/schema contract is unchanged. Superseded documents and prior test outcomes
+remain historical; PRODUCT_SPEC was not changed.
+
+Source inspection established important limits: no current app caller of the database
+boundary or account fetch helpers; no automatic revision/update timestamp advancement;
+owner contexts have no expiry/reverification; database session verification lacks explicit
+provider disposal. Runtime catalog checks do not audit every policy/membership. No explanation
+for that cleanup difference is established by source; future adapters must address lifecycle
+and refresh propagation. No production hosting, backup/restore or transaction-pooler proof
+can be inferred from the development checks.
+
+### Verification for this documentation pass
+
+Results below are documentation checks, not application test runs. Temporary validators
+live outside the repository and are not new project commands.
+
+| Command/check | Result |
+|---|---|
+| `python3 /tmp/mindmora-docs-check.py` | Exit 0; 36 Markdown files, 306 local links, 15 npm script references; 0 missing targets/anchors/unbalanced fences. 81 baseline artifacts checked: 80 unchanged plus description-only OpenAPI documentation edit; 0 implementation changes |
+| `node /tmp/mindmora-docs-exports.mjs` | Exit 0; 45 named exports across 20 files and 9 environment placeholders checked; 0 errors |
+| Mermaid/source review | 17 diagrams reviewed: 13 refreshed current/planned diagrams plus 4 unchanged spec/plan diagrams; fences balanced. No Mermaid parser/render tool installed; automated syntax/render verification was not run |
+| `git diff --check` | Exit 0; no whitespace errors |
+
+No fresh lint, typecheck, unit, build, database, browser, audit or live Google checks ran.
+No application/config/package/migration changes, deployment or commit were performed.
+The single non-Markdown documentation edit is OpenAPI info.description; all other JSON
+contract fields are compared against the task baseline.

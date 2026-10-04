@@ -1,29 +1,54 @@
-# ADR-018 — Full-Stack Server Storage Without a Browser Vault
+# ADR-018 — Server-Authoritative Storage without a Browser Vault
 
-**Decision status:** Accepted by user, 2026-10-03. **Implementation:** ✅ Runtime (1A) and auth code (1B); live Google/session lifecycle acceptance verified; 📋 storage/CRUD.
+**Decision:** Accepted 2026-10-03. **Current:** Node runtime, auth and minimal SQL foundation
+implemented through 1C; knowledge CRUD/UI, Storage and private cache lifecycle planned.
+Supersedes ADR-001/002/003/017 as requirements; their historical records remain.
 
 ## Context
 
-The user replaced the proposed Dexie/IndexedDB/Drive architecture with server-managed knowledge storage and explicitly removed end-to-end vault encryption, passphrases and recovery keys. Documentation was held unchanged during discussion and updated only after authorization.
+The user replaced the proposed Dexie/IndexedDB/Drive workspace and explicitly removed
+end-to-end vault encryption, passphrases and recovery keys. That changes data authority,
+connectivity assumptions and who must be trusted, not merely the choice of storage library.
 
 ## Decision
 
-Runtime Next.js backend APIs mediate Supabase PostgreSQL knowledge and private Storage. Drizzle repositories transact owner-scoped revisions. Google sign-in through Supabase Auth precedes private workspace access. Use transport/provider encryption at rest and access controls, not user-held E2EE. TanStack Query keeps API records in browser memory only; no persistent browser knowledge cache/database or offline write queue.
+Next.js Node APIs will mediate canonical Supabase PostgreSQL records and private Storage.
+Use verified authentication/ownership, constrained SQL access and validated transport/
+provider encryption configuration. Keep fetched data/drafts in browser memory; no durable
+knowledge database/query persister/offline write queue. No E2EE vault is implemented.
 
-## Alternatives
+## Alternatives considered
 
-The former encrypted local-first vault; server-stored E2EE with device key unlock; unencrypted browser knowledge persistence; a second backend database for auth.
+- Encrypted local-first vault: durable offline access and user-held keys, but incompatible
+  with the user's chosen hosted workspace and removal of vault unlock/recovery flows.
+- Server-stored E2EE: protects content from the provider but requires device keys/unlock,
+  recovery and constraints on server computation; those were explicitly excluded.
+- Plain browser persistence: avoids vault complexity but retains a second durable authority
+  and does not meet the no-private-browser-persistence constraint.
+- A separate session/account database: additional authority/operations without a present need.
 
-## Rationale
+## Why this approach
 
-Follow the user's chosen hosted workspace model, simplify device access/key recovery and use one server-authoritative data model. This is a trust-model change, not proof that server storage eliminates browser-memory or XSS risks.
+It follows the explicit hosted-storage choice and avoids synchronizing multiple durable
+knowledge authorities or designing key recovery. Identity management replaces account
+access recovery needs; it does not solve unsaved-draft loss or guarantee access during outage.
 
 ## Trade-offs
 
-Server/provider can read notes, backend compromise can expose data and network outages block durable saves. Browser memory is necessary to view/edit and can be exposed by XSS/compromised devices. Free-tier quota/pause and backup limits must be checked. No durable offline workspace. Losing session access is solved through managed identity, not vault recovery.
+Canonical records can be shared across devices after APIs/UI arrive, but server/provider
+compromise can reveal readable data and connectivity is needed for durable writes. Browser
+memory/DOM exposure remains necessary for editing and vulnerable to XSS/device compromise.
+Hosted quotas, pause/backup behavior and provider encryption settings need verification.
+There is no durable offline workspace or forensic RAM-erasure promise.
 
 ## Consequences
 
-Supersede ADR-001/002/003/017 as current requirements while retaining their history. Next config/preview/CI migrated during Milestone 1A; existing public pages remain prerendered and UI source unchanged. Redesign Phase 1 for auth/server CRUD/security and Phase 4 for jobs/files; public-only PWA in Phase 8. Automatic Drive sync is removed from active scope, but Markdown/JSON portability and the 14-phase feature roadmap remain. Existing UI components/tokens and historical tests are preserved.
+Public pages may remain prerendered, but deployment requires a Node runtime for private
+APIs. Phase 1 builds runtime/auth/data/security/UI boundaries; Phase 4 builds jobs/files;
+Phase 8 permits a public-only PWA cache. Automatic Drive sync and browser vault plans are
+superseded, while portability and the remaining feature roadmap stay planned. Existing
+visual components are retained; their local-save/sync wording must not be read as real behavior.
 
-[Architecture](../../ARCHITECTURE.md) · [Security](../architecture/security-architecture.md) · [State](../architecture/state-management.md) · [Phase 1](../../.agent/active/phase-01-foundation.md)
+[Architecture](../../ARCHITECTURE.md) · [State](../architecture/state-management.md) ·
+[Security](../architecture/security-architecture.md) · [Planned data flows](../architecture/full-stack-architecture.md) ·
+[Dated outcomes](../phases/phase-01-foundation.md).

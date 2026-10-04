@@ -23,7 +23,8 @@ Store plans under `.agent/active/`; never rely on chat history for required cont
     state, missing URL IDs, concurrent changes. Assign each to a milestone.
 11. **Tests:** unit/component/E2E matrix. Use red → green → refactor for behavior; record
     commands and observed failures/passes during execution. Never call unrun checks passing.
-12. **Documentation:** exact docs to update and when an ADR/design doc is required.
+12. **Documentation:** exact docs to update and when an ADR/design doc is required; follow
+    [documentation authoring standard](../docs/DOCUMENTATION.md) and its primary homes.
 13. **Decisions:** rationale, alternatives, open questions, deviations, ADR references.
 14. **Progress:** checkboxes, dated outcomes, validation evidence, limitations, next milestone.
 
@@ -44,9 +45,13 @@ the authorized milestone; a plan is not authorization to implement every listed 
 Use 📋 Planned, 🚧 In progress, ✅ Implemented, ❌ Removed. Start as planned, with
 unchecked milestones. Record surprises and decision changes as they happen. Completion
 requires working behavior, successful applicable checks, and accurate documentation.
-Keep one execution checklist here; phase docs link to it and record actual phase outcomes.
+Distinguish implemented from validated; date exact commands/results and identify fixture,
+local, hosted, live-provider and production evidence separately. Mark blocked/deferred
+checks with reasons and remaining actions; do not rewrite old outcomes as fresh passes.
+For documentation-only reviews validate references/source consistency without claiming
+application tests ran. Keep one execution checklist here; phase docs link to it and record actual phase outcomes.
 Do not expand `PRODUCT_SPEC.md` without explicit user authorization.
 
 ## Full-stack planning requirements
 
-Current authority: PRODUCT_SPEC v3, ADR-016/018/019. Plans must distinguish existing static UI from runtime migration and capture session/CSRF, verified owner/RLS roles, Zod API contracts, revision conflicts, in-memory cache cleanup, Pino redaction and service quotas. For job work define separate worker hosting, idempotency/retries/timeouts, outbox/reconciliation and private result authorization. For files define Storage policy/content/size/retention and partial-failure cleanup. No browser knowledge persistence, E2EE vault, MinIO or automatic Drive sync. Deployment/provider credentials/payment remain separate authorized actions. Keep later phases high-level until their work begins.
+Current authority: PRODUCT_SPEC v3, ADR-016/018/019. Plans must distinguish the implemented Node runtime/public UI from remaining backend milestones and capture session/CSRF, verified owner/RLS roles, Zod API contracts, revision conflicts, in-memory cache cleanup, Pino redaction and service quotas. For job work define separate worker hosting, idempotency/retries/timeouts, outbox/reconciliation and private result authorization. For files define Storage policy/content/size/retention and partial-failure cleanup. No browser knowledge persistence, E2EE vault, MinIO or automatic Drive sync. Deployment/provider credentials/payment remain separate authorized actions. Keep later phases high-level until their work begins.

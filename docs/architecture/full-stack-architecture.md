@@ -1,48 +1,87 @@
-# Full-Stack Data Architecture
+# Data Flows: Current Foundation and Planned Features
 
-**Status:** ✅ 1A runtime and 1B auth code; live auth acceptance verified; 📋 data/storage flows planned; accepted 2026-10-03. See [system overview](../../ARCHITECTURE.md).
+**Current:** 1A–1C runtime/auth/contracts/scoped SQL boundary. **Planned below:** repositories,
+note requests/UI, file storage and jobs. [ARCHITECTURE](../../ARCHITECTURE.md) is the primary
+current system architecture; this companion owns future data-flow constraints and failure
+scenarios. [Model](../features/note-model.md), [database](../integrations/supabase-database.md)
+and [state](state-management.md) own existing model/SQL and planned state details.
 
-## Responsibilities and flow
+## Existing foundation
 
-```text
-Google sign-in → Supabase Auth → backend session → verified owner
+The public UI is a showcase. Auth HTTP routes verify sessions without SQL. A separate
+library composes verified-owner issuance and constrained transactions, exercised by real
+database integration tests; it has no private HTTP caller. Shared mutation/list/domain
+schemas exist, but no service applies them to a note operation. Profiles are not created
+at login. Database defaults are initialization, not automatic revision/time updates.
 
-Editor draft → TanStack Query mutation → HTTPS API
-→ Zod + authentication + CSRF + ownership + rate admission
-→ server service → Drizzle repository → PostgreSQL commit
-→ normalized response → in-memory cache update/invalidation → saved indicator
+## Planned note request and save flow — 1D–1G
+
+```mermaid
+sequenceDiagram
+  participant E as Planned editor / memory draft
+  participant Q as Planned account-scoped Query cache
+  participant H as Planned note HTTP adapter
+  participant S as Planned service/repository
+  participant P as Existing SQL boundary / PostgreSQL
+  E->>Q: Save draft with expected revision
+  Q->>H: Authenticated mutation
+  H->>H: HTTP limits/origin/input validation + session verification
+  H->>S: Verified owner + parsed input
+  S->>P: Owner/revision-scoped transaction
+  alt Revision matches and commit is confirmed
+    P-->>S: Updated record / revision
+    S-->>H: Normalized domain result
+    H-->>Q: Typed response
+    Q-->>E: Update/invalidate cache; show saved
+  else Conflict or failure
+    H-->>E: Typed outcome; retain draft
+  end
 ```
 
-Identity comes from a validated backend session, never request `userId`. Routes handle HTTP/contracts; services domain rules; repositories transaction/query scope. Database/Redis/privileged Storage clients remain server-only. A verified authenticated request does not automatically authorize another user's record. Server roles/transaction-local claims must enforce RLS and be tested through the actual connection path.
+Routes own HTTP/config/admission, services own business outcomes, repositories own owner
+predicates and atomic writes. Future update/delete compares owner/id/expected revision,
+then advances revision atomically. Zero matches need safe not-found/conflict handling that
+does not reveal another user's record. RLS supplies an additional row boundary; it does
+not supply these business rules. Normal save writes directly to PostgreSQL, not a queue.
 
-## Implemented identity boundary — 1B
+A failed response after commit creates uncertainty, not proof of failure. Future reconciliation/
+idempotency must resolve that outcome before blindly retrying. A conflict preserves draft
+and fetched version for deliberate compare/retry. These rules are not present in a save
+service/UI yet, and source cannot establish their exact API signatures beyond shared inputs.
 
-Server-only auth SDK clients and storage are request-scoped. PKCE/state callbacks establish a protected app cookie after online user verification; session/refresh/logout endpoints never return credentials. Auth data remains in Supabase Auth, not application tables. Profiles and all models below remain 1C proposals. [Auth setup/evidence](../integrations/supabase-auth.md) distinguishes local fixture tests from observed live Google/session lifecycle evidence.
+## Planned files and jobs — Phase 4
 
-## Proposed data model
+Private Supabase Storage will own bytes; PostgreSQL will own authorized metadata/status.
+Database/object operations cannot share one atomic transaction: staged uploads and dangling
+objects need bounded cleanup. Signed URLs are credentials requiring expiry/owner checks.
+No Storage bucket/policy/client or upload/download route exists in current source.
 
-Phase 1 `profiles` references Auth users; `notes` stores UUID ID, user ID, title, Markdown body, UTC timestamps, revision and nullable deleted timestamp. Owner/updated-time/ID index supports bounded cursor pagination. Use optimistic concurrency: update/delete `WHERE id = ... AND user_id = verified_owner AND revision = expected_revision`; zero matches are resolved into safe not-found/conflict behavior without leaking another user's existence. Mutations advance revision atomically. Do not recreate everything on startup or pre-create later feature schemas.
-
-## Save failure and conflicts
-
-Show saved only after confirmed commit. When request fails before commit, keep the draft in the same tab. If response is lost after commit, re-fetch/idempotency reconciliation resolves the uncertain outcome before retry. Revision conflicts preserve both user draft and fetched version with compare/retry flow. Drafts aren't durable: browser refresh/close can lose unsaved text. Offline is a connectivity state, not a persisted browser queue.
-
-## Files — Phase 4
-
-Private Storage holds files; metadata in PostgreSQL links owner/note/object key/size/type/status. Backend authorizes short-lived upload/download URLs, validates referenced record ownership, restricts content and records completion. Staged upload failure must be cleaned; database and object store do not share one atomic transaction. Deletion/retention reconciles dangling objects. Signed URLs are credentials, excluded from logs.
-
-## Jobs — Phase 4
-
-```text
-Authorized request → PostgreSQL job/outbox → BullMQ / Redis → Node worker
-→ validate owner + current record state → export/index/process
-→ private result + PostgreSQL status → authorized status/download API
+```mermaid
+flowchart LR
+  API["Planned authorized job API"] --> Outbox["Planned PostgreSQL job / outbox commit"]
+  Outbox --> Queue["Planned BullMQ / Redis references"]
+  Queue --> Worker["Planned separate Node worker"]
+  Worker --> Check["Recheck owner / revision / deletion"]
+  Check --> Result["Private Storage result + DB status"]
+  Result --> Read["Planned authorized status/download API"]
+  Outbox -.-> Reconcile["Planned missed-enqueue reconciliation"]
+  Reconcile -.-> Queue
 ```
 
-Outbox/reconciliation recovers missed enqueue after a database commit. Worker processing is at-least-once: idempotent writes/deduplication are mandatory. Record expected revision and recheck cancellation/deletion; retries must not resurrect removed data or publish stale indexes. Jobs contain references, not note text/secrets. Queue and file features need their own detailed execution plan.
+Reference-only jobs avoid putting note bodies/secrets into queue infrastructure. At-least-once
+processing requires idempotency, bounded retries/concurrency, cleanup and stale/deleted
+record protection. A worker is a separate Node process, distinct from a browser Web Worker
+and from unawaited work after a serverless response. No implementation/topology/uptime claim
+follows from this diagram; [service design](../integrations/backend-services.md) owns those plans.
 
-## Deployment and limitations
+## Integrations and excluded history
 
-Runtime Next.js is implemented in Phase 1A; public pages remain prerendered, while preview runs the Node server. The real Node Route Handler verification is a disposable test fixture, not an application endpoint. Separate worker runs with explicit shutdown/restart/timeout/concurrency policy. Self-hosted Nginx is optional; managed ingress can replace it. Public assets may cache, private API responses never do. Hosted quotas, pause/worker sleep and backup guarantees are verified before deployment. No E2EE, browser note DB, automatic Drive sync, MinIO or second production database.
+Google OAuth is identity-only (openid/email/profile), not Drive permission. There is no
+Google Drive client, refresh-token table, automatic sync queue or remote conflict algorithm.
+The former Drive-authoritative/browser-vault model is superseded. Import/export portability
+remains a product target; a future external integration needs its own specification, owner
+checks, secret handling and failure semantics. No second production database or MinIO.
 
-[Security](security-architecture.md) · [State](state-management.md) · [Services](../integrations/backend-services.md) · [ADR-018](../decisions/ADR-018-full-stack-server-storage.md)
+Nginx/managed ingress and worker hosting remain unselected. [Hosting constraints](../integrations/hosting-and-costs.md)
+are dated research, not current deployment guarantees. Encryption-at-rest/backups/restore
+and production cache/transport controls must be verified with actual provider configuration.
