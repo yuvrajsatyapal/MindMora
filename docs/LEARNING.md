@@ -1,8 +1,8 @@
 # Learning MindMora
 
-**Source inspected:** 2026-10-05, through 1D and startup-health/terminal-styling follow-ups. Study the system that exists first: public UI,
-backend auth, shared contracts, a database library boundary, HTTP/admission/logging and startup probes. There is no note-save
-request flow yet. [Architecture](../ARCHITECTURE.md) owns the system overview,
+**Source inspected:** 2026-10-05, through 1E and startup-health/terminal-styling follow-ups. Study the system that exists first: public UI,
+backend auth, shared contracts, scoped PostgreSQL note APIs, HTTP/admission/logging and startup probes. Workspace/editor
+flow is still planned. [Architecture](../ARCHITECTURE.md) owns the system overview,
 [FILE_MAP](FILE_MAP.md) owns navigation, and subsystem guides own exact operating rules.
 
 ## A progressive source-reading path
@@ -22,9 +22,9 @@ files, not proposed examples.
 | 8 | [verified owner](../src/server/db/user-context.ts), [DB client](../src/server/db/client.ts), [DB config](../src/server/db/config.ts) | Why do identity, login role and LOCAL claims all matter? |
 | 9 | [role provision](../scripts/provision-role.ts), [credential staging](../scripts/provision-files.ts), [CLI coordinator](../scripts/provision-database.mjs) | What happens when database setup and file publication cannot commit together? |
 | 10 | [RLS tests](../tests/integration/rls.test.ts), [Docker harness](../scripts/test-database.mjs), [browser tests](../tests/e2e/) | Which guarantees are exercised with real systems, and which services are fixtures? |
-
 | 11 | [HTTP policy](../src/server/http/), [admission](../src/server/rate-limit/), [logging facade](../src/server/logging/) | Why are validation, admission and safe observability distinct from authentication? |
 | 12 | [instrumentation](../src/instrumentation.ts), [startup coordinator](../src/server/startup/health.ts), [probes](../src/server/startup/probes.ts), [color/once tests](../src/server/startup/health.test.ts) | What runs once at startup, what runs per request, and what does connectivity fail to prove? |
+| 13 | [Note handler](../src/server/notes/routes.ts), [service](../src/server/notes/service.ts), [repository](../src/server/notes/repository.ts), [note API](features/notes-api.md) | Why do commit, revision and create identity solve different problems? |
 
 ## 1. Presentation, state and persistence are different things
 
@@ -183,7 +183,7 @@ cascades through profile to notes. The request role cannot perform normal hard d
 
 **Security and trade-offs.** FKs prevent orphaned ownership records. Defaults initialize
 UUID/revision/timestamps; no trigger advances revision/updatedAt later. The partial index
-is useful for future cursor queries but does not implement them. Manual privilege SQL
+supports the 1E cursor repository. The repository, rather than a trigger, advances revision/time. Manual privilege SQL
 requires review beyond generator snapshots; applied migration edits do not update an
 existing database. Hosted Auth schema permissions differed from requested GRANT text,
 which is why real role/query evidence matters.
@@ -202,11 +202,11 @@ and returns it with session/refresh metadata. `run` asserts membership before op
 transaction. Copying/spreading the owner creates a different object and is rejected.
 
 **Security and trade-offs.** The object has no built-in expiry/revocation check; it must
-remain request-scoped and future private routes must reverify each request. Its properties
+remain request-scoped; note routes now reverify each request. Its properties
 are readonly, but trusted server code still chooses callbacks and holds credentials. The
-helper currently does not explicitly call provider disposal, unlike `handleAuth`'s finally
-block. No app route currently exercises that helper. These are implementation limits,
-not hidden assumptions about automatic lifecycle behavior.
+helper now disposes its provider in finally on success/failure, like `handleAuth`. The
+note handler exercises it on every private request; capability issuance is still not
+durable session authority.
 
 **Read next:** [user-context.ts](../src/server/db/user-context.ts), [client.ts](../src/server/db/client.ts),
 [ADR-021](decisions/ADR-021-scoped-database-role.md).
@@ -269,7 +269,7 @@ remain open. Do not use a roadmap diagram as evidence that those systems exist.
 limits how much work a caller can request. None replaces ownership checks. Logs explain
 what happened operationally without collecting the caller’s content or credentials.
 
-**Why needed.** Before note routes exist, public auth already performs provider/network work.
+**Why needed.** Public auth and authenticated note routes perform provider/network work.
 Malformed bodies, forged forwarding and dependency failures need predictable rejection.
 Stable error codes help future UI handle failures, and correlation IDs connect an error
 response to a safe server log without echoing caller-supplied markers.
@@ -277,7 +277,7 @@ response to a safe server log without echoing caller-supplied markers.
 **Current flow.** Auth starts with a new server UUID. The handler checks request/config/method,
 Origin or callback state, query/body bounds, then Redis admission. Only admitted requests
 reach the existing Supabase session/PKCE work. Responses apply no-store and fixed errors;
-Pino receives only approved metadata. No database or note route is added to this flow.
+Pino receives only approved metadata. Auth remains independent of SQL; the separate note flow below reuses these controls.
 
 ```mermaid
 sequenceDiagram
@@ -305,11 +305,11 @@ Remaining TTL supplies Retry-After. The client has bounded network work and a sh
 circuit; later requests reconnect. Redis contains counts and hashed identities, never notes
 or sessions. Public auth uses a shared budget until real ingress IP trust is configured.
 
-**Fallback and trust.** A future basic-note caller must obtain a fresh online-verified owner
+**Fallback and trust.** The note caller obtains a fresh online-verified owner
 before using the helper; arbitrary user-ID objects are refused. Redis outage permits a
 small per-process budget and returns degradation. Process-local state disappears on restart
 and does not coordinate instances. Authentication/DB ownership remain mandatory. This
-helper has no real note endpoint caller yet. Auth/expensive requests instead fail closed;
+helper is now used by the note handler, which advertises degraded admission. Auth/expensive requests instead fail closed;
 rejected logout leaves its cookies and must not be presented as success.
 
 **Logging and trade-offs.** An allowlist prevents unknown fields from reaching Pino, while
@@ -322,7 +322,7 @@ Local Valkey demonstrates Redis-compatible behavior without selecting a hosted p
 `http/body.ts`/`csrf.ts`, `rate-limit/limiter.ts`/`client.ts`, and `logging/logger.ts`.
 [Services](integrations/backend-services.md) owns exact budgets/config/body limits;
 [security](architecture/security-architecture.md) distinguishes local evidence from
-remaining production controls. Revision-safe notes/repositories are the next milestone, 1E.
+remaining production controls. Revision-safe notes/repositories are now implemented in 1E; the protected shell is planned for 1F.
 
 ## Startup health versus request security — implemented follow-up
 
@@ -355,3 +355,326 @@ banner is not a dependable readiness signal; actual health logs/process behavior
 Redis/database config. [Services](integrations/backend-services.md#server-startup-health--implemented-follow-up-to-1d)
 owns deadlines and operational rules; [ADR-023](decisions/ADR-023-startup-dependency-health.md)
 owns the decision. Production browser tests use disposable dependencies, not a bypass flag.
+
+## Durable note requests — implemented 1E
+
+**Concept.** A transaction makes database changes commit together. It cannot make the
+network response arrive. Optimistic concurrency checks the revision the caller actually
+read; idempotency gives a repeated create the same operation identity.
+
+**Why needed.** Reading then unconditionally writing can lose a competing edit. Retrying
+an unkeyed create after response loss can duplicate it. A failure response therefore means
+“not confirmed,” not always “nothing committed.” Identity verification answers who called;
+owner predicates and effective RLS answer which rows they may access.
+
+**Current implementation.** Every request verifies identity and receives an issued owner.
+The repository uses the constrained SQL transaction, seeds a missing profile, then queries
+owner/active rows. Update/delete compare revision in the UPDATE itself. Create inserts an
+owner-scoped UUID key and original input digest; a matching retry returns the active record.
+The service validates explicit JSON projections after commit. No note content enters Redis,
+Pino or jobs. A bounded list returns summaries, then detail fetch supplies Markdown.
+
+**Security/trade-offs.** SQL trusts the verified claims chosen by trusted server code;
+provider verification and RLS are separate controls. Key metadata is immutable to the
+request role and hidden from JSON, but its digest is not anonymization. A stale mutation409
+requires refetch/compare. Deleted retries404 cannot resurrect a row. Cursor pagination is
+not a snapshot under edits. Refresh cookies survive later errors. The planned client must
+retain keys/original input for uncertain creates and use deliberate refetch for uncertain
+mutations; no draft, cache or workspace UX was added. The hosted 1E migration is pending.
+
+Read the [API guide](features/notes-api.md) for exact contracts and
+[ADR-024](decisions/ADR-024-note-write-concurrency-and-reconciliation.md) for alternatives.
+
+## Milestone 1E Code Understanding Summary
+
+This is the per-file reading guide for this implementation, not a line-by-line tutorial.
+Tests/harnesses are marked test-only; documentation files own explanations and export no
+runtime API. Their responsibilities are indexed in [docs/README](README.md).
+
+### src/app/api/notes/route.ts
+
+- **File:** [src/app/api/notes/route.ts](../src/app/api/notes/route.ts)
+- **Purpose:** Adapt collection HTTP requests to the server policy.
+- **Main exports:** GET, POST, runtime, dynamic; rejected-method adapters.
+- **Flow:** Next receives request → Node adapter forwards without id → handler returns list/create or rejection.
+- **Dependencies:** server/notes/routes.ts.
+- **Security:** Node-only, force-dynamic; policy owns verification/no-store.
+- **What I should understand:** `runtime = "nodejs"`; `dynamic = "force-dynamic"`; handler forwarding.
+- **Concepts to learn:** Route adapters; dynamic server execution.
+
+### src/app/api/notes/[id]/route.ts
+
+- **File:** [src/app/api/notes/[id]/route.ts](../src/app/api/notes/[id]/route.ts)
+- **Purpose:** Adapt detail/mutation requests with Next dynamic params.
+- **Main exports:** GET, PATCH, DELETE, runtime, dynamic; rejected-method adapters.
+- **Flow:** Next receives request → await params → pass id to handler → return safe response.
+- **Dependencies:** server/notes/routes.ts; Next params API.
+- **Security:** Raw id is untrusted; handler validates UUID/ownership; Node-only.
+- **What I should understand:** `params: Promise<{ id: string }>`; `(await params).id`; exported method aliases.
+- **Concepts to learn:** Async route params; HTTP method routing.
+
+### src/server/notes/routes.ts
+
+- **File:** [src/server/notes/routes.ts](../src/server/notes/routes.ts)
+- **Purpose:** Compose guarded note HTTP operations and their safe responses.
+- **Main exports:** handleNotes; NotesDependencies.
+- **Flow:** Bounds/method/Origin → verify session → basic admission → parse input → service → cookie/no-store/log response.
+- **Dependencies:** Config; user-context; HTTP helpers; limiter/logger; note schemas/service/repository.
+- **Security:** Fresh online auth, exact mutation Origin, bounded strict input, no-store; secrets only in protected cookies; fixed errors/logs.
+- **What I should understand:** `assertOrigin`; `verifyDatabaseSession`; discriminated `parsed.action` switch; refreshed-cookie block; `logRequest` metadata.
+- **Concepts to learn:** Authentication vs authorization; trust boundaries; refresh propagation; discriminated outcomes.
+
+### src/server/notes/service.ts
+
+- **File:** [src/server/notes/service.ts](../src/server/notes/service.ts)
+- **Purpose:** Translate committed outcomes into validated public note/page projections.
+- **Main exports:** createNoteService; normalizeNote; resolveNote; profileName.
+- **Flow:** Validate provider name → call repository → resolve business outcome after commit → serialize dates → validate projection/page.
+- **Dependencies:** Repository; note/page/profile schemas; HttpFailure.
+- **Security:** Explicit note projection excludes key/hash; invalid names become null; only fixed business codes are public.
+- **What I should understand:** `profileName`; `normalizeNote` field list; `resolveNote`; `rows.slice(0,input.limit)` and nextCursor.
+- **Concepts to learn:** Serialization; runtime response validation; service boundaries; pagination lookahead.
+
+### src/server/notes/repository.ts
+
+- **File:** [src/server/notes/repository.ts](../src/server/notes/repository.ts)
+- **Purpose:** Persist notes with owner/active filters and atomic revision/replay rules.
+- **Main exports:** createNoteRepository; NoteRepository; NoteDatabase; NoteRow; NoteOutcome.
+- **Flow:** Enter checked transaction → seed missing profile → owner-scoped query → atomic key/revision operation → return outcome → commit → service.
+- **Dependencies:** DB client/schema; VerifiedOwner; Drizzle; Node SHA-256.
+- **Security:** Explicit owner filters plus effective RLS; parameters; immutable keys; soft-delete filtering; atomic expectedRevision; no queue.
+- **What I should understand:** `active`; profile `onConflictDoNothing`; create owner/key conflict and hash comparison; revision predicate/increment; descending cursor predicate.
+- **Concepts to learn:** Transactions; optimistic concurrency; unique-index idempotency; uncertain commits; keyset pagination.
+
+### src/server/db/user-context.ts
+
+- **File:** [src/server/db/user-context.ts](../src/server/db/user-context.ts)
+- **Purpose:** Issue a verified request owner and clean up its auth provider.
+- **Main exports:** verifyDatabaseSession; assertVerifiedOwner; VerifiedOwner.
+- **Flow:** Decode cookie → verify/refresh through provider → freeze/register owner → return session metadata → finally dispose provider.
+- **Dependencies:** Auth config/provider/session; private WeakSet.
+- **Security:** Cookie claims cannot choose owner; object identity gates SQL/fallback; requests reverify; no durable capability cache.
+- **What I should understand:** `const provider`; `verifySession`; `verified.add(owner)`; `finally`; membership assertion.
+- **Concepts to learn:** Capabilities; online verification; resource ownership/finally cleanup.
+
+### src/features/notes/types.ts
+
+- **File:** [src/features/notes/types.ts](../src/features/notes/types.ts)
+- **Purpose:** Define runtime note, summary and page response contracts.
+- **Main exports:** noteSchema; noteSummarySchema; notePageSchema; profileSchema; Note/NoteSummary/NotePage/Profile; input types.
+- **Flow:** Reuse input constraints → define full projection → omit content for summary → validate bounded page/cursor → infer shared types.
+- **Dependencies:** Zod; notes/validation.ts.
+- **Security:** Strict output shape and bounded values; types alone neither authenticate nor sanitize Markdown.
+- **What I should understand:** `noteSchema`; `.omit({ content: true })`; `notePageSchema`; UTC millisecond date schemas.
+- **Concepts to learn:** Runtime schemas vs types; projections; server/browser representation.
+
+### src/server/db/schema.ts
+
+- **File:** [src/server/db/schema.ts](../src/server/db/schema.ts)
+- **Purpose:** Describe persistent constraints including internal create identity.
+- **Main exports:** profiles; notes.
+- **Flow:** Declare columns → check metadata pair/hash → declare owner/key unique index → ORM queries or migration diff.
+- **Dependencies:** Drizzle pg-core/sql; PostgreSQL/Auth table relationships.
+- **Security:** Legacy nullable metadata; ownership constraints; immutable metadata protected by existing SQL column grants.
+- **What I should understand:** `createOperationId`; `createRequestHash`; paired metadata check; partial unique index.
+- **Concepts to learn:** Schema vs migration; partial indexes; constraints vs permissions.
+
+### supabase/migrations/0001_note_create_idempotency.sql
+
+- **File:** [supabase/migrations/0001_note_create_idempotency.sql](../supabase/migrations/0001_note_create_idempotency.sql)
+- **Purpose:** Apply nullable create metadata and uniqueness without rewriting old notes.
+- **Main exports:** None; versioned SQL.
+- **Flow:** Migrator reads journal → add columns → add pair/hash constraint → build partial unique owner/key index.
+- **Dependencies:** Existing notes table; PostgreSQL; migration journal/snapshot.
+- **Security:** No credential or new runtime privilege; request role cannot update metadata; deleted rows retain key reservation.
+- **What I should understand:** Both ADD COLUMN statements; metadata CHECK; CREATE UNIQUE INDEX WHERE key IS NOT NULL.
+- **Concepts to learn:** Additive migrations; legacy compatibility; uniqueness under concurrency.
+
+### src/server/http/errors.ts
+
+- **File:** [src/server/http/errors.ts](../src/server/http/errors.ts)
+- **Purpose:** Provide fixed typed public failure codes including create-key conflict.
+- **Main exports:** HttpFailure; ErrorCode; safeFailure.
+- **Flow:** Define fixed code/status/message → construct failure → sanitize unknown error → safe response.
+- **Dependencies:** Static definitions; response helpers and callers.
+- **Security:** Unknown exceptions never expose raw messages; fixed idempotency_conflict409.
+- **What I should understand:** `idempotency_conflict`; HttpFailure constructor; `safeFailure` unknown-error fallback.
+- **Concepts to learn:** Safe error taxonomy; public vs internal errors.
+
+### src/server/logging/logger.ts
+
+- **File:** [src/server/logging/logger.ts](../src/server/logging/logger.ts)
+- **Purpose:** Restrict request logs to fixed validated metadata including note actions.
+- **Main exports:** createRequestLogger; logRequest.
+- **Flow:** Receive metadata → strict schema/operation/code allowlists → redaction/fixed Pino logging → terminal.
+- **Dependencies:** Pino; Zod; HTTP error types.
+- **Security:** No bodies/titles/keys/hashes/cookies/tokens/error payloads accepted; safe codes only.
+- **What I should understand:** Note operation enum; safe error-code enum; metadata schema; logger facade.
+- **Concepts to learn:** Structured metadata; allowlisting and redaction.
+
+### src/server/notes/routes.test.ts
+
+- **File:** [src/server/notes/routes.test.ts](../src/server/notes/routes.test.ts)
+- **Purpose:** Verify HTTP boundaries with controlled SDK transport and injected downstream work.
+- **Main exports:** None; test suite.
+- **Flow:** Build controlled credentials → call actual handler → inspect rejection/refresh/safe response → clean fixture.
+- **Dependencies:** Handler; real Supabase SDK fixture; test admission/database.
+- **Security:** Checks unauthenticated/Origin/method rejection, refreshed errors, throttle and safe failures before SQL.
+- **What I should understand:** Initial rejection cases; authenticatedRequest helper; refresh400 assertion; unavailableDB503 assertion.
+- **Concepts to learn:** Behavior tests; fixture transport vs production provider evidence.
+
+### src/server/db/user-context.test.ts
+
+- **File:** [src/server/db/user-context.test.ts](../src/server/db/user-context.test.ts)
+- **Purpose:** Verify real provider disposal on successful and rejected identity checks.
+- **Main exports:** None; test suite.
+- **Flow:** Issue/revoke fixture credential → spy actual provider disposal → verify owner or rejection → assert disposal once.
+- **Dependencies:** user-context; real provider/auth fixture; Vitest.
+- **Security:** No fake verification acceptance; observes cleanup in both auth outcomes.
+- **What I should understand:** `it.each([false,true])`; original factory wrapper; success/rejection assertions; disposal count.
+- **Concepts to learn:** Test-first cleanup; real implementation with controlled transport.
+
+### tests/integration/notes-api.test.ts
+
+- **File:** [tests/integration/notes-api.test.ts](../tests/integration/notes-api.test.ts)
+- **Purpose:** Verify real SQL/HTTP isolation, concurrent writes and reconciliation.
+- **Main exports:** None; integration suite.
+- **Flow:** Seed two Auth IDs → create real scoped database → prove overlapping connections → call handler operations/races → inspect committed rows → clean.
+- **Dependencies:** Actual PostgreSQL/Redis; SDK controlled fetcher; handler/repository; database config.
+- **Security:** Two-owner checks; RLS role; no foreign data; conflicts/deletes; lost-response retry; safe outage.
+- **What I should understand:** Backend PID/barrier test; concurrent create/update/delete tests; foreign-owner404 checks; after-commit response-loss test.
+- **Concepts to learn:** Integration vs unit coverage; transaction races; uncertain outcome reconciliation.
+
+### scripts/test-database.mjs
+
+- **File:** [scripts/test-database.mjs](../scripts/test-database.mjs)
+- **Purpose:** Provision disposable SQL and select the RLS or note integration suite.
+- **Main exports:** None; CLI entry.
+- **Flow:** Start fixture → verify provisioning rollback → migrate twice → provision runtime role → select config/pool → run suite → cleanup.
+- **Dependencies:** Docker/PostgreSQL; migration/provision helpers; Vitest database/notes configs.
+- **Security:** Generated disposable credentials; no hosted writes; pool3 tests races, pool1 tests reuse.
+- **What I should understand:** `--notes` config selection; `DATABASE_POOL_MAX` conditional; migration/reprovision checks; finally cleanup.
+- **Concepts to learn:** Test fixture lifecycle; pool concurrency vs connection reuse.
+
+### scripts/test-notes-api.mjs
+
+- **File:** [scripts/test-notes-api.mjs](../scripts/test-notes-api.mjs)
+- **Purpose:** Wrap note SQL checks with disposable Redis admission.
+- **Main exports:** None; CLI entry.
+- **Flow:** Start Redis fixture → pass local URL to child → run test-database --notes → propagate exit → cleanup.
+- **Dependencies:** local-test-redis.mjs; test-database.mjs; Node child process.
+- **Security:** Test-only services/credentials; no hosted endpoint or persistent counter volume.
+- **What I should understand:** withTestRedis callback; child arguments; exit handling.
+- **Concepts to learn:** Integration orchestration; process environment boundaries.
+
+### vitest.notes.config.ts
+
+- **File:** [vitest.notes.config.ts](../vitest.notes.config.ts)
+- **Purpose:** Select actual-driver note tests and bounded execution settings.
+- **Main exports:** Default Vitest config.
+- **Flow:** Runner loads config → Node environment → notes suite → sequential files/bounded timeout → results.
+- **Dependencies:** Vitest; tests/integration/notes-api.test.ts.
+- **Security:** Test-only; no skipped service claim; Node dependencies stay out of browser.
+- **What I should understand:** `include`; `environment`; `testTimeout`; fileParallelism.
+- **Concepts to learn:** Test isolation; runtime selection; timeouts.
+
+### scripts/local-test-postgres.mjs
+
+- **File:** [scripts/local-test-postgres.mjs](../scripts/local-test-postgres.mjs)
+- **Purpose:** Supply local PostgreSQL with optional migrated auth/note fixtures.
+- **Main exports:** withTestPostgres.
+- **Flow:** Start pinned Docker PG → wait → constrained login → optional Auth schema/migrations/fixture → callback → close/remove.
+- **Dependencies:** Docker; postgres-js; Drizzle migrator; existing migrations.
+- **Security:** Random local credentials; emulated auth.uid; no hosted reset; default startup fixture remains minimal.
+- **What I should understand:** `{ schema = false }`; schema branch; migrate call; finally cleanup.
+- **Concepts to learn:** Disposable environments; fixture vs hosted policy; migration bootstrapping.
+
+### scripts/test-auth-e2e.mjs
+
+- **File:** [scripts/test-auth-e2e.mjs](../scripts/test-auth-e2e.mjs)
+- **Purpose:** Start controlled auth/services for production browser auth and note checks.
+- **Main exports:** None; CLI entry.
+- **Flow:** Start provider/Redis → PostgreSQL schema fixture → production preview/Playwright → tests → cleanup.
+- **Dependencies:** Auth provider fixture; Redis/PG harnesses; Playwright auth config.
+- **Security:** Test-only credentials/records, actual protected cookies and Node routes.
+- **What I should understand:** withTestPostgres schema option; child environment; fixture cleanup.
+- **Concepts to learn:** Browser integration boundaries; service orchestration.
+
+### tests/e2e/auth.spec.ts
+
+- **File:** [tests/e2e/auth.spec.ts](../tests/e2e/auth.spec.ts)
+- **Purpose:** Exercise real Next auth and note operations through browser requests.
+- **Main exports:** None; Playwright suite.
+- **Flow:** Sign in with PKCE fixture → create/replay/list → rename/conflict/CSRF → delete/detail404 → refresh/logout/replay401.
+- **Dependencies:** Actual Next server; browser cookies; disposable provider/SQL/Redis.
+- **Security:** Checks real cookie/Origin boundary and post-logout rejection; not live Google acceptance.
+- **What I should understand:** Create201/replay200 assertions; stale409/foreign403; delete404; logout-replay401.
+- **Concepts to learn:** End-to-end cookies; API verification; fixture acceptance limits.
+
+### supabase/migrations/meta/_journal.json
+
+- **File:** [supabase/migrations/meta/_journal.json](../supabase/migrations/meta/_journal.json)
+- **Purpose:** Order applied schema migrations.
+- **Main exports:** None; Drizzle metadata.
+- **Flow:** Generator adds entry → migrator reads order → unapplied SQL runs.
+- **Dependencies:** Versioned SQL files; Drizzle migrator.
+- **Security:** No credentials or request execution; migration order must match reviewed SQL.
+- **What I should understand:** 0001 entry/tag; increasing idx; breakpoint flag.
+- **Concepts to learn:** Versioned migrations; applied vs generated state.
+
+### supabase/migrations/meta/0001_snapshot.json
+
+- **File:** [supabase/migrations/meta/0001_snapshot.json](../supabase/migrations/meta/0001_snapshot.json)
+- **Purpose:** Record generated schema after idempotency metadata.
+- **Main exports:** None; Drizzle metadata.
+- **Flow:** Read prior snapshot → compare current schema → generate next reviewed diff.
+- **Dependencies:** Drizzle Kit; db/schema.ts.
+- **Security:** Tooling-only; not a record of live grants or hosted application.
+- **What I should understand:** notes creation columns; partial unique index; paired check.
+- **Concepts to learn:** Schema snapshots vs effective database state.
+
+### package.json
+
+- **File:** [package.json](../package.json)
+- **Purpose:** Expose the notes integration verification command.
+- **Main exports:** None; npm scripts/config.
+- **Flow:** npm test:notes → dedicated Redis/SQL runner → integration result.
+- **Dependencies:** scripts/test-notes-api.mjs; existing exact dependencies.
+- **Security:** No new dependency or service provisioning; credentials remain server/test-only.
+- **What I should understand:** test:notes command; existing test:db and test:auth commands.
+- **Concepts to learn:** Script entry points; repeatable verification.
+
+### .github/workflows/quality.yml
+
+- **File:** [.github/workflows/quality.yml](../.github/workflows/quality.yml)
+- **Purpose:** Include notes SQL behavior in the existing CI quality pipeline.
+- **Main exports:** None; GitHub Actions workflow.
+- **Flow:** Install dependencies → unit/service/notes/DB checks → build → browser regressions.
+- **Dependencies:** package scripts; Docker; Chromium; GitHub Actions.
+- **Security:** Disposable local fixtures; existing credential marker scans; no hosted deployment.
+- **What I should understand:** test:notes step; test:db step; build marker environment.
+- **Concepts to learn:** CI verification vs production readiness.
+
+Migration journal/snapshot are generated ordering/diff metadata; they export no runtime
+functions and are consumed only by Drizzle tooling. `package.json` and CI add `test:notes`
+to the existing verification path; no new dependency was installed. Documentation changes
+update implemented status, contracts, trust boundaries and navigation without changing
+product requirements. [FILE_MAP](FILE_MAP.md) covers these supporting files.
+
+```text
+Client cookie + input
+        |
+Next Node note adapter
+        |
+handleNotes -> verifyDatabaseSession -> Supabase Auth
+        |
+verified owner -> Redis admission -> strict input
+        |
+service -> repository -> checked DB transaction
+        |
+profile + owner/active/key/revision query -> PostgreSQL / RLS
+        |
+COMMIT -> service projection -> no-store JSON + cookie
+        |
+Client                         safe Pino metadata
+```

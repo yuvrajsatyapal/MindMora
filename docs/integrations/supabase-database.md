@@ -1,7 +1,7 @@
 # Supabase PostgreSQL and Drizzle
 
-**Current:** ✅ 1C models, SQL boundary, migration and development provisioning. **Callers:**
-integration tests/CLI; no HTTP note route or product page. This guide owns detailed SQL
+**Current:** ✅ 1C SQL foundation and 1E note repositories/HTTP routes. **Callers:**
+note repository, integration tests and CLI; no workspace page. This guide owns detailed SQL
 behavior and recovery. [Model](../features/note-model.md) owns fields;
 [ADR-021](../decisions/ADR-021-scoped-database-role.md) owns decisions;
 [phase record](../phases/phase-01-foundation.md) owns dated validation.
@@ -24,14 +24,12 @@ module-private WeakSet and returns `{owner, projection, tokens, refreshed}`.
 `assertVerifiedOwner` checks object identity, not just a valid UUID. A copied or fabricated
 owner fails with AuthFailure before SQL. This is a guard against accidental server callers,
 not protection from malicious trusted code or a stolen database credential. The owner has
-no expiry and `run` does not recheck provider revocation. Future routes must verify each
-private request, avoid retaining/caching owner contexts, and write refreshed tokens to a
-cookie response when needed. No current adapter does that composition.
+no expiry and `run` does not recheck provider revocation. Note routes verify each
+private request, keep owner contexts request-scoped and write refreshed tokens to the
+response even when validation or SQL subsequently fails.
 
-Unlike auth `handleAuth`, this helper does not explicitly call provider `dispose` in a
-finally block. Source inspection cannot establish a reason or a cleanup guarantee for
-that difference. It is recorded as an integration gap to assess when the boundary gets
-an HTTP caller; this documentation task does not change application behavior.
+Like auth `handleAuth`, this helper now disposes its provider in a finally block on
+success and failure. Unit tests exercise both paths through the real SDK transport.
 
 ## Roles, RLS and permissions
 
@@ -50,8 +48,8 @@ Grant scope still matters: policy ALL is not an independent DELETE or UPDATE-col
 Profile UPDATE allows display_name/updated_at; note UPDATE allows title/content/revision/
 updated_at/deleted_at. IDs, owner and created timestamps cannot be updated by the request
 role. Auth-user deletion cascades profile/notes under privileged cleanup; ordinary note
-operations are prepared for soft deletion. RLS does not hide the owner's deleted notes or
-enforce expected revisions. Future repositories must add active/owner/revision predicates.
+operations implement soft deletion. RLS does not hide the owner's deleted notes or
+enforce expected revisions. The note repository adds active/owner/revision predicates.
 
 The initial migration requests Auth schema/function grants. Hosted evidence found request
 Auth schema USAGE absent and the migration login unable to grant it. Policies already
@@ -211,3 +209,21 @@ The request-scoped pool stays lazy. No note row/schema/RLS test runs at startup,
 credentials are not used. [Services](backend-services.md#server-startup-health--implemented-follow-up-to-1d)
 owns exact deadlines, safe messages, once-per-process lifecycle and tests; SQL acceptance
 remains separate. Builds do not require database connectivity.
+
+## Note caller and migration — 1E
+
+[Repository](../../src/server/notes/repository.ts) invokes run(owner, callback), seeds a
+missing profile using ON CONFLICT DO NOTHING, then queries owner/active rows. Business
+not-found/revision/idempotency outcomes return as values because exceptions inside run
+are sanitized as DatabaseFailure. The service maps those values after commit.
+
+`0001_note_create_idempotency.sql` adds nullable immutable metadata/checks and a partial
+unique owner/key index. Existing INSERT/SELECT grants cover the columns; explicit UPDATE
+grants do not. Legacy rows remain valid. Run reviewed `npm run db:migrate` before hosted
+note access; this milestone applied it only to disposable local PostgreSQL. Do not rerun
+provisioning to apply a schema migration.
+
+`npm run test:notes` uses three pool connections; a barrier/PID assertion proves two
+transactions overlap. The existing `test:db` suite keeps pool size one to verify socket
+reuse and claim cleanup. Both use the actual driver/roles and emulated local auth.uid;
+neither establishes production policy, hosted migration or live Google acceptance.

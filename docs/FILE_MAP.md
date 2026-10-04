@@ -1,6 +1,6 @@
 # MindMora File Map
 
-**Inspected:** 2026-10-05, through 1D and startup-health/terminal-styling follow-ups.
+**Inspected:** 2026-10-05, through 1E and startup-health/terminal-styling follow-ups.
 Each row separates where code lives, why it exists, its exports, callers, dependencies
 and the next runtime step. Only implemented files appear here. Some implemented libraries
 have test callers but no product caller; those gaps are explicitly identified.
@@ -112,13 +112,13 @@ Auth never creates profiles or saves notes. Account fetch helpers exist but prod
 
 | File | Purpose | Important exports | Called by | Dependencies | Flow |
 |---|---|---|---|---|---|
-| [src/server/http/errors.ts](../src/server/http/errors.ts) | Represent fixed public HTTP failures safely. | HttpFailure; ErrorCode; safeFailure | HTTP guards; limiter; auth; responses | Static error definitions | Known failure or unknown exception → safe code/status/message → responses.ts. |
-| [src/server/http/responses.ts](../src/server/http/responses.ts) | Build private responses with safe error metadata. | privateResponse; errorResponse; responseErrorCode | Auth handler; HTTP tests | errors.ts; NextResponse; response-local WeakMap | Safe failure → no-store JSON/Retry-After/request ID → browser; code metadata → logger. |
-| [src/server/http/csrf.ts](../src/server/http/csrf.ts) | Check request Origin against the configured application origin. | assertOrigin | Auth handler; HTTP tests | HttpFailure | Request Origin → accept or throw → handler/provider gate. |
-| [src/server/http/body.ts](../src/server/http/body.ts) | Bound request sizes/time and validate JSON input. | assertRequestBounds; readBoundedBody; readJson | Auth handler uses bounds/body; unit tests use JSON helper | HttpFailure; Zod; request streams | Headers/URL/body → bounded read → optional JSON/schema parse → caller or safe failure. |
-| [src/server/rate-limit/limiter.ts](../src/server/rate-limit/limiter.ts) | Apply scoped admission budgets and explicit outage policy. | createLimiter; limiter; publicIdentity; authBudgets | Auth handler; tests; basic/expensive helpers have no product caller | client.ts; verified-owner assertion; HttpFailure; Node crypto/net | Trusted/shared identity → hashed scoped key → counter → admit/429/503; basic helper can degrade locally. |
+| [src/server/http/errors.ts](../src/server/http/errors.ts) | Represent fixed public HTTP failures safely. | HttpFailure; ErrorCode; safeFailure | HTTP guards; limiter; auth/note handlers; service; responses | Static error definitions | Known failure or unknown exception → safe code/status/message → responses.ts. |
+| [src/server/http/responses.ts](../src/server/http/responses.ts) | Build private responses with safe error metadata. | privateResponse; errorResponse; responseErrorCode | Auth/note handlers; HTTP tests | errors.ts; NextResponse; response-local WeakMap | Safe failure → no-store JSON/Retry-After/request ID → browser; code metadata → logger. |
+| [src/server/http/csrf.ts](../src/server/http/csrf.ts) | Check request Origin against the configured application origin. | assertOrigin | Auth/note handlers; HTTP tests | HttpFailure | Request Origin → accept or throw → handler/provider gate. |
+| [src/server/http/body.ts](../src/server/http/body.ts) | Bound request sizes/time and validate JSON input. | assertRequestBounds; readBoundedBody; readJson | Auth handler uses bounds/body; note handler uses JSON helper; unit tests | HttpFailure; Zod; request streams | Headers/URL/body → bounded read → optional JSON/schema parse → caller or safe failure. |
+| [src/server/rate-limit/limiter.ts](../src/server/rate-limit/limiter.ts) | Apply scoped admission budgets and explicit outage policy. | createLimiter; limiter; publicIdentity; authBudgets | Auth handler; note handler uses basic; tests; expensive has no product caller | client.ts; verified-owner assertion; HttpFailure; Node crypto/net | Trusted/shared identity → hashed scoped key → counter → admit/429/503; basic helper can degrade locally. |
 | [src/server/rate-limit/client.ts](../src/server/rate-limit/client.ts) | Provide lazy bounded atomic Redis counters. | Counter; createRedisCounter; redisCounter | limiter.ts; real counter tests | getRateLimitConfig; node-redis; Lua | Key/window → connect if needed → EVAL count/TTL → limiter; timeout destroys unsafe connection. |
-| [src/server/logging/logger.ts](../src/server/logging/logger.ts) | Restrict structured request logs to validated metadata. | createRequestLogger; logRequest | Auth handler; logger tests | Pino; Zod | Operation/status/duration/safe code/UUID → allowlist validation → structured log; no raw request/error. |
+| [src/server/logging/logger.ts](../src/server/logging/logger.ts) | Restrict structured request logs to validated metadata. | createRequestLogger; logRequest | Auth/note handlers; logger tests | Pino; Zod | Operation/status/duration/safe code/UUID → allowlist validation → structured log; no raw request/error. |
 
 ```text
 auth/routes.ts receives request
@@ -137,25 +137,25 @@ auth/routes.ts receives request
      logger.ts -> safe Pino metadata
 ```
 
-Public auth fails closed on Redis outage. The implemented basic fallback requires an issued verified owner and currently has no note API caller. [Services](integrations/backend-services.md) and [ADR-022](decisions/ADR-022-http-admission-and-safe-logging.md) own policy details.
+Public auth fails closed on Redis outage. The implemented basic fallback requires an issued verified owner and is used by the note handler, which advertises degraded admission. [Services](integrations/backend-services.md) and [ADR-022](decisions/ADR-022-http-admission-and-safe-logging.md) own policy details.
 
 ## Note contracts and scoped database boundary
 
 | File | Purpose | Important exports | Called by | Dependencies | Flow |
 |---|---|---|---|---|---|
-| [src/features/notes/validation.ts](../src/features/notes/validation.ts) | Define strict bounded note mutation/list inputs. | createNoteSchema; updateNoteSchema; deleteNoteSchema; listNotesSchema; noteCursorSchema | notes/types.ts; validation tests; no HTTP caller | Zod; byte/revision limits | Candidate input → schema check → typed input or rejection; not a save operation. |
-| [src/features/notes/types.ts](../src/features/notes/types.ts) | Define validated note/profile projections and shared types. | noteSchema; profileSchema; Note; Profile; note input types | Tests/type consumers; no current row serializer | Zod; notes/validation.ts | Schema definitions → typed/validated projections; no route serialization yet. |
-| [src/server/db/schema.ts](../src/server/db/schema.ts) | Describe implemented PostgreSQL tables and constraints. | profiles; notes | DB client; Drizzle generator; integration tests | Drizzle pg-core; Auth table definition | Schema → typed query construction or migration generation → PostgreSQL structure. |
+| [src/features/notes/validation.ts](../src/features/notes/validation.ts) | Define strict bounded note mutation/list inputs. | createNoteSchema; updateNoteSchema; deleteNoteSchema; listNotesSchema; noteCursorSchema | Note handler; notes/types.ts; validation tests | Zod; byte/revision limits | Candidate input → schema check → typed input or rejection; not a save operation. |
+| [src/features/notes/types.ts](../src/features/notes/types.ts) | Define validated note/profile projections and shared types. | noteSchema; noteSummarySchema; notePageSchema; profileSchema; Note; NoteSummary; NotePage; Profile; input types | Note service/repository/handler; tests | Zod; notes/validation.ts | Row/input data → validated note/page projections → HTTP response. |
+| [src/server/db/schema.ts](../src/server/db/schema.ts) | Describe implemented PostgreSQL tables and constraints. | profiles; notes | Note repository; DB client; Drizzle generator; integration tests | Drizzle pg-core; Auth table definition | Schema → typed query construction or migration generation → PostgreSQL structure. |
 | [src/server/db/config.ts](../src/server/db/config.ts) | Separate checked runtime and privileged database settings. | getDatabaseConfig; getMigrationConfig; DatabaseConfig | DB client; CLI common module; startup probe; tests | Zod; Node fs; optional CA file | Selected URL/role/pool/CA → checked TLS config → dedicated client or pool. |
-| [src/server/db/user-context.ts](../src/server/db/user-context.ts) | Issue and recognize actual verified owner objects. | verifyDatabaseSession; assertVerifiedOwner; VerifiedOwner | Integration tests; DB client/limiter assertions; no private HTTP caller | Auth config; provider; session; WeakSet | Request cookie → online identity verification → issued owner → SQL/fallback permission check. |
-| [src/server/db/client.ts](../src/server/db/client.ts) | Scope SQL transactions to checked roles and verified ownership. | createDatabase; getDatabase; DatabaseFailure; returned run/close | Integration tests use factory; singleton has no product caller | DB config/schema/context; postgres-js; Drizzle | Issued owner → BEGIN/check role → LOCAL role/claims → callback query → commit/rollback → caller. |
+| [src/server/db/user-context.ts](../src/server/db/user-context.ts) | Issue and recognize actual verified owner objects. | verifyDatabaseSession; assertVerifiedOwner; VerifiedOwner | Note handler; integration tests; DB client/limiter assertions | Auth config; provider; session; WeakSet | Request cookie → verify/refresh identity → issued owner → dispose provider → SQL/fallback permission check. |
+| [src/server/db/client.ts](../src/server/db/client.ts) | Scope SQL transactions to checked roles and verified ownership. | createDatabase; getDatabase; DatabaseFailure; returned run/close | Note repository uses singleton; integration tests use factory | DB config/schema/context; postgres-js; Drizzle | Issued owner → BEGIN/check role → LOCAL role/claims → callback query → commit/rollback → caller. |
 | [drizzle.config.ts](../drizzle.config.ts) | Configure reviewed schema generation. | Default Drizzle config | npm db:generate / Drizzle Kit | db/schema.ts; supabase/migrations | Schema diff → generated migration/meta for review; does not apply SQL. |
 | [supabase/migrations/0000_profiles_notes.sql](../supabase/migrations/0000_profiles_notes.sql) | Create profiles/notes and owner-enforced SQL policies. | None; versioned SQL migration | Drizzle migrator through CLI/test harness | PostgreSQL; Supabase auth schema/functions | Reviewed migration → tables/checks/grants/FORCE RLS → later scoped queries. |
 | [supabase/migrations/meta/_journal.json](../supabase/migrations/meta/_journal.json) | Track generated migration order. | None; migration metadata | Drizzle generator/migrator | Versioned migration files | Journal ordering → migrator selects unapplied SQL. |
 | [supabase/migrations/meta/0000_snapshot.json](../supabase/migrations/meta/0000_snapshot.json) | Record generated schema state for later diffs. | None; schema metadata | Drizzle Kit | Generated schema snapshot | Previous snapshot + current schema → next reviewed diff; no request runtime. |
 
 ```text
-Implemented test/library flow (no note HTTP route):
+Implemented SQL boundary (called by note repository and tests):
 Request fixture -> user-context.ts -> session.ts / provider.ts
                                    -> Supabase Auth or test transport
           |
@@ -169,11 +169,51 @@ Request fixture -> user-context.ts -> session.ts / provider.ts
           |
   COMMIT / ROLLBACK -> result / safe DatabaseFailure
 
-Contract-only path:
-Candidate note input -> validation.ts -> types.ts / tests
+Note contract path:
+Candidate note input -> validation.ts -> handler -> repository
+Row -> service -> types.ts validation -> response
 ```
 
-SELECT 1 startup probes do not enter this transaction path. Note contracts/schema are implemented; repositories/CRUD callers are absent. [Database guide](integrations/supabase-database.md), [note model](features/note-model.md), [ADR-021](decisions/ADR-021-scoped-database-role.md).
+SELECT 1 startup probes do not enter this transaction path. Note repositories/CRUD are implemented; workspace callers remain absent. [Database guide](integrations/supabase-database.md), [note model](features/note-model.md), [ADR-021](decisions/ADR-021-scoped-database-role.md).
+
+## Authenticated note API
+
+| File | Purpose | Important exports | Called by | Dependencies | Flow |
+|---|---|---|---|---|---|
+| [src/app/api/notes/route.ts](../src/app/api/notes/route.ts) | Adapt collection requests to note HTTP policy. | GET; POST; rejected-method adapters; runtime; dynamic | Next HTTP /api/notes | server/notes/routes.ts | Node request → handleNotes without id → list/create response. |
+| [src/app/api/notes/[id]/route.ts](../src/app/api/notes/[id]/route.ts) | Adapt individual note requests with awaited dynamic params. | GET; PATCH; DELETE; rejected-method adapters; runtime; dynamic | Next HTTP /api/notes/{id} | server/notes/routes.ts | Await id → handleNotes → detail/update/soft-delete response. |
+| [src/server/notes/routes.ts](../src/server/notes/routes.ts) | Compose authenticated HTTP policy for note operations. | handleNotes; NotesDependencies | Two Next adapters; unit/integration tests | Config; owner verification; HTTP guards/responses; limiter; logger; validation; service/repository | Bounds/Origin → verify → admit → parse → service → no-store/cookie/error/log response. |
+| [src/server/notes/service.ts](../src/server/notes/service.ts) | Validate public projections and translate committed business outcomes. | createNoteService; normalizeNote; resolveNote; profileName | handleNotes | Repository; note/profile/page schemas; HttpFailure | Repository result after commit → safe outcome/date projection → validated response or fixed error. |
+| [src/server/notes/repository.ts](../src/server/notes/repository.ts) | Persist owner-scoped notes with atomic revision/key rules. | createNoteRepository; NoteRepository; NoteDatabase; NoteRow; NoteOutcome | Note service/handler; integration tests | DB client/schema; verified owner; Drizzle; Node crypto | Checked transaction → missing profile insert → owner/active/revision/key query → commit outcome to service. |
+| [supabase/migrations/0001_note_create_idempotency.sql](../supabase/migrations/0001_note_create_idempotency.sql) | Add immutable creation metadata and owner/key uniqueness. | None; versioned SQL | Drizzle migrator via CLI/local fixtures | PostgreSQL; notes table | Apply nullable columns/check/partial index → concurrent creates share one row/key. |
+| [supabase/migrations/meta/0001_snapshot.json](../supabase/migrations/meta/0001_snapshot.json) | Record schema after creation metadata changes. | None; migration metadata | Drizzle Kit (no product request caller) | db/schema.ts; previous snapshot/journal | Prior/current schema → reviewed future diff; not request runtime. |
+
+```text
+Client cookie + input
+        |
+notes/route.ts or notes/[id]/route.ts
+        |
+server/notes/routes.ts
+        |
+user-context.ts -> session.ts / provider.ts -> Supabase Auth
+        |
+limiter.ts -> Redis (or bounded degraded fallback)
+        |
+notes/validation.ts -> service.ts -> repository.ts
+        |
+client.ts -> checked LOCAL owner/role transaction
+        |
+PostgreSQL: profile insert + owner/active/revision query + RLS
+        |
+COMMIT -> repository outcome -> service projection
+        |
+routes.ts -> safe no-store JSON / protected refreshed cookie
+        |
+Client       logger.ts -> safe Pino metadata
+```
+
+No workspace page calls these endpoints yet. Auth refresh/Redis/HTTP delivery do not share
+PostgreSQL's transaction. [API behavior](features/notes-api.md) · [Learning summary](LEARNING.md#milestone-1e-code-understanding-summary).
 
 ## Privileged CLI and credential recovery
 
@@ -205,6 +245,11 @@ Privileged credentials are CLI-only. SQL commit and filesystem publication canno
 
 | File | Purpose | Important exports | Called by | Dependencies | Flow |
 |---|---|---|---|---|---|
+| [src/server/notes/routes.test.ts](../src/server/notes/routes.test.ts) | Verify note guards, refresh and safe availability failures. | None; test suite | Unit Vitest config (test-only) | handleNotes; real SDK controlled transport; injected admission/SQL | Requests → production handler → status/cookie/safe output assertions. |
+| [src/server/db/user-context.test.ts](../src/server/db/user-context.test.ts) | Verify provider cleanup after identity success/failure. | None; test suite | Unit Vitest config (test-only) | user-context; real provider fixture; disposal spy | Verify session → success/revoked result → assert dispose once. |
+| [tests/integration/notes-api.test.ts](../tests/integration/notes-api.test.ts) | Verify actual SQL note isolation, races and reconciliation. | None; test suite | vitest.notes.config.ts (test-only) | Handler/repository/DB; real local PostgreSQL/Redis; controlled Supabase transport | Scoped HTTP requests → concurrent real transactions → response/row assertions → cleanup. |
+| [vitest.notes.config.ts](../vitest.notes.config.ts) | Select actual-driver note integration tests. | Default Vitest config | test-database --notes (test-only) | notes-api.test.ts | Fixture config → Node suite → pass/fail. |
+| [scripts/test-notes-api.mjs](../scripts/test-notes-api.mjs) | Coordinate disposable Redis and notes SQL verification. | None; CLI entry | npm test:notes; CI (test-only) | local-test-redis; test-database --notes | Start Redis → migrated PostgreSQL + three-connection suite → cleanup/exit. |
 | [vitest.config.ts](../vitest.config.ts) | Select unit/component tests and environment setup. | Default Vitest config | npm test | React Vite plugin; tests/setup.ts | Vitest loads setup → src test suites → pass/fail. |
 | [src/tests/setup.ts](../src/tests/setup.ts) | Install shared test matchers and cleanup. | None; test setup | Vitest config | Testing Library matchers/cleanup | Test worker setup → assertions/render cleanup for suites. |
 | [src/tests/auth-provider-fixture.ts](../src/tests/auth-provider-fixture.ts) | Provide controlled Supabase protocol responses. | authProviderFixture | Auth/account/owner tests; auth browser harness | Fetch-compatible fixture transport | SDK request → disposable fixture response → production provider verification logic. |
@@ -227,7 +272,7 @@ Privileged credentials are CLI-only. SQL commit and filesystem publication canno
 | [scripts/test-rate-limit.mjs](../scripts/test-rate-limit.mjs) | Run real Redis admission integration tests. | None; CLI entry | npm test:rate-limit; CI | withTestRedis; Vitest rate-limit config | Temporary Redis URL → Vitest protocol/admission tests → cleanup. |
 | [vitest.rate-limit.config.ts](../vitest.rate-limit.config.ts) | Select Redis integration tests. | Default Vitest config | Rate-limit runner | tests/integration/rate-limit.test.ts | Fixture environment → selected test suite → pass/fail. |
 | [tests/integration/rate-limit.test.ts](../tests/integration/rate-limit.test.ts) | Exercise actual Lua, expiry, HTTP throttling and outages. | None; test suite | Rate-limit Vitest config | Redis counter/limiter; auth handler; socket fixtures | Real counters and failing sockets → policy assertions → cleanup. |
-| [scripts/local-test-postgres.mjs](../scripts/local-test-postgres.mjs) | Provide disposable PostgreSQL with a constrained login. | withTestPostgres | Startup/auth/showcase runners | Docker; postgres; generated credentials | Start/check DB → create runtime login → pass URL → close/remove fixture. |
+| [scripts/local-test-postgres.mjs](../scripts/local-test-postgres.mjs) | Provide disposable PostgreSQL with a constrained login. | withTestPostgres | Startup/auth/showcase runners (test-only) | Docker; postgres; Drizzle migrator; generated credentials | Start/check DB → login → optional reviewed schema/Auth fixture → pass URL → close/remove. |
 | [scripts/test-startup-health.mjs](../scripts/test-startup-health.mjs) | Exercise actual Next starts, restarts and failure policy. | None; CLI entry | npm test:startup; CI | Redis/PG fixtures; Next; startup Vitest config | Fixtures → real probes → production/dev processes → logs/HTTP/exit assertions → cleanup. |
 | [vitest.startup.config.ts](../vitest.startup.config.ts) | Select real connectivity/deadline tests. | Default Vitest config | Startup runner | tests/integration/startup-probes.test.ts | Fixture URLs → protocol suite → pass/fail. |
 | [tests/integration/startup-probes.test.ts](../tests/integration/startup-probes.test.ts) | Test actual PING/SELECT 1, authentication errors and deadlines. | None; test suite | Startup Vitest config | startup/probes.ts; real services; socket fixtures | Healthy/bad/stalled connections → probe result/deadline assertions → cleanup. |
@@ -235,19 +280,19 @@ Privileged credentials are CLI-only. SQL commit and filesystem publication canno
 | [src/server/startup/probes.test.ts](../src/server/startup/probes.test.ts) | Verify safe rejection of invalid probe configuration. | None; test suite | Unit Vitest config | probes.ts | Invalid marker inputs → fixed safe rejection; no cloud service call. |
 | [scripts/test-showcase-e2e.mjs](../scripts/test-showcase-e2e.mjs) | Supply healthy local services to showcase browser checks. | None; CLI entry | npm test:e2e; CI | withTestRedis; withTestPostgres; Playwright | Fixture URLs → Playwright config → fresh preview/browser checks → cleanup. |
 | [playwright.config.ts](../playwright.config.ts) | Configure production showcase/runtime browser execution. | Default Playwright config | Showcase runner / Playwright CLI | preview.mjs; tests/e2e/design-system.spec.ts; runtime.spec.ts | Start fresh configured preview → Chromium requests/assertions → stop preview. |
-| [scripts/test-auth-e2e.mjs](../scripts/test-auth-e2e.mjs) | Coordinate disposable provider/services and auth browser checks. | None; CLI entry | npm test:auth; CI | Provider fixture; Redis/PG fixtures; Playwright auth config | Start disposable services/provider → browser auth flow → assertions → cleanup. |
+| [scripts/test-auth-e2e.mjs](../scripts/test-auth-e2e.mjs) | Coordinate disposable provider/services and auth browser checks. | None; CLI entry | npm test:auth; CI | Provider fixture; Redis/PG fixtures; Playwright auth config | Start provider/Redis + migrated PG fixture → browser auth/note flow → assertions → cleanup. |
 | [playwright.auth.config.ts](../playwright.auth.config.ts) | Select production auth browser execution. | Default Playwright config | Auth browser runner | Next preview; tests/e2e/auth.spec.ts | Configured provider/service environment → fresh Next → auth browser suite. |
-| [tests/e2e/auth.spec.ts](../tests/e2e/auth.spec.ts) | Exercise production cookie auth and throttling in a browser. | None; test suite | Auth Playwright config | Real Next; disposable provider; browser requests | Browser sign-in/refresh/logout/throttle → routes → cookie/status assertions. |
+| [tests/e2e/auth.spec.ts](../tests/e2e/auth.spec.ts) | Exercise production cookie auth, note CRUD and throttling in a browser. | None; test suite | Auth Playwright config | Real Next; disposable provider; browser requests | Browser sign-in → actual note CRUD/CSRF/revisions → refresh/logout/throttle → cookie/status assertions. |
 | [tests/e2e/design-system.spec.ts](../tests/e2e/design-system.spec.ts) | Exercise showcase accessibility, themes and responsive layout. | None; test suite | Showcase Playwright config | Real Next showcase; Chromium; axe | Browser interactions/viewports → rendered UI → accessibility/layout assertions. |
 | [tests/e2e/runtime.spec.ts](../tests/e2e/runtime.spec.ts) | Check runtime 404 and browser credential exclusion. | None; test suite | Showcase Playwright config | Next public pages/static scripts; disposable markers | Browser/network reads → status/content assertions → private marker exclusion. |
 | [scripts/check-styles.mjs](../scripts/check-styles.mjs) | Enforce the shared style contract. | None; CLI entry | npm lint; CI | Source/style files; Node fs | Inspect styles → reject raw colors/arbitrary rules or report success. |
 | [.github/workflows/quality.yml](../.github/workflows/quality.yml) | Define automated runtime and UI checks. | None; workflow definition | GitHub Actions on push/pull_request | npm checks; Docker; Chromium | Install/audit → lint/types/tests → build/startup → browser checks. |
-| [docs/api/openapi.json](../docs/api/openapi.json) | Describe implemented auth endpoints without credentials. | Auth paths/schemas; OpenAPI document | Contract readers; documentation checks | Auth routes and response contracts | Endpoint definitions → human/API tooling reference; no Swagger/Postman generator exists. |
+| [docs/api/openapi.json](../docs/api/openapi.json) | Describe implemented auth/note endpoints without credentials. | Auth/note paths/schemas; OpenAPI document | Contract readers; documentation checks | Auth/note routes and response contracts | Endpoint definitions → human/API tooling reference; no Swagger/Postman generator exists. |
 
 ```text
 Unit: npm test -> vitest.config.ts -> src test suites
 
-Integration: npm test:db / test:rate-limit / test:startup
+Integration: npm test:db / test:notes / test:rate-limit / test:startup
                   |
              disposable fixtures
                   |

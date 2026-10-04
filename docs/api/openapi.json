@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "MindMora auth API",
+    "title": "MindMora auth and notes API",
     "version": "0.1.0",
-    "description": "Milestone 1B auth-only contract. Bounded live Google/session/logout and refresh/replay acceptance recorded in docs/phases/phase-01-foundation.md. Notes, Swagger UI, Postman generation and full contract drift tooling are not implemented. 1D adds bounded empty-body checks, correlation IDs, Redis admission and safe Pino logging; hosted readiness remains unverified."
+    "description": "Implemented auth and Milestone 1E note contract records. Note APIs use online verified cookies, owner-scoped SQL/RLS, revisions and create keys. Reviewed records only: Swagger UI, generated Postman and automated route drift tooling remain planned for 1H. Hosted 1E migration and production readiness are unverified; dated evidence lives in docs/phases/phase-01-foundation.md."
   },
   "paths": {
     "/api/auth/start": {
@@ -900,6 +900,868 @@
           }
         }
       }
+    },
+    "/api/notes": {
+      "get": {
+        "operationId": "listNotes",
+        "summary": "listNotes",
+        "description": "Server-only Node route. Bounds/method/Origin \u2192 online session verification \u2192 basic admission \u2192 strict input \u2192 scoped transaction \u2192 normalized response. All outcomes no-store. Lazy profile insert preserves existing profile. No queued save or workspace UI.",
+        "security": [
+          {
+            "AppSession": []
+          },
+          {
+            "LocalSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "Exact APP_ORIGIN. GET may omit Origin but rejects a supplied foreign Origin."
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "type": "string"
+            },
+            "description": "URL-encoded JSON object with exactly UTC millisecond updatedAt and UUID id. Omit on first page; ordering is updatedAt/id descending. Unknown/duplicate query keys rejected. Pages are not snapshots under edits."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Validated owner-scoped result.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-store"
+                }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              },
+              "Set-Cookie": {
+                "description": "Optional refreshed protected session or invalid-session clearing cookie; HttpOnly/host-only/SameSite=Lax, Secure over HTTPS. No credential examples.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Degraded": {
+                "description": "Present with true when basic admission used bounded process-local fallback.",
+                "schema": {
+                  "type": "string",
+                  "const": "true"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NoteError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/NoteError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/NoteError403"
+          },
+          "405": {
+            "description": "Unsupported method; Allow names supported methods.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-store"
+                }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              },
+              "Set-Cookie": {
+                "description": "Optional refreshed protected session or invalid-session clearing cookie; HttpOnly/host-only/SameSite=Lax, Secure over HTTPS. No credential examples.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Degraded": {
+                "description": "Present with true when basic admission used bounded process-local fallback.",
+                "schema": {
+                  "type": "string",
+                  "const": "true"
+                }
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string",
+                  "const": "GET, POST"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteError"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/NoteError413"
+          },
+          "429": {
+            "$ref": "#/components/responses/NoteError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/NoteError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/NoteError503"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createNote",
+        "summary": "createNote",
+        "description": "Server-only Node route. Bounds/method/Origin \u2192 online session verification \u2192 basic admission \u2192 strict input \u2192 scoped transaction \u2192 normalized response. All outcomes no-store. Lazy profile insert preserves existing profile. No queued save or workspace UI.",
+        "security": [
+          {
+            "AppSession": []
+          },
+          {
+            "LocalSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "Exact APP_ORIGIN. GET may omit Origin but rejects a supplied foreign Origin."
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Retain key and original normalized title/content for uncertain retries. Owner-scoped; matching active replay returns current note200, changed payload409, deleted replay404. Keys/hashes are excluded from output."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching active create replay returns current note.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-store"
+                }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              },
+              "Set-Cookie": {
+                "description": "Optional refreshed protected session or invalid-session clearing cookie; HttpOnly/host-only/SameSite=Lax, Secure over HTTPS. No credential examples.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Degraded": {
+                "description": "Present with true when basic admission used bounded process-local fallback.",
+                "schema": {
+                  "type": "string",
+                  "const": "true"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "New note transaction committed.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-store"
+                }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              },
+              "Set-Cookie": {
+                "description": "Optional refreshed protected session or invalid-session clearing cookie; HttpOnly/host-only/SameSite=Lax, Secure over HTTPS. No credential examples.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Degraded": {
+                "description": "Present with true when basic admission used bounded process-local fallback.",
+                "schema": {
+                  "type": "string",
+                  "const": "true"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NoteError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/NoteError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/NoteError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/NoteError404"
+          },
+          "405": {
+            "description": "Unsupported method; Allow names supported methods.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-store"
+                }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              },
+              "Set-Cookie": {
+                "description": "Optional refreshed protected session or invalid-session clearing cookie; HttpOnly/host-only/SameSite=Lax, Secure over HTTPS. No credential examples.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Degraded": {
+                "description": "Present with true when basic admission used bounded process-local fallback.",
+                "schema": {
+                  "type": "string",
+                  "const": "true"
+                }
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string",
+                  "const": "GET, POST"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteError"
+                }
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/NoteError409"
+          },
+          "413": {
+            "$ref": "#/components/responses/NoteError413"
+          },
+          "415": {
+            "$ref": "#/components/responses/NoteError415"
+          },
+          "429": {
+            "$ref": "#/components/responses/NoteError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/NoteError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/NoteError503"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateNote"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notes/{id}": {
+      "get": {
+        "operationId": "readNote",
+        "summary": "readNote",
+        "description": "Server-only Node route. Bounds/method/Origin \u2192 online session verification \u2192 basic admission \u2192 strict input \u2192 scoped transaction \u2192 normalized response. All outcomes no-store. Lazy profile insert preserves existing profile. No queued save or workspace UI.",
+        "security": [
+          {
+            "AppSession": []
+          },
+          {
+            "LocalSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "Exact APP_ORIGIN. GET may omit Origin but rejects a supplied foreign Origin."
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Validated owner-scoped result.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-store"
+                }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              },
+              "Set-Cookie": {
+                "description": "Optional refreshed protected session or invalid-session clearing cookie; HttpOnly/host-only/SameSite=Lax, Secure over HTTPS. No credential examples.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Degraded": {
+                "description": "Present with true when basic admission used bounded process-local fallback.",
+                "schema": {
+                  "type": "string",
+                  "const": "true"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NoteError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/NoteError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/NoteError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/NoteError404"
+          },
+          "405": {
+            "description": "Unsupported method; Allow names supported methods.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-store"
+                }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              },
+              "Set-Cookie": {
+                "description": "Optional refreshed protected session or invalid-session clearing cookie; HttpOnly/host-only/SameSite=Lax, Secure over HTTPS. No credential examples.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Degraded": {
+                "description": "Present with true when basic admission used bounded process-local fallback.",
+                "schema": {
+                  "type": "string",
+                  "const": "true"
+                }
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string",
+                  "const": "GET, PATCH, DELETE"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteError"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/NoteError413"
+          },
+          "429": {
+            "$ref": "#/components/responses/NoteError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/NoteError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/NoteError503"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateNote",
+        "summary": "updateNote",
+        "description": "Server-only Node route. Bounds/method/Origin \u2192 online session verification \u2192 basic admission \u2192 strict input \u2192 scoped transaction \u2192 normalized response. All outcomes no-store. Lazy profile insert preserves existing profile. No queued save or workspace UI.",
+        "security": [
+          {
+            "AppSession": []
+          },
+          {
+            "LocalSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "Exact APP_ORIGIN. GET may omit Origin but rejects a supplied foreign Origin."
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Validated owner-scoped result.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-store"
+                }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              },
+              "Set-Cookie": {
+                "description": "Optional refreshed protected session or invalid-session clearing cookie; HttpOnly/host-only/SameSite=Lax, Secure over HTTPS. No credential examples.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Degraded": {
+                "description": "Present with true when basic admission used bounded process-local fallback.",
+                "schema": {
+                  "type": "string",
+                  "const": "true"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NoteError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/NoteError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/NoteError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/NoteError404"
+          },
+          "405": {
+            "description": "Unsupported method; Allow names supported methods.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-store"
+                }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              },
+              "Set-Cookie": {
+                "description": "Optional refreshed protected session or invalid-session clearing cookie; HttpOnly/host-only/SameSite=Lax, Secure over HTTPS. No credential examples.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Degraded": {
+                "description": "Present with true when basic admission used bounded process-local fallback.",
+                "schema": {
+                  "type": "string",
+                  "const": "true"
+                }
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string",
+                  "const": "GET, PATCH, DELETE"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteError"
+                }
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/NoteError409"
+          },
+          "413": {
+            "$ref": "#/components/responses/NoteError413"
+          },
+          "415": {
+            "$ref": "#/components/responses/NoteError415"
+          },
+          "429": {
+            "$ref": "#/components/responses/NoteError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/NoteError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/NoteError503"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateNote"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "softDeleteNote",
+        "summary": "softDeleteNote",
+        "description": "Server-only Node route. Bounds/method/Origin \u2192 online session verification \u2192 basic admission \u2192 strict input \u2192 scoped transaction \u2192 normalized response. All outcomes no-store. Lazy profile insert preserves existing profile. No queued save or workspace UI.",
+        "security": [
+          {
+            "AppSession": []
+          },
+          {
+            "LocalSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "Exact APP_ORIGIN. GET may omit Origin but rejects a supplied foreign Origin."
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Committed soft-deleted note; later reads return404.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-store"
+                }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              },
+              "Set-Cookie": {
+                "description": "Optional refreshed protected session or invalid-session clearing cookie; HttpOnly/host-only/SameSite=Lax, Secure over HTTPS. No credential examples.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Degraded": {
+                "description": "Present with true when basic admission used bounded process-local fallback.",
+                "schema": {
+                  "type": "string",
+                  "const": "true"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NoteError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/NoteError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/NoteError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/NoteError404"
+          },
+          "405": {
+            "description": "Unsupported method; Allow names supported methods.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-store"
+                }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              },
+              "Set-Cookie": {
+                "description": "Optional refreshed protected session or invalid-session clearing cookie; HttpOnly/host-only/SameSite=Lax, Secure over HTTPS. No credential examples.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Degraded": {
+                "description": "Present with true when basic admission used bounded process-local fallback.",
+                "schema": {
+                  "type": "string",
+                  "const": "true"
+                }
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string",
+                  "const": "GET, PATCH, DELETE"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteError"
+                }
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/NoteError409"
+          },
+          "413": {
+            "$ref": "#/components/responses/NoteError413"
+          },
+          "415": {
+            "$ref": "#/components/responses/NoteError415"
+          },
+          "429": {
+            "$ref": "#/components/responses/NoteError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/NoteError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/NoteError503"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteNote"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -996,6 +1858,287 @@
                   "payload_too_large",
                   "rate_limited",
                   "admission_unavailable",
+                  "internal_error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "correlationId": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        }
+      },
+      "Note": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Server-derived verified owner; cannot be submitted in mutation input."
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Trimmed, nonempty, at most 200 Unicode code points; no NUL."
+          },
+          "content": {
+            "type": "string",
+            "description": "Markdown, at most 1,048,576 UTF-8 bytes, no NUL. Empty string allowed; storage API does not render/sanitize HTML."
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+          },
+          "deletedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "title",
+          "content",
+          "revision",
+          "createdAt",
+          "updatedAt",
+          "deletedAt"
+        ],
+        "additionalProperties": false
+      },
+      "NoteSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Server-derived verified owner; cannot be submitted in mutation input."
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Trimmed, nonempty, at most 200 Unicode code points; no NUL."
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+          },
+          "deletedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "title",
+          "revision",
+          "createdAt",
+          "updatedAt",
+          "deletedAt"
+        ],
+        "additionalProperties": false
+      },
+      "NoteCursor": {
+        "type": "object",
+        "properties": {
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "updatedAt",
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "NotePage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/NoteSummary"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NoteCursor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "additionalProperties": false
+      },
+      "CreateNote": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Trimmed, nonempty, at most 200 Unicode code points; no NUL."
+          },
+          "content": {
+            "type": "string",
+            "description": "Markdown, at most 1,048,576 UTF-8 bytes, no NUL. Empty string allowed; storage API does not render/sanitize HTML."
+          }
+        },
+        "required": [
+          "title",
+          "content"
+        ],
+        "additionalProperties": false
+      },
+      "UpdateNote": {
+        "type": "object",
+        "properties": {
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483646
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Trimmed, nonempty, at most 200 Unicode code points; no NUL."
+          },
+          "content": {
+            "type": "string",
+            "description": "Markdown, at most 1,048,576 UTF-8 bytes, no NUL. Empty string allowed; storage API does not render/sanitize HTML."
+          }
+        },
+        "required": [
+          "expectedRevision"
+        ],
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "title"
+            ]
+          },
+          {
+            "required": [
+              "content"
+            ]
+          }
+        ]
+      },
+      "DeleteNote": {
+        "type": "object",
+        "properties": {
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483646
+          }
+        },
+        "required": [
+          "expectedRevision"
+        ],
+        "additionalProperties": false
+      },
+      "NoteError": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message",
+              "correlationId"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "invalid_request",
+                  "unauthenticated",
+                  "origin_rejected",
+                  "not_found",
+                  "method_not_allowed",
+                  "revision_conflict",
+                  "idempotency_conflict",
+                  "payload_too_large",
+                  "unsupported_media_type",
+                  "rate_limited",
+                  "auth_unavailable",
+                  "admission_unavailable",
+                  "service_unavailable",
                   "internal_error"
                 ]
               },
@@ -1123,6 +2266,439 @@
           "application/json": {
             "schema": {
               "$ref": "#/components/schemas/AuthError"
+            }
+          }
+        }
+      },
+      "NoteError400": {
+        "description": "Malformed or invalid input.",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "const": "private, no-store"
+            }
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/CorrelationId"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          },
+          "Referrer-Policy": {
+            "schema": {
+              "type": "string",
+              "const": "no-referrer"
+            }
+          },
+          "Set-Cookie": {
+            "description": "Optional refreshed protected session or invalid-session clearing cookie; HttpOnly/host-only/SameSite=Lax, Secure over HTTPS. No credential examples.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "X-RateLimit-Degraded": {
+            "description": "Present with true when basic admission used bounded process-local fallback.",
+            "schema": {
+              "type": "string",
+              "const": "true"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/NoteError"
+            }
+          }
+        }
+      },
+      "NoteError401": {
+        "description": "Missing or revoked session.",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "const": "private, no-store"
+            }
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/CorrelationId"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          },
+          "Referrer-Policy": {
+            "schema": {
+              "type": "string",
+              "const": "no-referrer"
+            }
+          },
+          "Set-Cookie": {
+            "description": "Optional refreshed protected session or invalid-session clearing cookie; HttpOnly/host-only/SameSite=Lax, Secure over HTTPS. No credential examples.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "X-RateLimit-Degraded": {
+            "description": "Present with true when basic admission used bounded process-local fallback.",
+            "schema": {
+              "type": "string",
+              "const": "true"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/NoteError"
+            }
+          }
+        }
+      },
+      "NoteError403": {
+        "description": "Origin rejected.",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "const": "private, no-store"
+            }
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/CorrelationId"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          },
+          "Referrer-Policy": {
+            "schema": {
+              "type": "string",
+              "const": "no-referrer"
+            }
+          },
+          "Set-Cookie": {
+            "description": "Optional refreshed protected session or invalid-session clearing cookie; HttpOnly/host-only/SameSite=Lax, Secure over HTTPS. No credential examples.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "X-RateLimit-Degraded": {
+            "description": "Present with true when basic admission used bounded process-local fallback.",
+            "schema": {
+              "type": "string",
+              "const": "true"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/NoteError"
+            }
+          }
+        }
+      },
+      "NoteError413": {
+        "description": "Request bounds exceeded.",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "const": "private, no-store"
+            }
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/CorrelationId"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          },
+          "Referrer-Policy": {
+            "schema": {
+              "type": "string",
+              "const": "no-referrer"
+            }
+          },
+          "Set-Cookie": {
+            "description": "Optional refreshed protected session or invalid-session clearing cookie; HttpOnly/host-only/SameSite=Lax, Secure over HTTPS. No credential examples.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "X-RateLimit-Degraded": {
+            "description": "Present with true when basic admission used bounded process-local fallback.",
+            "schema": {
+              "type": "string",
+              "const": "true"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/NoteError"
+            }
+          }
+        }
+      },
+      "NoteError429": {
+        "description": "Basic admission budget exhausted; Retry-After seconds.",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "const": "private, no-store"
+            }
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/CorrelationId"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          },
+          "Referrer-Policy": {
+            "schema": {
+              "type": "string",
+              "const": "no-referrer"
+            }
+          },
+          "Set-Cookie": {
+            "description": "Optional refreshed protected session or invalid-session clearing cookie; HttpOnly/host-only/SameSite=Lax, Secure over HTTPS. No credential examples.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "X-RateLimit-Degraded": {
+            "description": "Present with true when basic admission used bounded process-local fallback.",
+            "schema": {
+              "type": "string",
+              "const": "true"
+            }
+          },
+          "Retry-After": {
+            "$ref": "#/components/headers/RetryAfter"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/NoteError"
+            }
+          }
+        }
+      },
+      "NoteError500": {
+        "description": "Safe unexpected failure.",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "const": "private, no-store"
+            }
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/CorrelationId"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          },
+          "Referrer-Policy": {
+            "schema": {
+              "type": "string",
+              "const": "no-referrer"
+            }
+          },
+          "Set-Cookie": {
+            "description": "Optional refreshed protected session or invalid-session clearing cookie; HttpOnly/host-only/SameSite=Lax, Secure over HTTPS. No credential examples.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "X-RateLimit-Degraded": {
+            "description": "Present with true when basic admission used bounded process-local fallback.",
+            "schema": {
+              "type": "string",
+              "const": "true"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/NoteError"
+            }
+          }
+        }
+      },
+      "NoteError503": {
+        "description": "Auth/config or database unavailable; no confirmed saved response.",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "const": "private, no-store"
+            }
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/CorrelationId"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          },
+          "Referrer-Policy": {
+            "schema": {
+              "type": "string",
+              "const": "no-referrer"
+            }
+          },
+          "Set-Cookie": {
+            "description": "Optional refreshed protected session or invalid-session clearing cookie; HttpOnly/host-only/SameSite=Lax, Secure over HTTPS. No credential examples.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "X-RateLimit-Degraded": {
+            "description": "Present with true when basic admission used bounded process-local fallback.",
+            "schema": {
+              "type": "string",
+              "const": "true"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/NoteError"
+            }
+          }
+        }
+      },
+      "NoteError404": {
+        "description": "Absent, inaccessible or deleted record.",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "const": "private, no-store"
+            }
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/CorrelationId"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          },
+          "Referrer-Policy": {
+            "schema": {
+              "type": "string",
+              "const": "no-referrer"
+            }
+          },
+          "Set-Cookie": {
+            "description": "Optional refreshed protected session or invalid-session clearing cookie; HttpOnly/host-only/SameSite=Lax, Secure over HTTPS. No credential examples.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "X-RateLimit-Degraded": {
+            "description": "Present with true when basic admission used bounded process-local fallback.",
+            "schema": {
+              "type": "string",
+              "const": "true"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/NoteError"
+            }
+          }
+        }
+      },
+      "NoteError409": {
+        "description": "Owned active revision conflict or reused create key with changed original input.",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "const": "private, no-store"
+            }
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/CorrelationId"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          },
+          "Referrer-Policy": {
+            "schema": {
+              "type": "string",
+              "const": "no-referrer"
+            }
+          },
+          "Set-Cookie": {
+            "description": "Optional refreshed protected session or invalid-session clearing cookie; HttpOnly/host-only/SameSite=Lax, Secure over HTTPS. No credential examples.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "X-RateLimit-Degraded": {
+            "description": "Present with true when basic admission used bounded process-local fallback.",
+            "schema": {
+              "type": "string",
+              "const": "true"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/NoteError"
+            }
+          }
+        }
+      },
+      "NoteError415": {
+        "description": "JSON content type required.",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "const": "private, no-store"
+            }
+          },
+          "X-Request-ID": {
+            "$ref": "#/components/headers/CorrelationId"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          },
+          "Referrer-Policy": {
+            "schema": {
+              "type": "string",
+              "const": "no-referrer"
+            }
+          },
+          "Set-Cookie": {
+            "description": "Optional refreshed protected session or invalid-session clearing cookie; HttpOnly/host-only/SameSite=Lax, Secure over HTTPS. No credential examples.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "X-RateLimit-Degraded": {
+            "description": "Present with true when basic admission used bounded process-local fallback.",
+            "schema": {
+              "type": "string",
+              "const": "true"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/NoteError"
             }
           }
         }

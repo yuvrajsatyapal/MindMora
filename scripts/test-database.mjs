@@ -85,7 +85,9 @@ try {
         "node_modules/vitest/vitest.mjs",
         "run",
         "--config",
-        "vitest.database.config.ts",
+        process.argv.includes("--notes")
+          ? "vitest.notes.config.ts"
+          : "vitest.database.config.ts",
       ],
       {
         stdio: "inherit",
@@ -93,7 +95,7 @@ try {
           ...process.env,
           MIGRATION_DATABASE_URL: url,
           DATABASE_URL: runtime.toString(),
-          DATABASE_POOL_MAX: "1",
+          DATABASE_POOL_MAX: process.argv.includes("--notes") ? "3" : "1",
         },
       },
     );

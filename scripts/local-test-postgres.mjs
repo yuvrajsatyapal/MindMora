@@ -1,6 +1,8 @@
 import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
+import { migrate } from "drizzle-orm/postgres-js/migrator";
 const image =
   "postgres:17@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f";
 function docker(args, env = process.env) {
@@ -9,7 +11,7 @@ function docker(args, env = process.env) {
     throw new Error("Local startup PostgreSQL fixture unavailable.");
   return result.stdout.trim();
 }
-export async function withTestPostgres(run) {
+export async function withTestPostgres(run, { schema = false } = {}) {
   const name = `mindmora-startup-pg-${randomBytes(6).toString("hex")}`;
   const password = randomBytes(24).toString("hex");
   let started = false;
@@ -57,6 +59,16 @@ export async function withTestPostgres(run) {
     await connection.unsafe(
       `CREATE ROLE mindmora_app LOGIN NOSUPERUSER NOBYPASSRLS NOINHERIT NOCREATEROLE NOCREATEDB NOREPLICATION PASSWORD '${password}'`,
     );
+    if (schema) {
+      await connection.unsafe(
+        `CREATE SCHEMA auth; CREATE TABLE auth.users(id uuid PRIMARY KEY); CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS; CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT coalesce(nullif(current_setting('request.jwt.claim.sub', true),''), nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub')::uuid $$;`,
+      );
+      await migrate(drizzle(connection), {
+        migrationsFolder: "supabase/migrations",
+      });
+      await connection.unsafe("GRANT mindmora_request TO mindmora_app");
+      await connection`INSERT INTO auth.users(id) VALUES ('11111111-1111-4111-8111-111111111111')`;
+    }
     return await run(
       `postgresql://mindmora_app:${password}@127.0.0.1:${port}/postgres`,
     );

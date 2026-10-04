@@ -1,7 +1,8 @@
 # ADR-022 — HTTP Admission and Safe Logging
 
 **Decision:** Accepted for Milestone 1D, 2026-10-04. ✅ Auth admission/logging and reusable
-HTTP/basic/expensive helpers implemented; hosted deployment and note API callers planned.
+HTTP/basic/expensive helpers implemented; 1E note API basic callers implemented. Hosted
+deployment and expensive-job callers remain planned.
 
 ## Context
 

@@ -77,6 +77,57 @@ test("PKCE flow uses protected cookies, safe projection, server refresh and revo
   ])
     expect(body).not.toContain(marker);
 
+  // Actual 1E HTTP adapters against migrated PostgreSQL; no workspace UI is added.
+  const origin = { Origin: "http://127.0.0.1:4173" };
+  const key = crypto.randomUUID();
+  const createInput = {
+    title: "Browser note",
+    content: "browser-private-note-marker",
+  };
+  const created = await request.post("/api/notes/", {
+    headers: { ...origin, "Idempotency-Key": key },
+    data: createInput,
+  });
+  expect(created.status()).toBe(201);
+  expect(created.headers()["cache-control"]).toBe("private, no-store");
+  const note = await created.json();
+  expect(note.revision).toBe(1);
+  const replay = await request.post("/api/notes/", {
+    headers: { ...origin, "Idempotency-Key": key },
+    data: createInput,
+  });
+  expect(replay.status()).toBe(200);
+  expect((await replay.json()).id).toBe(note.id);
+  const list = await request.get("/api/notes/?limit=2");
+  expect(list.status()).toBe(200);
+  expect(
+    (await list.json()).items.find(
+      (item: { id: string }) => item.id === note.id,
+    ),
+  ).not.toHaveProperty("content");
+  const updated = await request.patch(`/api/notes/${note.id}/`, {
+    headers: origin,
+    data: { title: "Renamed", expectedRevision: 1 },
+  });
+  expect(updated.status()).toBe(200);
+  expect((await updated.json()).revision).toBe(2);
+  const stale = await request.patch(`/api/notes/${note.id}/`, {
+    headers: origin,
+    data: { title: "Stale", expectedRevision: 1 },
+  });
+  expect(stale.status()).toBe(409);
+  const denied = await request.delete(`/api/notes/${note.id}/`, {
+    headers: { Origin: "https://attacker.example" },
+    data: { expectedRevision: 2 },
+  });
+  expect(denied.status()).toBe(403);
+  const removed = await request.delete(`/api/notes/${note.id}/`, {
+    headers: origin,
+    data: { expectedRevision: 2 },
+  });
+  expect(removed.status()).toBe(200);
+  expect((await request.get(`/api/notes/${note.id}/`)).status()).toBe(404);
+
   // Age only the expiry hint, preserving credentials; backend must refresh/verify online.
   const aged: Record<string, unknown> = JSON.parse(
     Buffer.from(session.value, "base64url").toString(),
@@ -95,6 +146,8 @@ test("PKCE flow uses protected cookies, safe projection, server refresh and revo
   )!;
   expect(rotated.value).not.toBe(session.value);
   expect(rotated.httpOnly).toBe(true);
+  const notesRefreshed = await request.get("/api/notes/");
+  expect(notesRefreshed.status()).toBe(200);
   const oldCookie = `mindmora-session=${rotated.value}`;
   const logout = await request.post("/api/auth/logout", {
     headers: { Origin: "http://127.0.0.1:4173" },
@@ -105,6 +158,11 @@ test("PKCE flow uses protected cookies, safe projection, server refresh and revo
       (cookie) => cookie.name === "mindmora-session",
     ),
   ).toBe(false);
+  expect(
+    (
+      await request.get("/api/notes/", { headers: { Cookie: oldCookie } })
+    ).status(),
+  ).toBe(401);
   expect(
     (
       await request.get("/api/auth/session", { headers: { Cookie: oldCookie } })

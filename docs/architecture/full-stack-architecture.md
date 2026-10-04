@@ -1,7 +1,7 @@
 # Data Flows: Current Foundation and Planned Features
 
-**Current:** 1A–1D runtime/auth/contracts/scoped SQL and HTTP/admission/logging boundary. **Planned below:** repositories,
-note requests/UI, file storage and jobs. [ARCHITECTURE](../../ARCHITECTURE.md) is the primary
+**Current:** 1A–1E runtime/auth/contracts/scoped SQL, HTTP/admission/logging and note APIs. **Planned below:**
+note UI/cache, file storage and jobs. [ARCHITECTURE](../../ARCHITECTURE.md) is the primary
 current system architecture; this companion owns future data-flow constraints and failure
 scenarios. [Model](../features/note-model.md), [database](../integrations/supabase-database.md)
 and [state](state-management.md) own existing model/SQL and planned state details.
@@ -9,20 +9,20 @@ and [state](state-management.md) own existing model/SQL and planned state detail
 ## Existing foundation
 
 The public UI is a showcase. Auth HTTP routes verify sessions without SQL. A separate
-library composes verified-owner issuance and constrained transactions, exercised by real
-database integration tests; it has no private HTTP caller. Shared mutation/list/domain
-schemas exist, but no service applies them to a note operation. Auth now uses the reusable
+library composes verified-owner issuance and constrained transactions, now called by
+note repositories and real database integration tests. The note handler parses shared
+mutation/list schemas; the service validates normalized responses. Auth now uses the reusable
 HTTP/admission/Pino layer described in [backend services](../integrations/backend-services.md). Profiles are not created
-at login. Database defaults are initialization, not automatic revision/time updates.
+at login; the first validated note access seeds one. Repositories explicitly advance revision/time.
 
-## Planned note request and save flow — 1D–1G
+## Note request flow — API implemented 1E; UI/cache planned 1F–1G
 
 ```mermaid
 sequenceDiagram
   participant E as Planned editor / memory draft
   participant Q as Planned account-scoped Query cache
-  participant H as Planned note HTTP adapter
-  participant S as Planned service/repository
+  participant H as Implemented note HTTP adapter
+  participant S as Implemented service/repository
   participant P as Existing SQL boundary / PostgreSQL
   E->>Q: Save draft with expected revision
   Q->>H: Authenticated mutation
@@ -40,15 +40,15 @@ sequenceDiagram
 ```
 
 Routes own HTTP/config/admission, services own business outcomes, repositories own owner
-predicates and atomic writes. Future update/delete compares owner/id/expected revision,
+predicates and atomic writes. Implemented update/delete compares owner/id/expected revision,
 then advances revision atomically. Zero matches need safe not-found/conflict handling that
 does not reveal another user's record. RLS supplies an additional row boundary; it does
 not supply these business rules. Normal save writes directly to PostgreSQL, not a queue.
 
-A failed response after commit creates uncertainty, not proof of failure. Future reconciliation/
-idempotency must resolve that outcome before blindly retrying. A conflict preserves draft
-and fetched version for deliberate compare/retry. These rules are not present in a save
-service/UI yet, and source cannot establish their exact API signatures beyond shared inputs.
+A failed response after commit creates uncertainty, not proof of failure. Implemented create reconciliation reuses its key/payload; update/delete reconciliation
+requires a refetch before deliberate retry. The API returns a conflict; the planned client must preserve its draft and fetched version
+for deliberate compare/retry. The API/service rules now exist; UI draft handling remains
+unimplemented. Exact signatures are in the [note API guide](../features/notes-api.md).
 
 ## Planned files and jobs — Phase 4
 

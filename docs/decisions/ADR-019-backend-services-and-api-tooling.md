@@ -1,8 +1,9 @@
 # ADR-019 — Backend Services and API Tooling
 
 **Decision:** Accepted for staged planning 2026-10-03. **Current:** Zod config/auth/note
-contracts and an auth-only OpenAPI artifact exist. Pino, Redis/BullMQ, Swagger/Postman
-and optional Nginx are planned, not installed/deployed by this decision.
+contracts and auth/note OpenAPI records exist. Pino/Redis admission were implemented in
+1D, note callers in 1E. BullMQ, Swagger/Postman generation and optional Nginx remain planned;
+this accepted decision itself did not install/deploy services.
 
 ## Context
 

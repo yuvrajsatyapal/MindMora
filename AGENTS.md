@@ -70,6 +70,35 @@ Report what changed and why; important files and responsibilities; runtime/data 
 
 After every milestone, provide a **Code Understanding Summary** for each important created or modified file: file path, one-sentence purpose, important exports, 3–7 short flow steps, important project/service dependencies, security and trust-boundary logic, 2–5 specific snippets or lines the user should read, and only the concepts needed to understand the implementation. Focus on architecture, data flow, decisions and security; skip line-by-line explanations and basic language syntax. End with a small ASCII diagram of the overall milestone flow.
 
+Provide this summary directly in the final response; a link to LEARNING.md or another document is supplementary and must not replace it. Use the following presentation for each file, numbering the file entries (1, 2, 3...) rather than numbering the eight field labels:
+
+**1. File:** Absolute clickable file link, labeled with its repository-relative path.
+
+**Purpose:** One sentence explaining why this file exists.
+
+**Main exports:** Important functions/classes/types, with a short responsibility for each. Use bullets when there are multiple exports; state “None” for files without exports.
+
+**Flow:**
+1. First runtime/data-flow step.
+2. Next step.
+3. Result or transfer to the next important file.
+
+Use 3–7 short numbered steps, not a single arrow-separated sentence.
+
+**Dependencies:** Important project modules/functions and external services this file calls.
+
+**Security:** Actual authentication, authorization, validation, admission, secret handling and trust-boundary controls. State when a file delegates these controls or has no request-level security responsibility.
+
+**What I should understand:**
+- Absolute clickable link labeled “Line N: specific reading point” — explain the architectural decision or behavior this code establishes.
+- Absolute clickable link labeled “Line M: another reading point” — explain why it matters; include a small snippet when useful.
+
+Provide 2–5 reading points per important file. Inspect the current source and verify each linked line number; never copy historical line numbers without checking. Use absolute clickable file links with a starting line, not a line range.
+
+**Concepts to learn:** Only the concepts necessary to understand this file's implementation.
+
+After all file entries, state relevant limitations and finish with a small fenced ASCII diagram showing the actual overall milestone runtime/data flow.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know

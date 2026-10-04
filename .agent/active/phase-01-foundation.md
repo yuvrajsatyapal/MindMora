@@ -1,10 +1,10 @@
 # Phase 01 — Full-Stack Foundation Execution Plan
 
-**Status:** ✅ 1A; ✅ 1B auth code/local checks; ✅ 1B live Google/session/refresh/replay acceptance verified; ✅ 1C database/contracts/RLS verified locally and hosted; ✅ 1D HTTP/Pino/Redis implemented and locally verified; later milestones planned.
-**Updated:** 2026-10-04 — 1D admission/logging/local acceptance; stop before 1E.
+**Status:** ✅ 1A; ✅ 1B auth code/local checks; ✅ 1B live Google/session/refresh/replay acceptance verified; ✅ 1C database/contracts/RLS verified locally and hosted; ✅ 1D HTTP/Pino/Redis implemented and locally verified; ✅ 1E note APIs locally verified; 1F–1H planned.
+**Updated:** 2026-10-05 — 1E owner-scoped note APIs/reconciliation/local acceptance; stop before 1F.
 **Goal:** Preserve the shared UI and deliver authenticated, server-authoritative note CRUD with validated APIs and observable, tested security boundaries.
 **Architecture:** Next.js Node Route Handlers → verified Supabase identity → scoped Drizzle repositories → Supabase PostgreSQL. React uses temporary editor state and in-memory TanStack Query, with Zustand UI and nuqs URL state.
-**Tech stack:** Existing React/Next.js/TypeScript/Tailwind/Radix; Zod/server-only configuration; Supabase auth SDK (1B code/live acceptance verified); PostgreSQL/Drizzle and shared note schemas (1C); Pino/Redis limits (1D); planned note API Zod, TanStack Query, Zustand, nuqs, OpenAPI/Swagger/Postman.
+**Tech stack:** Existing React/Next.js/TypeScript/Tailwind/Radix; Zod/server-only configuration; Supabase auth SDK (1B code/live acceptance verified); PostgreSQL/Drizzle and shared note schemas (1C); Pino/Redis limits (1D); note API Zod (1E); planned TanStack Query, Zustand, nuqs and Swagger/Postman/generation; auth/note OpenAPI records exist.
 **Spec:** [PRODUCT_SPEC](../../PRODUCT_SPEC.md) §§3–6, 14, 17–21.
 **Standard:** [PLANS](../PLANS.md). Use the repository milestone/test-first execution workflow; implement only the requested milestone and stop. This plan does not authorize executing the whole phase or deploying infrastructure.
 
@@ -239,7 +239,7 @@ Accepted ADR-016/018/019; ADR-001/002/003/017 superseded. Google/Supabase server
 - [x] 1B Google/server sessions — code/local checks and live Google/session/refresh/reuse/replay/isolation acceptance verified; natural JWT expiry not awaited.
 - [x] 1C Database/Zod/RLS — local + hosted actual-driver acceptance and review verified.
 - [x] 1D HTTP security/Pino/Redis limits — local counter/expiry/outage/recovery, browser and regression checks; hosted deployment evidence pending.
-- [ ] 1E Notes API/repositories.
+- [x] 1E Notes API/repositories (local verification; hosted migration pending).
 - [ ] 1F Protected shell/state.
 - [ ] 1G CRUD/conflict UI.
 - [ ] 1H Contract/runtime verification/documentation handoff.
@@ -726,3 +726,143 @@ continues; build/Edge skip probes. [Dedicated execution record](startup-health.m
 implementation, red/green/debugging evidence and exact verification. [ADR-023](../../docs/decisions/ADR-023-startup-dependency-health.md)
 records the decision; [services](../../docs/integrations/backend-services.md#server-startup-health--implemented-follow-up-to-1d)
 owns behavior and limitations. Stop for review; no 1E work, commit or deployment.
+
+
+## Milestone 1E execution — 2026-10-05
+
+User approved 1D and authorized only 1E. References to 1B in the request are treated as
+template typos against the explicit 1E scope and stop-before-1F instruction. Working on
+main, clean task baseline, no commit/branch/deployment. Executing inline with TDD and a
+final independent review; user restrictions override skill commit/worktree conventions.
+
+### Pre-flight decisions / interfaces
+
+- Ruling: create requires a UUID Idempotency-Key header; existing title/content input stays
+  strict. Add immutable nullable createOperationId/createRequestHash fields for legacy-row
+  compatibility and a unique owner/key index. Same key/payload returns current active note;
+  changed payload conflicts; deleted record is not resurrected. Cost: clients must retain
+  the key during uncertain retry and run the new migration before note requests.
+- Ruling: list returns summaries without Markdown content plus a validated JSON cursor.
+  Ordering is updatedAt/id descending with limit+1 lookahead. Cost: detail fetch required
+  for editing; cursor pages are bounded but not snapshot-isolated across concurrent edits.
+- Ruling: first authorized note operation inserts missing profile from verified projection
+  with ON CONFLICT DO NOTHING; no SQL side effect in auth callback. Existing profile is
+  preserved. Cost: profile creation awaits first admitted, validated note access.
+- Repository outcomes are discriminated values, not business exceptions inside db.run,
+  because the existing SQL wrapper intentionally sanitizes thrown exceptions. Service maps
+  outcomes after commit to fixed HTTP codes, including idempotency_conflict.
+- Guards/session refresh/no-store/Pino/admission reuse 1B–1D boundaries. Notes basic fallback
+  advertises degraded admission; it never skips online session or RLS/owner checks.
+
+### Files / scope / tasks
+
+1. Real DB/HTTP behavior tests and bootstrap signatures: owner CRUD, replay/conflict,
+   revision race/delete race, pagination, invalid inputs/CSRF, outage/refresh/no-store.
+2. Repository/service/routes, response schemas, minimal idempotency migration/schema/meta.
+   Adapter dynamic params are awaited per installed Next 16 guide. PostgreSQL commit must
+   precede success. No queue/cache/editor/UI implementation.
+3. Local notes integration runner reuses DB/Redis fixtures; production auth browser
+   fixture gets reviewed migrations and disposable Auth rows for real note CRUD tests.
+4. Required lint/typecheck/unit/build plus DB/RLS, notes/Redis/startup/boundary and browser
+   regressions; independent code review and TDD fixes for material findings.
+5. Notes feature doc, API/OpenAPI/model/security/database/services docs, ADR, all five primary
+   docs, FILE_MAP six-field entries/ASCII flows and Code Understanding Summary; stop for review.
+
+### Progress
+
+- [x] Inspect source/docs/Next API and explain authorized scope/files/flow.
+- [x] Meaningful behavior-test red observed.
+- [x] Implement owner-scoped revision/idempotency-safe note APIs.
+- [x] Required integration/browser/regression checks and final review; material finding fixed and verified.
+- [x] Update docs/plan and stop before 1F for user review.
+
+### Red → green / review rulings
+
+- Before implementation, three HTTP guard tests failed meaningfully against the temporary
+  safe503 handler (expected401/403/405). Real PostgreSQL note tests produced nine behavior
+  failures and one pass (the outage503 case); the pass was not evidence of CRUD.
+- Implemented repository/service/handlers and additive migration; real-driver CRUD/race/
+  owner/pagination tests turned green. Drizzle's installed conflict option is `where`, not
+  `targetWhere`; an initial type error was corrected, not counted as a behavior red.
+- Four supplemental HTTP/refresh/throttle/availability tests and response-loss/browser
+  extensions were added after implementation; they are regression evidence, not initial red.
+- On integrating the DB identity helper, two provider cleanup tests first failed because
+  actual disposal count was zero (success and revoked identity). Added finally disposal;
+  both turned green and all regressions passed. The previous documented gap is closed.
+- Fresh independent phase-reviewer found no material production defect, but correctly
+  rejected concurrency evidence: pool1 serializes whole transactions. Ruling: accepted.
+  Notes harness now uses pool3, original RLS suite stays pool1. Added a two-transaction
+  barrier/backend-PID assertion; fresh notes suite passes 12, establishing actual overlap.
+  Initial pool1 race passes remain sequential historical evidence, not concurrency proof.
+  Reviewer independently passed 19 targeted HTTP/logger/note tests; no repeated review run
+  was needed after this focused fix pass. No 1F code was introduced.
+
+### Fresh verification — 2026-10-05
+
+| Exact command | Observed result / boundary |
+|---|---|
+| `npm run db:generate` | Generated additive metadata/check/index migration and snapshot; reviewed/renamed to `0001_note_create_idempotency`; does not apply hosted SQL |
+| `npm run lint` | PASS ESLint/style contract |
+| `npm run typecheck` | PASS strict TypeScript |
+| `npm run test` | PASS — 105 tests / 15 files, including seven note HTTP and two provider-disposal tests |
+| `npm run build` | PASS; public pages prerendered, auth and two notes modules dynamic Node |
+| `npm run test:notes` | PASS — 12 real-driver local PostgreSQL/Redis tests; pool3 and actual two-backend overlap; controlled Supabase transport |
+| `npm run test:db` | PASS — 7 RLS/constraints/pool-reuse tests; provisioning rollback + migrations fresh/re-run verified |
+| `npm run test:rate-limit` | PASS — 5 real local Valkey counter/deadline tests |
+| `FORCE_COLOR=0 npm run test:auth` | PASS — 3 Chromium tests; existing PKCE case now exercises actual Next note create/replay/list/rename/stale/CSRF/delete/revoked access |
+| `FORCE_COLOR=0 npm run test:e2e` | PASS — 11 showcase/runtime/credential-exclusion Chromium tests |
+| `FORCE_COLOR=0 npm run test:startup` | PASS — 4 actual probe tests plus production restart/once/failure and developer-friendly warning checks |
+| `npm run test:boundary` | PASS compiler rejects client auth/DB config imports and server route reads runtime config |
+| `git diff --check` | PASS whitespace |
+
+Final unit/build/browser runs followed provider cleanup; notes and original RLS suites
+were rerun after the pool correction. Browser SDK responses are controlled fixtures; real
+Next/PostgreSQL/Redis/Chromium are used. No newly executed live Google/hosted note acceptance,
+production migration, deployment, load test or complete production security certification.
+
+### Documentation review / primary homes
+
+Updated all five required documents: README practical migration/test setup; PRODUCT_SPEC
+factual implementation labels only (v3 requirements/scope unchanged); ARCHITECTURE current
+HTTP/SQL/failure boundaries; LEARNING concepts and full per-file Code Understanding Summary;
+FILE_MAP six fields/actual callers and runtime ASCII flows. No required primary document
+was left unchanged. Added notes feature guide per §19.3 and ADR-024; updated model, auth/note
+OpenAPI records, API/database/services/full-stack/security/state guides, docs index and
+ADR-019/022 current-status facts. Phase record contains dated outcomes, not a duplicate
+checklist. OpenAPI records remain manual; generation/Swagger/Postman/drift gate remain 1H.
+
+Documentation checks: `python3 /tmp/mindmora-1d-docs-check.py` passed 43 Markdown files,
+468 local links/anchors, balanced fences and 18 npm script references. A focused Python
+JSON/reference check passed 209 OpenAPI local references, implemented note method/key records
+and private-marker exclusion. FILE_MAP structural check passed 100 entries with six fields
+each. Mermaid flows were reviewed against actual calls; no automated renderer was run.
+`git diff --check` passed; all validation source/config remained unchanged by docs edits.
+
+### Limits / handoff
+
+Migration 0001 was applied only to disposable local fixtures. The configured development
+Supabase still needs reviewed `npm run db:migrate` before note API use; no new provisioning
+or password rotation is needed. `.env`/credentials were untouched, no new dependency or paid
+resource was added, no commit/branch/deployment. Public showcase remains a demo. No protected
+shell, query/store/hooks, editor/autosave/worker/storage code added. Cursor pages can move
+under concurrent edits; response loss is uncertain; create retries need original input/key
+and mutation retries require refetch/compare. Degraded admission is process-local. Provider/
+ingress/hosted schema/backup/restore/quotas remain separate evidence gates.
+
+Milestone 1E is complete for review. Stop here; do not begin 1F without user authorization.
+
+### Handoff presentation clarification — 2026-10-05
+
+The user requires the Code Understanding Summary directly in the final response, with
+numbered file entries, named fields, 3–7 numbered flow steps and 2–5 verified source-line
+links explaining important reading points. Saved the exact presentation in AGENTS.md;
+a documentation link is supplementary, not a substitute. This is a documentation-only
+instruction update, not new milestone implementation. README, PRODUCT_SPEC, ARCHITECTURE,
+LEARNING and FILE_MAP retain their current 1E content: setup, product status, runtime,
+teaching and file relationships are unchanged. No application/config changes or tests;
+check documentation links/fences, whitespace and non-Markdown baseline integrity. 1F
+remains unstarted.
+
+Validation for this presentation update: documentation check passed 43 Markdown files,
+468 local links/anchors and balanced fences; `git diff --check` passed; SHA-256 comparison
+confirmed tracked/untracked non-Markdown application/config files were unchanged.

@@ -95,8 +95,8 @@ Header names/values total at most 32,768 UTF-8 bytes; URL at most 8,192 bytes. A
 is bounded to 1,024 bytes but must be empty (400 otherwise; 413 above cap). Body streams
 have a 2-second read deadline. The reusable JSON reader checks application/json, strict
 UTF-8 and a supplied Zod schema. Its default cap is 6 MiB + 8 KiB, accommodating worst-case
-JSON escaping of the 1 MiB note content contract. 1E must apply it to actual note routes;
-no note endpoint exists yet. Ingress/header/socket limits remain deployment responsibilities.
+JSON escaping of the 1 MiB note content contract. 1E applies it to actual note routes before parsing;
+content-specific Zod bounds still apply after JSON decoding. Ingress/header/socket limits remain deployment responsibilities.
 
 ## Implemented Redis admission
 
@@ -134,7 +134,7 @@ fixed scope and SHA-256 identity digest; values contain only counts and TTLs. Di
 pseudonymous, not guaranteed anonymous. Each action/owner has an independent budget.
 429 responses carry remaining-window Retry-After rounded up to at least one second.
 The fallback map expires windows, caps 1,000 identities and rejects new identities at capacity.
-It returns `{degraded: true}` for 1E to advertise; authentication and ownership still apply.
+It returns `{degraded: true}`; 1E note responses advertise X-RateLimit-Degraded: true; authentication and ownership still apply.
 Multiple processes/restarts have separate fallback budgets, so this is not a global limit.
 No fallback auth, note cache, token/session cache, BullMQ or worker was added.
 
@@ -178,3 +178,12 @@ Logging is operational metadata, distinct from analytics; stdout has no built-in
 SEC-05/07 test logging/limits in Phase 1. SEC-09 covers enqueue outages, duplicate retry, stale/deleted records, foreign-owner jobs/results, bounded retention and Redis payload scans in Phase 4. Reference IDs still leak metadata to infrastructure; secure credentials/network and restrict access. Redis/BullMQ improve throughput and reliability, not confidentiality by themselves.
 
 [Redis/BullMQ integration](https://upstash.com/docs/redis/integrations/bullmq) · [BullMQ production](https://docs.bullmq.io/guide/going-to-production) · [Nginx proxy](https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/) · [Pino](https://github.com/pinojs/pino) · [budget](hosting-and-costs.md)
+
+## Note admission and logging caller — 1E
+
+The note handler calls basic admission after online session verification and before SQL.
+The existing per-owner counter/fallback rules apply to all note operations. An outage
+permits only the bounded local fallback and marks the response as degraded; owner/RLS
+checks continue. Pino allowlists fixed notes.list/create/detail/update/delete/unsupported
+operations and fixed business error codes; note payloads/internal create hashes never
+enter the logging facade. [API guide](../features/notes-api.md) owns the full guard order.

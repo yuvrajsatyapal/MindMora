@@ -1,7 +1,7 @@
 # State Ownership
 
 **Current:** React state for public showcase samples and theme; backend auth cookies;
-implemented PostgreSQL schema/boundary without an app caller. **Planned:** Query/Zustand/
+implemented owner-scoped PostgreSQL note APIs. **Planned:** Query/Zustand/
 nuqs, editor drafts and private cache lifecycle. This guide owns state ownership rules,
 not a claim that planned state libraries are installed.
 
@@ -11,9 +11,9 @@ not a claim that planned state libraries are installed.
 |---|---|---|
 | React components/context | Showcase controlled samples and theme preference | Page reload resets; no sessionStorage/localStorage persistence |
 | Protected browser cookie | App access/refresh tuple and expiry hint; pending sign-in state | Server cookie lifecycle; provider verification determines identity |
-| Request-local auth SDK Map | PKCE/session protocol state | Auth route finally disposes it; DB helper lacks explicit disposal |
+| Request-local auth SDK Map | PKCE/session protocol state | Auth route and DB identity helper both dispose it in finally |
 | WeakSet-backed owner object | Evidence of identity verification at issuance | In-process object identity, not expiring/cached session authority |
-| PostgreSQL | Profiles/notes model and database truth for SQL callers | Real persistence; no HTTP save path yet |
+| PostgreSQL | Profiles/notes model and database truth for SQL callers | Real persistence through owner-scoped note HTTP handlers; no product UI caller yet |
 
 Account fetch helpers return values/errors; they own no store. Product component props
 are presentation inputs, not canonical note records. For detailed auth/context rules see
@@ -35,10 +35,10 @@ are presentation inputs, not canonical note records. For detailed auth/context r
 
 ```mermaid
 flowchart LR
-  DB["PostgreSQL"] --> API["Owner-scoped note API — planned"]
+  DB["PostgreSQL"] --> API["Owner-scoped note API — implemented 1E"]
   API --> Cache["User/session-scoped Query cache — planned"]
   Cache --> Draft["Editor draft — planned"]
-  Draft --> Write["Validated mutation — planned"]
+  Draft --> Write["Validated mutation API — implemented; UI caller planned"]
   Write --> Commit["Confirmed SQL commit"]
   Commit --> Update["Invalidate/update memory cache; show saved"]
   Switch["Logout / account switch"] --> Clear["Cancel + clear private state; reject late generation"]

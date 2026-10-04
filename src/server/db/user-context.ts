@@ -15,13 +15,20 @@ export async function verifyDatabaseSession(
   options: { config?: AuthConfig; fetcher?: typeof fetch } = {},
 ) {
   const config = options.config ?? getAuthConfig();
-  const session = await verifySession(
-    decodeCookie(readCookie(request, cookieName(config.appOrigin, "session"))),
-    createAuthProvider(config, options.fetcher),
-  );
-  const owner = Object.freeze({ userId: session.projection.user.id });
-  verified.add(owner);
-  return { ...session, owner };
+  const provider = createAuthProvider(config, options.fetcher);
+  try {
+    const session = await verifySession(
+      decodeCookie(
+        readCookie(request, cookieName(config.appOrigin, "session")),
+      ),
+      provider,
+    );
+    const owner = Object.freeze({ userId: session.projection.user.id });
+    verified.add(owner);
+    return { ...session, owner };
+  } finally {
+    await provider.dispose();
+  }
 }
 export function assertVerifiedOwner(owner: VerifiedOwner) {
   if (!verified.has(owner)) throw new AuthFailure("unauthenticated");

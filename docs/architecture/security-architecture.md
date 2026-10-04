@@ -1,14 +1,14 @@
 # Security Boundaries and Acceptance
 
-**Current inspection:** 2026-10-04, through 1D. Auth/cookie validation, server-only configuration,
+**Current inspection:** 2026-10-05, through 1E. Auth/cookie validation, server-only configuration,
 scoped SQL controls and HTTP/Pino/Redis admission are implemented. Private UI/cache lifecycle,
-revision-safe writes, rendering/files/jobs and deployment controls remain planned. This is
+rendering/files/jobs and deployment controls remain planned; revision-safe note APIs are implemented. This is
 not a complete security certification. Exact historical checks live in the [phase record](../phases/phase-01-foundation.md).
 
 ## Assets, threat model and trust
 
 Current protected assets are app session credentials, provider identity and the SQL models/
-credentials prepared for private records. Future notes/files/jobs expand that surface.
+credentials prepared for private records. Note APIs protect private title/content; future files/jobs expand that surface.
 The accepted model is server-readable storage with verified transport and access controls,
 not E2EE. Provider encryption-at-rest/backup/restore settings have not been established
 by repository source or this documentation review.
@@ -22,7 +22,8 @@ flowchart LR
   subgraph S["Trusted server process"]
     AuthHTTP["Auth HTTP policy"]
     Verify["Token shape + online verification"]
-    Context["DB owner helper — no HTTP caller yet"]
+    Context["DB owner helper"]
+    NotesHTTP["Note HTTP policy / repository"]
     SQL["Constrained transaction role/claims"]
   end
   subgraph Admin["Privileged development CLI boundary"]
@@ -32,6 +33,7 @@ flowchart LR
   Input --> AuthHTTP --> Verify
   Verify <--> Provider["External Supabase Auth"]
   AuthHTTP --> Projection
+  Input --> NotesHTTP --> Context
   Context --> Verify
   Context --> SQL
   SQL --> PG["External PostgreSQL; owner RLS"]
@@ -40,7 +42,7 @@ flowchart LR
 ```
 
 Auth routes and the database helper are separate callers of session verification. The
-current HTTP path does not reach SQL. The privileged CLI can do things the request role
+auth HTTP path does not reach SQL; note HTTP routes do. The privileged CLI can do things the request role
 cannot; local secret-file protection is a separate boundary from SQL transactions.
 
 | Trusted element | What it is trusted to do | Limit |
@@ -56,13 +58,13 @@ cannot; local secret-file protection is a separate boundary from SQL transaction
 
 | Misuse | Current protection | Residual boundary |
 |---|---|---|
-| Foreign-origin cookie mutation | Exact APP_ORIGIN for start/logout; cross-site fetch check outside callback | Does not prevent same-origin XSS requests |
+| Foreign-origin cookie mutation | Exact APP_ORIGIN for start/logout/note mutations; cross-site fetch check outside callback | Does not prevent same-origin XSS requests |
 | Forged/replayed callback | App state/expiry/query checks, provider one-use code exchange with PKCE | Provider configuration and cookie/server compromise are separate risks |
 | Cookie claims treated as identity | Strict token tuple + online getUser; no decoded JWT/getSession authority | Cookie JSON is encoded, not app-signed/encrypted |
 | Arbitrary owner object | WeakSet issuance/membership before SQL | Object may outlive session if trusted caller retains it |
-| Foreign note access in scoped query | USING/WITH CHECK owner policy, constrained role and column grants | RLS trusts supplied claims; admins bypass; future repo filters still needed |
+| Foreign note access in scoped query | USING/WITH CHECK owner policy, constrained role and column grants | RLS trusts supplied claims; admins bypass; repository also filters owner/active rows |
 | Cross-request claim leakage | Clean initial role/settings check and LOCAL role/claims | Rejects observed dirty state; not universal session-setting audit |
-| Orphan/invalid SQL records | Foreign keys and length/revision/time checks | No automatic revision advancement, safe save reconciliation or input HTTP route |
+| Orphan/invalid SQL records | Foreign keys and length/revision/time checks | Atomic revisions/keyed create replay implemented; no UI draft/conflict lifecycle yet |
 | Private SQL error serialization | Fixed DatabaseFailure and safe reason, raw cause omitted | Business exceptions also wrapped; future HTTP mapping not implemented |
 | Credential loss on setup failure | Private fsynced pending file, transactional role/grant, atomic publication | Manual recovery, race/power-loss/backup limits remain |
 | Server imports in browser | server-only compiler guard + fixture/output tests | Explicit serialization and framework/deployment logs need independent review |
@@ -100,17 +102,17 @@ These are the current IDs; historical vault-specific SEC checks are superseded.
 | ID | Required outcome | Current evidence / remaining work |
 |---|---|---|
 | SEC-01 | Invalid/revoked sessions denied; callback/origin misuse rejected; logout revokes session | Auth fixtures/browser plus bounded live provider checks recorded; full private API/UI lifecycle still planned |
-| SEC-02 | Foreign-owner list/read/update/delete and spoofed ownership rejected; actual roles/pool isolation | 1C actual SQL two-user/anonymous/privileged/reuse checks; note HTTP/repository owner filters remain 1E |
-| SEC-03 | Bounded validated input before work; matching form/API contracts | Shared model/config tests and SQL constraints; HTTP body helper/auth bounds verified in 1D; note route/form enforcement remains 1E/1G |
+| SEC-02 | Foreign-owner list/read/update/delete and spoofed ownership rejected; actual roles/pool isolation | 1C actual SQL two-user/anonymous/privileged/reuse checks; 1E actual-driver note owner filters and foreign 404 responses verified locally |
+| SEC-03 | Bounded validated input before work; matching form/API contracts | Shared model/config tests and SQL constraints; HTTP body helper/auth bounds verified in 1D; 1E note route enforcement verified; form enforcement remains 1G |
 | SEC-04 | No private persistent browser cache; logout/switch clears memory/late results | Auth fixture browser checks and public memory-only UI; private cache/draft lifecycle remains 1F/1G |
 | SEC-05 | No private markers in logs/bundles/errors/exported contracts | Safe response/DB error/compiler/bundle evidence; Pino marker scans verified in 1D; external access logs/Swagger/Postman remain open |
 | SEC-06 | Encrypted production transport and verified storage/backup encryption | Server boundary and development DB verified-CA TLS evidence; production ingress, at-rest/backups/restore/Storage remain open |
-| SEC-07 | Rate limits/Retry-After, trusted IP handling and outage policy | 1D auth/default-forwarding/outage and local real Redis count/TTL/recovery verified; basic fallback helper tested; hosted ingress/TLS/quota evidence and note callers remain open |
-| SEC-08 | Concurrent revisions cannot silently overwrite; uncertain writes/drafts reconcile | Positive revision/schema exists; atomic operations and UI evidence remain 1E/1G |
+| SEC-07 | Rate limits/Retry-After, trusted IP handling and outage policy | 1D auth/default-forwarding/outage and local real Redis count/TTL/recovery verified; basic fallback helper tested; 1E note basic caller/degraded header verified; hosted ingress/TLS/quota evidence remains open |
+| SEC-08 | Concurrent revisions cannot silently overwrite; uncertain writes/drafts reconcile | 1E multi-connection atomic revision/delete races and lost-response create reconciliation verified; UI evidence remains 1G |
 | SEC-09 | Owner-scoped private files/jobs/results, retries/outbox and safe payloads | Planned Phase 4; no Storage/BullMQ runtime |
 | SEC-10 | Sanitized rendering/plugin permissions/provider consent | Planned with editor/AI/plugins; no renderer/BYOK integration |
 
-Passing 1D does not complete SEC-01–08 or authorize production deployment. Local HTTP and
+Passing 1E does not complete SEC-01–08 or authorize production deployment. Local HTTP and
 loopback PostgreSQL TLS exceptions are deliberate; production evidence must be real.
 Hosted SQL tests exercise Session pooler, not every provider topology. The database's
 controlled Auth transport is not live Google consent.
@@ -153,3 +155,19 @@ validate RLS/schema or ongoing availability. No credential/raw-exception logging
 [Services](../integrations/backend-services.md#server-startup-health--implemented-follow-up-to-1d)
 owns behavior and limits; [ADR-023](../decisions/ADR-023-startup-dependency-health.md) records
 production/development/readiness trade-offs. This is not a completed security/deployment gate.
+
+## Note API security boundary — 1E
+
+Bounded input/method/Origin precede online verification; verified-owner basic admission
+precedes body/schema parsing and SQL. Mutation bodies never choose owner, revision output
+or plan. Every query filters owner and active rows; SQL enforces effective owner RLS too.
+Foreign, absent and deleted detail/mutation IDs all return safe 404. Stale active records
+return 409; no overwrite occurs without a matching revision. Create metadata is immutable
+and excluded from responses/logs. No Markdown is rendered or sanitized by this API.
+
+All responses are no-store with correlation IDs; refreshed credentials are written only to
+protected cookies. Redis fallback still verifies identity and advertises degraded admission.
+DB outage returns fixed 503; a lost response can still follow a commit. Keys/refetch resolve
+uncertainty, not an automatic rollback promise. Local SDK/provider/browser fixtures are
+not a newly executed live Google or hosted note acceptance check.
+[Exact API/security rules](../features/notes-api.md) · [Evidence](../phases/phase-01-foundation.md).

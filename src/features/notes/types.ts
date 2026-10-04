@@ -38,3 +38,16 @@ export type CreateNoteInput = z.infer<typeof createNoteSchema>;
 export type UpdateNoteInput = z.infer<typeof updateNoteSchema>;
 export type DeleteNoteInput = z.infer<typeof deleteNoteSchema>;
 export type ListNotesInput = z.infer<typeof listNotesSchema>;
+
+export const noteSummarySchema = noteSchema.omit({ content: true });
+export const notePageSchema = z
+  .object({
+    items: z.array(noteSummarySchema).max(100),
+    nextCursor: z
+      .object({ updatedAt: z.iso.datetime({ precision: 3 }), id: z.uuid() })
+      .strict()
+      .nullable(),
+  })
+  .strict();
+export type NoteSummary = z.infer<typeof noteSummarySchema>;
+export type NotePage = z.infer<typeof notePageSchema>;

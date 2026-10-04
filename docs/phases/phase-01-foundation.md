@@ -1,6 +1,6 @@
 # Phase 01 — Full-Stack Foundation Record
 
-**Status:** ✅ UI/runtime and 1B auth code/local verification; ✅ live Google/session/refresh/replay acceptance verified; ✅ 1C minimal schema/database/RLS; ✅ 1D HTTP/Redis/Pino locally verified; 📋 note CRUD and later milestones. Updated 2026-10-04.
+**Status:** ✅ UI/runtime and 1B auth code/local verification; ✅ live Google/session/refresh/replay acceptance verified; ✅ 1C minimal schema/database/RLS; ✅ 1D HTTP/Redis/Pino locally verified; ✅ 1E note CRUD/reconciliation locally verified; 📋 protected UI and later milestones. Updated 2026-10-05.
 
 ## Goal and scope
 
@@ -367,3 +367,28 @@ Green success ticks added using Node terminal styling; service text resets to it
 color, and redirected/disabled-color output stays plain. The follow-up's fresh validation
 and red/green evidence are recorded in the [startup execution record](../../.agent/active/startup-health.md#green-success-tick-follow-up--2026-10-04).
 1E remains unstarted.
+
+## Milestone 1E outcome — 2026-10-05
+
+Implemented authenticated collection/detail/create/update/rename/soft-delete APIs, lazy
+missing-profile insertion and validated summaries/UTC responses. Owner predicates and
+actual RLS complement atomic expected-revision writes. Required UUID create keys and
+immutable original input hashes reconcile response loss without duplicate notes; soft-
+deleted retries do not resurrect records. HTTP guards, protected refresh cookies, no-store,
+Redis basic fallback/degraded signaling and safe fixed Pino metadata apply to all routes.
+The previously documented DB-helper provider disposal gap is closed.
+
+Fresh checks passed: lint, types, 105 unit tests, production build, 12 actual-driver notes
+checks, 7 RLS checks, 5 Redis checks, 3 auth/browser tests with real note routes, 11 showcase/
+runtime browser checks, 4 startup probe tests plus actual startup/restart/failure/dev checks,
+and compiler server-only checks. Independent review identified pool1 serialization of
+race tests; pool3 plus a live two-backend barrier assertion corrected it, and tests reran.
+[Active execution record](../../.agent/active/phase-01-foundation.md#milestone-1e-execution--2026-10-05)
+owns exact commands/red-green/rulings and documentation evidence.
+
+The additive 0001 migration was tested locally and has not been applied to hosted Supabase.
+Google/Auth transport is controlled in these fresh browser tests; previous live acceptance
+is historical. No new paid resources, dependency, deployment or Git commit. Protected UI/
+state/editor and full contract tooling remain unstarted 1F–1H. Product requirements unchanged.
+[Note API](../features/notes-api.md) · [Learning](../LEARNING.md#milestone-1e-code-understanding-summary) ·
+[File map](../FILE_MAP.md#authenticated-note-api) · [ADR-024](../decisions/ADR-024-note-write-concurrency-and-reconciliation.md).

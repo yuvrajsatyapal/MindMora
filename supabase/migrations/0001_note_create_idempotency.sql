@@ -1,0 +1,4 @@
+ALTER TABLE "notes" ADD COLUMN "create_operation_id" uuid;--> statement-breakpoint
+ALTER TABLE "notes" ADD COLUMN "create_request_hash" text;--> statement-breakpoint
+CREATE UNIQUE INDEX "notes_owner_create_operation" ON "notes" USING btree ("user_id","create_operation_id") WHERE "notes"."create_operation_id" IS NOT NULL;--> statement-breakpoint
+ALTER TABLE "notes" ADD CONSTRAINT "notes_create_identity" CHECK (("notes"."create_operation_id" IS NULL AND "notes"."create_request_hash" IS NULL) OR ("notes"."create_operation_id" IS NOT NULL AND "notes"."create_request_hash" IS NOT NULL AND "notes"."create_request_hash" ~ '^[0-9a-f]{64}$'));

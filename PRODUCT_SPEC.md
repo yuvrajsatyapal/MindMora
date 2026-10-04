@@ -3,8 +3,8 @@
 > **Your knowledge. Your files. Your control.**
 
 **Target reader:** Codex and human contributors.
-**Updated:** 2026-10-05 — implementation-status synchronization through 1D and startup health; v3 requirements remain unchanged.
-**Implementation status:** ✅ Shared UI/showcase, Next Node runtime (1A), backend-owned Google/Supabase auth routes (1B), profiles/notes schema and scoped PostgreSQL/RLS boundary (1C), HTTP validation/Redis admission/Pino (1D), and Redis/PostgreSQL startup connectivity checks are implemented. 📋 Note repositories/CRUD APIs, protected workspace, query/UI/URL state integration, private Storage, jobs/workers, Swagger UI and Postman generation remain planned. Auth OpenAPI contracts exist. Auth pages do not yet consume the account helpers; database note operations have no application route caller. [Current architecture](ARCHITECTURE.md) and [dated phase evidence](docs/phases/phase-01-foundation.md) distinguish implementation from provider/production acceptance.
+**Updated:** 2026-10-05 — implementation-status synchronization through 1E and startup health; v3 requirements remain unchanged.
+**Implementation status:** ✅ Shared UI/showcase, Next Node runtime (1A), backend-owned Google/Supabase auth routes (1B), profiles/notes schema and scoped PostgreSQL/RLS boundary (1C), HTTP validation/Redis admission/Pino (1D), Redis/PostgreSQL startup connectivity checks, and authenticated owner-scoped revision/idempotency-safe note repositories/CRUD APIs (1E) are implemented. 📋 Protected workspace, query/UI/URL state integration, private Storage, jobs/workers, Swagger UI and Postman generation remain planned. Auth and note OpenAPI contract records exist; Swagger UI, generation and drift tooling remain planned. Auth pages do not yet consume account helpers; note routes now call the scoped SQL boundary. The 1E migration is locally verified and awaits hosted application. [Current architecture](ARCHITECTURE.md) and [dated phase evidence](docs/phases/phase-01-foundation.md) distinguish implementation from provider/production acceptance.
 **Budget:** Target free tiers for approximately 3–4 daily users. Free software does not include free hosting, unlimited storage, uninterrupted availability or unlimited worker compute. Verify current limits before introducing services; no paid infrastructure or paid AI dependency without explicit user approval. Optional BYOK usage is paid by the user.
 
 ## Revision summary
@@ -49,7 +49,7 @@ Without connectivity, an existing in-memory draft may remain editable in the sam
 
 ## 3. Full-Stack Architecture
 
-Next.js App Router runs as a Node.js application with backend Route Handlers. Milestone 1A completed the Node runtime migration; public homepage/showcase pages remain prerendered and auth routes are dynamic. The diagram below describes the full target: note repositories/APIs, private Storage, queues/workers and optional ingress remain planned. Current implemented boundaries are documented in [ARCHITECTURE](ARCHITECTURE.md).
+Next.js App Router runs as a Node.js application with backend Route Handlers. Milestone 1A completed the Node runtime migration; public homepage/showcase pages remain prerendered and auth/note routes are dynamic. Milestone 1E implemented note repositories/APIs. The diagram below describes the full target: private UI/state, private Storage, queues/workers and optional ingress remain planned. Current implemented boundaries are documented in [ARCHITECTURE](ARCHITECTURE.md).
 
 ```mermaid
 flowchart TD
@@ -771,6 +771,6 @@ OpenAPI → Swagger UI + generated Postman collection
 ```
 
 Retained: Markdown, links, graphs, canvas, tasks, database views, portability, plugins, optional local models, free-tier target, testing/docs and learning workflow.
-Superseded: local-first knowledge storage, frontend-only/static-only target, Drive as sync authority, persistent offline note editing and E2EE vault/recovery mechanics. Current source still contains only the static UI foundation; implementation migration is planned.
+Superseded: local-first knowledge storage, frontend-only/static-only target, Drive as sync authority, persistent offline note editing and E2EE vault/recovery mechanics. Current source implements the public UI, Node runtime, auth, scoped SQL/RLS, HTTP/Redis/Pino and note CRUD APIs through 1E; private workspace/state/editor and later integrations remain planned.
 
 ---

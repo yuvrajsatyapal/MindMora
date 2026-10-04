@@ -8,6 +8,7 @@ import {
   integer,
   check,
   index,
+  uniqueIndex,
   pgPolicy,
   pgRole,
 } from "drizzle-orm/pg-core";
@@ -49,6 +50,8 @@ export const notes = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => profiles.userId, { onDelete: "cascade" }),
+    createOperationId: uuid("create_operation_id"),
+    createRequestHash: text("create_request_hash"),
     title: text("title").notNull(),
     content: text("content").notNull(),
     revision: integer("revision").notNull().default(1),
@@ -61,6 +64,13 @@ export const notes = pgTable(
     deletedAt: timestamp("deleted_at", { withTimezone: true, precision: 3 }),
   },
   (t) => [
+    check(
+      "notes_create_identity",
+      sql`(${t.createOperationId} IS NULL AND ${t.createRequestHash} IS NULL) OR (${t.createOperationId} IS NOT NULL AND ${t.createRequestHash} IS NOT NULL AND ${t.createRequestHash} ~ '^[0-9a-f]{64}$')`,
+    ),
+    uniqueIndex("notes_owner_create_operation")
+      .on(t.userId, t.createOperationId)
+      .where(sql`${t.createOperationId} IS NOT NULL`),
     check(
       "notes_title_bound",
       sql`char_length(${t.title}) BETWEEN 1 AND 200 AND ${t.title} = btrim(${t.title})`,

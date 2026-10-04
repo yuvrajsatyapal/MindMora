@@ -6,6 +6,10 @@ const definitions = {
   forbidden: [403, "Operation not permitted."],
   not_found: [404, "Record not found."],
   method_not_allowed: [405, "Method not allowed."],
+  idempotency_conflict: [
+    409,
+    "Operation key already used with different input.",
+  ],
   revision_conflict: [409, "Record changed; refresh before retrying."],
   payload_too_large: [413, "Request is too large."],
   unsupported_media_type: [415, "JSON content type required."],

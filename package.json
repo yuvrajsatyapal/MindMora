@@ -19,7 +19,8 @@
     "test:db": "node --conditions=react-server --experimental-strip-types scripts/test-database.mjs",
     "test:db:hosted": "node --env-file=.env node_modules/vitest/vitest.mjs run --config vitest.database.config.ts",
     "test:rate-limit": "node scripts/test-rate-limit.mjs",
-    "test:startup": "node scripts/test-startup-health.mjs"
+    "test:startup": "node scripts/test-startup-health.mjs",
+    "test:notes": "node scripts/test-notes-api.mjs"
   },
   "engines": {
     "node": ">=22.12.0"
