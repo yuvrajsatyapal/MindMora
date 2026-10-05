@@ -1,31 +1,30 @@
 # Data Flows: Current Foundation and Planned Features
 
-**Current:** 1A–1E runtime/auth/contracts/scoped SQL, HTTP/admission/logging and note APIs. **Planned below:**
-note UI/cache, file storage and jobs. [ARCHITECTURE](../../ARCHITECTURE.md) is the primary
+**Current:** Phase 1 runtime/auth/scoped SQL, HTTP/admission/logging, protected note UI/cache
+and generated API tooling. **Planned below:** file storage and jobs. [ARCHITECTURE](../../ARCHITECTURE.md) is the primary
 current system architecture; this companion owns future data-flow constraints and failure
 scenarios. [Model](../features/note-model.md), [database](../integrations/supabase-database.md)
-and [state](state-management.md) own existing model/SQL and planned state details.
+and [state](state-management.md) own existing model/SQL/state details.
 
 ## Existing foundation
 
-The public UI is a showcase. Auth HTTP routes verify sessions without SQL. A separate
+The public showcase remains sample-only; the protected workspace consumes the note APIs. Auth HTTP routes verify sessions without SQL. A separate
 library composes verified-owner issuance and constrained transactions, now called by
 note repositories and real database integration tests. The note handler parses shared
 mutation/list schemas; the service validates normalized responses. Auth now uses the reusable
 HTTP/admission/Pino layer described in [backend services](../integrations/backend-services.md). Profiles are not created
 at login; the first validated note access seeds one. Repositories explicitly advance revision/time.
 
-## Note request flow — API implemented 1E; UI/cache planned 1F–1G
+## Note request flow — implemented Phase 1
 
 ```mermaid
 sequenceDiagram
-  participant E as Planned editor / memory draft
-  participant Q as Planned account-scoped Query cache
+  participant E as Editor / memory draft
+  participant Q as Account-scoped Query cache
   participant H as Implemented note HTTP adapter
   participant S as Implemented service/repository
   participant P as Existing SQL boundary / PostgreSQL
-  E->>Q: Save draft with expected revision
-  Q->>H: Authenticated mutation
+  E->>H: Validated API client: draft + expected revision
   H->>H: HTTP limits/origin/input validation + session verification
   H->>S: Verified owner + parsed input
   S->>P: Owner/revision-scoped transaction
@@ -33,7 +32,8 @@ sequenceDiagram
     P-->>S: Updated record / revision
     S-->>H: Normalized domain result
     H-->>Q: Typed response
-    Q-->>E: Update/invalidate cache; show saved
+    H-->>E: Acknowledged commit; show saved
+    E->>Q: Update/invalidate memory cache
   else Conflict or failure
     H-->>E: Typed outcome; retain draft
   end
@@ -46,9 +46,9 @@ does not reveal another user's record. RLS supplies an additional row boundary; 
 not supply these business rules. Normal save writes directly to PostgreSQL, not a queue.
 
 A failed response after commit creates uncertainty, not proof of failure. Implemented create reconciliation reuses its key/payload; update/delete reconciliation
-requires a refetch before deliberate retry. The API returns a conflict; the planned client must preserve its draft and fetched version
-for deliberate compare/retry. The API/service rules now exist; UI draft handling remains
-unimplemented. Exact signatures are in the [note API guide](../features/notes-api.md).
+requires a refetch before deliberate retry. The API returns a conflict; the client preserves its draft and fetched version
+for deliberate compare/retry. Frozen create keys/input reconcile response loss, and a
+changed replayed server record becomes an explicit conflict. Exact signatures are in the [note API guide](../features/notes-api.md).
 
 ## Planned files and jobs — Phase 4
 

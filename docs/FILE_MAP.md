@@ -1,6 +1,6 @@
 # MindMora File Map
 
-**Inspected:** 2026-10-05, through 1E and startup-health/terminal-styling follow-ups.
+**Inspected:** 2026-10-05, through Phase 1F–1H and startup-health follow-ups.
 Each row separates where code lives, why it exists, its exports, callers, dependencies
 and the next runtime step. Only implemented files appear here. Some implemented libraries
 have test callers but no product caller; those gaps are explicitly identified.
@@ -14,18 +14,18 @@ Flows show control/data movement, not every function call. Test/CLI flows are la
 | [next.config.ts](../next.config.ts) | Configure the Node-compatible Next build. | default Next config | Next dev/build/start | Next.js | Next reads config → prerenders public pages and builds dynamic auth routes. |
 | [scripts/preview.mjs](../scripts/preview.mjs) | Launch a loopback production preview. | None; CLI entry | npm preview; Playwright webServer | Node child process; Next start | Spawn Next start → forward shutdown → exit with child status. |
 | [src/app/layout.tsx](../src/app/layout.tsx) | Provide the root document and theme context. | default RootLayout; metadata | Next App Router | ThemeProvider; globals.css | Wrap page content in theme context → render root document. |
-| [src/app/page.tsx](../src/app/page.tsx) | Link the public homepage to the showcase. | default Home | Next / route | UI Logo/Card; Next Link | Render public page → browser follows showcase link; no auth/SQL call. |
+| [src/app/page.tsx](../src/app/page.tsx) | Introduce the workspace with authored public note content. | default Home | Next / route | Logo; ThemeSelect; Lucide icons; semantic CSS | Prerender public content → temporary theme control or workspace/showcase navigation; no auth/SQL call. |
 | [src/app/dev/design-system/page.tsx](../src/app/dev/design-system/page.tsx) | Expose the implemented showcase route. | default DesignSystemPage | Next /dev/design-system/ route | showcase.tsx; showcase.css | Route renders Showcase → client interactions use sample state. |
 | [src/app/dev/design-system/showcase.tsx](../src/app/dev/design-system/showcase.tsx) | Demonstrate shared controls and product patterns. | Showcase | Design-system page | UI/product components; React state | Sample values → component props → callbacks update page-lifetime state. |
 | [src/app/globals.css](../src/app/globals.css) | Load shared application styles. | None; stylesheet | Root layout | Design-system styles | CSS imports → browser cascade styles page/components. |
 | [src/design-system/tokens.css](../src/design-system/tokens.css) | Define semantic theme values. | CSS custom properties | Shared styles through globals.css | CSS theme/media selectors | Theme attribute or OS preference → semantic values → component appearance. |
 | [src/design-system/components.css](../src/design-system/components.css) | Style shared component interaction states. | CSS classes | Shared styles through globals.css | Semantic tokens | Classes/state selectors → browser renders themed controls. |
-| [src/components/ui/index.ts](../src/components/ui/index.ts) | Expose the shared UI import surface. | Re-exported controls/overlays/theme/Logo | Homepage/showcase and UI consumers | primitives.tsx; overlays.tsx; theme.tsx; brand.tsx | Consumer import → implemented component → render. |
+| [src/components/ui/index.ts](../src/components/ui/index.ts) | Expose the shared UI import surface. | Re-exported controls/overlays/theme/Logo | Homepage/showcase/workspace and UI consumers | primitives.tsx; overlays.tsx; theme.tsx; brand.tsx | Consumer import → implemented component → render. |
 | [src/components/ui/primitives.tsx](../src/components/ui/primitives.tsx) | Provide reusable controlled basic controls. | Button; IconButton; TextField; Card; Alert; Tone | Pages/showcase; overlays; product patterns | React; lucide-react; semantic CSS | Props → accessible element → callback returns interaction to parent. |
 | [src/components/ui/overlays.tsx](../src/components/ui/overlays.tsx) | Wrap accessible overlay and navigation primitives. | Dialog; Tabs; Menu; Tooltip; Toast | Showcase through UI exports | Radix; UI primitives; React | Parent props → Radix focus/keyboard behavior → callback to parent. |
-| [src/components/ui/theme.tsx](../src/components/ui/theme.tsx) | Project temporary theme preference into the document. | ThemeProvider; ThemeSelect; ThemePreference | Layout and showcase | React context/state; Select | Selection → context state → document theme attribute → CSS. |
+| [src/components/ui/theme.tsx](../src/components/ui/theme.tsx) | Project temporary theme preference into the document. | ThemeProvider; ThemeSelect; ThemePreference | Layout; homepage/workspace/showcase | React context/state; Select | Selection → context state → document theme attribute → CSS. |
 | [src/components/ui/brand.tsx](../src/components/ui/brand.tsx) | Render shared branding. | Logo | Homepage/showcase through UI exports | Public brand SVG assets | Component props → logo asset/markup → browser render. |
-| [src/components/mindmora/index.tsx](../src/components/mindmora/index.tsx) | Present controlled knowledge-workspace patterns. | NoteRow; TaskRow; SaveStatus; SyncStatus; CanvasCard; PropertyRow | Showcase | UI primitives; lucide-react; React | Sample props → presentation → callbacks; badges perform no persistence. |
+| [src/components/mindmora/index.tsx](../src/components/mindmora/index.tsx) | Present controlled knowledge-workspace patterns. | NoteRow; TaskRow; SaveStatus; SyncStatus; CanvasCard; PropertyRow | Showcase; notes workspace | UI primitives; lucide-react; React | Controlled props → presentation → callbacks; badges perform no persistence. |
 
 ```text
 Browser -> Next page + layout.tsx
@@ -83,7 +83,7 @@ No request handler calls startup probes. Connectivity does not verify schema/RLS
 | [src/server/auth/provider.ts](../src/server/auth/provider.ts) | Isolate Supabase SDK protocol and transient state. | createAuthProvider; AuthFailure; tokenSchema; AuthTokens | Auth handler; DB identity context; session helpers | Supabase AuthClient; account projection schema; Zod | Start/exchange/verify/refresh/revoke → Supabase Auth → checked result or safe failure; dispose afterward. |
 | [src/server/auth/session.ts](../src/server/auth/session.ts) | Validate cookie/state input and manage verified sessions. | pendingSchema; cookieName; readCookie; decodeCookie; writeCookie; clearSession; matchesState; verifySession | Auth handler; DB identity context | Provider; Zod; Node crypto; NextResponse | Untrusted cookie/state → validation/online verification → tokens/projection; cookie writer updates response. |
 | [src/features/account/types.ts](../src/features/account/types.ts) | Define browser-safe session projection. | sessionProjectionSchema; SessionProjection | Provider; browser API helpers; tests | Zod | Provider fields or response JSON → schema → safe identity projection. |
-| [src/features/account/api.ts](../src/features/account/api.ts) | Fetch session state and request logout without storing tokens. | readSession; logout | Unit tests; no current product page caller | Browser fetch; account/types.ts; auth endpoints | Credentialed request → route → validated projection/null or fixed error; logout waits for success. |
+| [src/features/account/api.ts](../src/features/account/api.ts) | Fetch session state and request logout without storing tokens. | readSession; logout | WorkspaceShell; unit tests | Browser fetch; account/types.ts; auth endpoints | Credentialed request → route → validated projection/null or fixed error; logout waits for success. |
 
 ```text
 Browser POST -> start/route.ts -> auth/routes.ts
@@ -106,7 +106,7 @@ Session GET / logout POST -> route -> same guards/admission
      -> session.ts + provider.ts -> projection / revoke + cookie update
 ```
 
-Auth never creates profiles or saves notes. Account fetch helpers exist but product pages do not call them. [Auth guide](integrations/supabase-auth.md) owns exact ordering and failure behavior.
+Auth never creates profiles or saves notes. WorkspaceShell calls account helpers for session verification/logout. [Auth guide](integrations/supabase-auth.md) owns exact ordering and failure behavior.
 
 ## HTTP, admission and safe logging
 
@@ -174,7 +174,7 @@ Candidate note input -> validation.ts -> handler -> repository
 Row -> service -> types.ts validation -> response
 ```
 
-SELECT 1 startup probes do not enter this transaction path. Note repositories/CRUD are implemented; workspace callers remain absent. [Database guide](integrations/supabase-database.md), [note model](features/note-model.md), [ADR-021](decisions/ADR-021-scoped-database-role.md).
+SELECT 1 startup probes do not enter this transaction path. Note repositories/CRUD are implemented; workspace callers now reach these APIs. [Database guide](integrations/supabase-database.md), [note model](features/note-model.md), [ADR-021](decisions/ADR-021-scoped-database-role.md).
 
 ## Authenticated note API
 
@@ -280,7 +280,7 @@ Privileged credentials are CLI-only. SQL commit and filesystem publication canno
 | [src/server/startup/probes.test.ts](../src/server/startup/probes.test.ts) | Verify safe rejection of invalid probe configuration. | None; test suite | Unit Vitest config | probes.ts | Invalid marker inputs → fixed safe rejection; no cloud service call. |
 | [scripts/test-showcase-e2e.mjs](../scripts/test-showcase-e2e.mjs) | Supply healthy local services to showcase browser checks. | None; CLI entry | npm test:e2e; CI | withTestRedis; withTestPostgres; Playwright | Fixture URLs → Playwright config → fresh preview/browser checks → cleanup. |
 | [playwright.config.ts](../playwright.config.ts) | Configure production showcase/runtime browser execution. | Default Playwright config | Showcase runner / Playwright CLI | preview.mjs; tests/e2e/design-system.spec.ts; runtime.spec.ts | Start fresh configured preview → Chromium requests/assertions → stop preview. |
-| [scripts/test-auth-e2e.mjs](../scripts/test-auth-e2e.mjs) | Coordinate disposable provider/services and auth browser checks. | None; CLI entry | npm test:auth; CI | Provider fixture; Redis/PG fixtures; Playwright auth config | Start provider/Redis + migrated PG fixture → browser auth/note flow → assertions → cleanup. |
+| [scripts/test-auth-e2e.mjs](../scripts/test-auth-e2e.mjs) | Coordinate disposable provider/services and auth/workspace/contract browser checks. | None; CLI entry | npm test:auth; CI | Provider fixture; Redis/PG fixtures; Playwright auth config | Start provider/Redis + migrated PG fixture → browser auth/workspace/Swagger/collection flow → assertions → cleanup. |
 | [playwright.auth.config.ts](../playwright.auth.config.ts) | Select production auth browser execution. | Default Playwright config | Auth browser runner | Next preview; tests/e2e/auth.spec.ts | Configured provider/service environment → fresh Next → auth browser suite. |
 | [tests/e2e/auth.spec.ts](../tests/e2e/auth.spec.ts) | Exercise production cookie auth, note CRUD and throttling in a browser. | None; test suite | Auth Playwright config | Real Next; disposable provider; browser requests | Browser sign-in → actual note CRUD/CSRF/revisions → refresh/logout/throttle → cookie/status assertions. |
 | [tests/e2e/design-system.spec.ts](../tests/e2e/design-system.spec.ts) | Exercise showcase accessibility, themes and responsive layout. | None; test suite | Showcase Playwright config | Real Next showcase; Chromium; axe | Browser interactions/viewports → rendered UI → accessibility/layout assertions. |
@@ -312,3 +312,45 @@ Browser: npm test:e2e / test:auth -> services/provider fixtures
 Tests/configuration define checks, not proof that hosted CI or production passed. [Phase record](phases/phase-01-foundation.md) owns dated outcomes; [startup execution record](../.agent/active/startup-health.md) owns its exact evidence.
 
 [Documentation index](README.md) maps document responsibilities. The [active Phase 1 plan](../.agent/active/phase-01-foundation.md) owns live progress. No proposed repositories, caches, workers or routes are listed as implemented files.
+
+## Protected workspace and API tooling — Phase 1F–1H
+
+| File | Purpose | Important exports | Called by | Dependencies | Flow |
+|---|---|---|---|---|---|
+| [src/app/workspace/page.tsx](../src/app/workspace/page.tsx) | Compose the protected browser workspace with URL adaptation. | default WorkspacePage | Next `/workspace/` route | Suspense; NuqsAdapter; WorkspaceShell | Public shell markup → browser session check → private workspace. |
+| [src/components/workspace/WorkspaceShell.tsx](../src/components/workspace/WorkspaceShell.tsx) | Own verified identity leases and private cache lifetime. | WorkspaceShell | WorkspacePage; component tests | account API; QueryClient; NotesWorkspace; UI store; URL selection; Logo/ThemeSelect | Verify session → issue lease → mount workspace; logout/switch → abort/clear/unmount. |
+| [src/features/account/components/SignInGate.tsx](../src/features/account/components/SignInGate.tsx) | Explain server storage and start native Google navigation. | SignInGate | WorkspaceShell | Shared Card/Button | User submits same-origin POST → auth start → Google callback → homepage. |
+| [src/lib/api/client.ts](../src/lib/api/client.ts) | Validate fetched responses and project fixed public errors. | apiRequest; ApiError | notes API | fetch; Zod | no-store same-origin fetch → schema validation → result or safe typed error. |
+| [src/features/notes/api.ts](../src/features/notes/api.ts) | Apply session leases and ownership to browser note operations. | createNotesApi; NoteScope; NotesApi | NotesWorkspace; API tests | API client; note schemas; AbortSignal | Verify active identity → request → reject expired lease/wrong owner → validated note. |
+| [src/features/notes/hooks.ts](../src/features/notes/hooks.ts) | Fetch paginated list/detail into scoped memory query keys. | noteKeys; useNotes; useNote | NotesWorkspace | TanStack Query; NotesApi | owner/generation key → cancellable request → memory data; no write replay. |
+| [src/features/notes/use-note-selection.ts](../src/features/notes/use-note-selection.ts) | Validate a note ID stored in the URL. | useNoteSelection | WorkspaceShell; NotesWorkspace | nuqs; Zod | `?note=` → UUID validation → selection or safe invalid state. |
+| [src/stores/ui-store.ts](../src/stores/ui-store.ts) | Own transient sidebar visibility only. | useUiStore | WorkspaceShell; NotesWorkspace | Zustand create without persist | Toggle/reset → presentation; no note/session authority. |
+| [src/features/notes/components/NotesWorkspace.tsx](../src/features/notes/components/NotesWorkspace.tsx) | Coordinate queries, selection, draft navigation and cache invalidation. | NotesWorkspace | WorkspaceShell | note hooks/API; NoteList; NoteEditor; UI/URL state | List/detail fetch → editor draft → acknowledged write → invalidate/refetch. |
+| [src/features/notes/components/NoteList.tsx](../src/features/notes/components/NoteList.tsx) | Present bounded authorized summaries and accessible selection. | NoteList | NotesWorkspace | NoteSummary; shared Button/Icon/EmptyState; Lucide FileText | Summary data → selected button → guarded URL selection. |
+| [src/features/notes/components/NoteEditor.tsx](../src/features/notes/components/NoteEditor.tsx) | Own a draft, revision and explicit write/reconciliation state. | NoteEditor | NotesWorkspace; component tests | NotesApi; input validation; shared controls/status | Edit draft → validate → write → acknowledge or preserve/resolve conflict. |
+| [src/app/dev/api-docs/page.tsx](../src/app/dev/api-docs/page.tsx) | Gate interactive API documentation by environment. | default ApiDocsPage; dynamic; runtime | Next `/dev/api-docs/` | notFound; docsEnabled; ApiDocs | Development/operator opt-in → console; default production →404. |
+| [src/app/dev/api-docs/policy.ts](../src/app/dev/api-docs/policy.ts) | Constrain console exposure and outgoing API requests. | docsEnabled; sameOriginRequest; DocsRequest | API docs page/Swagger; policy tests | URL parsing | Reject foreign origin/non-API/OAuth redirect endpoint → same-origin cookie request. |
+| [src/app/dev/api-docs/swagger.tsx](../src/app/dev/api-docs/swagger.tsx) | Lazy-load the interactive generated API console. | default ApiDocs | API docs page | Swagger UI; generated OpenAPI; console policy | Client-only console → no remote validator/auth persistence → guarded API. |
+| [scripts/generate-api-docs.mjs](../scripts/generate-api-docs.mjs) | Generate contracts and fail on route/output drift. | validateContract; generateDocuments | api:generate/api:check; contract tests | shared Zod schemas; operation metadata; source route inventory | Read schemas/metadata/routes → OpenAPI/Postman → write or compare. |
+| [docs/api/operation-metadata.json](api/operation-metadata.json) | Own reviewed HTTP semantics not derivable from shapes. | None; metadata | contract generator | Existing auth/note route policy | Reviewed methods/statuses/headers → generated contract. |
+| [docs/api/openapi.json](api/openapi.json) | Publish the generated auth/note API contract. | None; contract | Swagger; collection executor; reviewers | generator output | Inspect schemas/operations → execute same guarded APIs. |
+| [docs/api/mindmora.postman_collection.json](api/mindmora.postman_collection.json) | Provide credential-free executable API requests. | None; collection | Postman; collection smoke | generator output; placeholder variables | Local origin/IDs/revision placeholders → guarded API requests. |
+| [scripts/test-api-contract.mjs](../scripts/test-api-contract.mjs) | Check negative drift and collection semantics. | None; test CLI | test:contract; CI | generator; collection executor; assertions | Mutate contract fixtures → demand rejection → check shared generated output. |
+| [scripts/test-api-collection.mjs](../scripts/test-api-collection.mjs) | Execute generated requests against a disposable local runtime. | runCollectionSmoke | CLI; contracts browser tests; unit adapter | generated contracts/collection; fetch-compatible adapter | Run guards or authenticated create/read/update/delete using returned IDs/revisions. |
+| [scripts/test-api-collection.d.mts](../scripts/test-api-collection.d.mts) | Type the JavaScript collection runner for tests. | CollectionRequestOptions; CollectionResponse; runCollectionSmoke signature | TypeScript E2E compiler only | Corresponding runner | Compile adapter types; no product runtime caller. |
+| [src/components/workspace/WorkspaceShell.test.tsx](../src/components/workspace/WorkspaceShell.test.tsx) | Test identity, deep links and draft/cache lifetime. | None; tests | Vitest only | shell; Testing Library; nuqs testing adapter | Controlled session transitions → assert isolation/retained draft. |
+| [src/features/notes/components/NoteEditor.test.tsx](../src/features/notes/components/NoteEditor.test.tsx) | Test explicit acknowledgement and recoverable drafts. | None; tests | Vitest only | editor; typed API fixtures; Testing Library | Failed/conflicting writes or refetch → verify state and deliberate resolution. |
+| [src/features/notes/api.test.ts](../src/features/notes/api.test.ts) | Test owner/lease/response contract boundaries. | None; tests | Vitest only | browser notes API; fetch fixtures | Foreign/wrong/late response → reject; deletion → validate acknowledgement. |
+| [src/app/dev/api-docs/policy.test.ts](../src/app/dev/api-docs/policy.test.ts) | Test console opt-in and outgoing origin constraints. | None; tests | Vitest only | console policy | Unsafe endpoint/origin → reject; allowed API → same-origin. |
+| [tests/e2e/foundation.spec.ts](../tests/e2e/foundation.spec.ts) | Exercise protected notes in the real browser and SQL runtime. | None; tests | auth browser harness only | Playwright; Axe; disposable Auth/DB/Redis | Sign in → CRUD/conflict/offline/response loss/owner/logout → UI and API assertions. |
+| [tests/e2e/contracts.spec.ts](../tests/e2e/contracts.spec.ts) | Exercise Swagger and generated collection through real routes. | None; tests | auth browser harness only | Playwright; collection runner | Opt-in console/collection → same guarded HTTP → verify statuses/no remote requests. |
+
+```text
+WorkspacePage -> WorkspaceShell -> verified owner/generation
+  -> NotesWorkspace -> query list/detail -> createNotesApi -> HTTP -> PostgreSQL
+  -> NoteEditor draft -> explicit write -> confirmed acknowledgement -> cache refresh
+Logout/switch -> abort lease + queries -> clear memory -> unmount editor
+
+Zod + operation metadata + real routes -> generator -> OpenAPI + Postman
+  -> drift/collection tests + opt-in Swagger -> guarded HTTP routes
+```

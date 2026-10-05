@@ -54,4 +54,4 @@ The lint contract blocks common style escapes; it is not a complete design revie
 
 ### Existing status wording awaiting runtime integration
 
-The current controlled `SaveStatus` source still labels success “Saved on this device” with a local-commit comment; `SyncStatus` includes local-file/sync wording. These are existing showcase behavior, not implemented server semantics. Phase 1G will update the labels/comments and affected tests/specimens to server-confirmed saves and suitable refresh/job states before using them in the authenticated product. This documentation revision leaves source untouched.
+Phase 1G now labels `SaveStatus` success “Saved to server”; product callers set it only after an acknowledged commit or matching reconciliation read. `SyncStatus` reports server refresh state and draft retention. The showcase remains a controlled sample and performs no persistence. See the [workspace design contract](phase-01-foundation.md).

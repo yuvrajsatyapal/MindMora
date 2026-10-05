@@ -11,7 +11,7 @@ for (const theme of ["light", "dark"]) {
       page.getByRole("button", { name: "New note", exact: true }),
     ).toHaveCSS(
       "background-color",
-      theme === "dark" ? "rgb(112, 224, 197)" : "rgb(8, 127, 115)",
+      theme === "dark" ? "rgb(230, 230, 230)" : "rgb(8, 127, 115)",
     );
     const result = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
@@ -81,7 +81,7 @@ test("system theme follows OS, explicit override wins, reduced motion is respect
   await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
   await expect(page.locator("body")).toHaveCSS(
     "background-color",
-    "rgb(16, 35, 34)",
+    "rgb(24, 24, 24)",
   );
   await page.getByLabel("Theme", { exact: true }).selectOption("light");
   await expect(page.locator("body")).toHaveCSS(
@@ -95,7 +95,7 @@ test("system theme follows OS, explicit override wins, reduced motion is respect
   await expect(page.getByLabel("Theme", { exact: true })).toHaveValue("system");
   await expect(page.locator("body")).toHaveCSS(
     "background-color",
-    "rgb(16, 35, 34)",
+    "rgb(24, 24, 24)",
   );
 });
 test("loads without external requests or runtime errors and survives narrow reflow", async ({

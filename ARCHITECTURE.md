@@ -1,6 +1,6 @@
 # MindMora Architecture
 
-**Inspected:** 2026-10-05, current source through Milestone 1E, startup health and terminal styling. This document owns the technical
+**Inspected:** 2026-10-05, current source through remaining Phase 1 (1F–1H). This document owns the technical
 system overview. Detailed operating rules live in the linked integration/security guides;
 validation evidence lives in the [phase record](docs/phases/phase-01-foundation.md).
 
@@ -9,14 +9,17 @@ validation evidence lives in the [phase record](docs/phases/phase-01-foundation.
 Next.js App Router serves prerendered public pages plus four auth and two note Node, force-dynamic Route
 Handler modules. React/Tailwind/Radix provide the public UI. The auth-only Supabase SDK is server-side.
 Drizzle/postgres-js provide the scoped SQL boundary called by owner-filtered note
-repositories. There is no private workspace UI or worker.
+repositories. The protected workspace uses memory-only TanStack Query, transient Zustand
+and nuqs selection. No worker exists.
 
 ```mermaid
 flowchart LR
   subgraph Browser["Browser — untrusted request data"]
     UI["Public homepage / UI showcase"]
     Cookie["Protected pending/session cookies"]
-    Helper["Account fetch helpers — no page caller yet"]
+    Helper["WorkspaceShell / session lease"]
+    Workspace["NotesWorkspace / draft editor"]
+    Console["Opt-in Swagger / generated contract"]
   end
   subgraph Node["Next.js Node process"]
     Public["Prerendered public pages"]
@@ -32,7 +35,10 @@ flowchart LR
   end
   UI --> Public
   Cookie --> Routes
-  Helper -.-> Routes
+  Helper --> Routes
+  Helper --> Workspace
+  Workspace --> NoteRoutes
+  Console --> NoteRoutes
   Routes --> Policy --> SDK
   Policy --> Redis
   Policy --> Log
@@ -49,8 +55,7 @@ flowchart LR
   DBCode --> PG["Supabase PostgreSQL — profiles/notes"]
 ```
 
-Solid edges are existing flows; the dotted account-helper edge is an implemented API
-helper that product pages do not call. `handleAuth` still does not import database modules,
+Solid edges are existing flows; workspace account helpers verify the browser lease. `handleAuth` still does not import database modules,
 create a profile or save a note. `handleNotes` verifies each request and reaches SQL. Startup
 checks connect directly through dedicated probe clients; they do not invoke the scoped
 knowledge transaction API or establish user ownership.
@@ -62,7 +67,7 @@ knowledge transaction API or establish user ownership.
 | `provider.ts` / `session.ts` | Supabase protocol, token shape/refresh and online identity verification | Local JWT claims as authorization |
 | Shared Zod feature contracts | Runtime data shapes and inferred types | Ownership permission or Markdown sanitization |
 | `user-context.ts` | Issue a frozen verified-owner object after online verification | Expiring capability or per-operation revalidation |
-| Note adapters / handler / service / repository | Authenticated CRUD, validated responses, owner/active/revision filters and lazy profile creation | Workspace UI, queueing and automatic retries |
+| Note adapters / handler / service / repository | Authenticated CRUD, validated responses, owner/active/revision filters and lazy profile creation | Queueing and automatic retries |
 | `client.ts` / `schema.ts` | Checked SQL role/transaction, typed queries and model definitions | Repository business rules and HTTP response serialization |
 | Database CLI scripts | Privileged migration/login provisioning | Request-serving credentials or automatic credential rotation |
 
@@ -168,8 +173,8 @@ reserves retries across soft deletion. List summaries omit content.
 [Note model](docs/features/note-model.md) is the primary field/constraint contract.
 
 Theme/demo state lives in React memory and resets on reload. There is no browser knowledge
-DB, query persister, session-token UI store or service worker. The accepted future Query/
-Zustand/nuqs ownership model is explicitly [planned](docs/architecture/state-management.md).
+DB, query persister, session-token UI store or service worker. The implemented Query/
+Zustand/nuqs ownership model is documented in [state ownership](docs/architecture/state-management.md).
 
 ## Trust and failure boundaries
 
@@ -205,9 +210,9 @@ provider encryption at rest/backups/restore and private cache lifecycle are not 
 
 ## Accepted target, separately from implementation
 
-1E is implemented: profile creation and owner-filtered revision-safe note APIs, after the
-1D HTTP/admission/startup foundation. 1F/1G remain unstarted and add protected UI, temporary cache/state and save
-feedback; 1H completes contract tooling. Phase 4 adds private Storage/BullMQ/outbox/worker.
+1A–1H foundation code is implemented: protected workspace/state, explicit saves and
+conflict recovery now consume the owner-filtered note APIs. Generated API contracts,
+Postman and opt-in Swagger have drift and runtime checks. Phase 4 adds private Storage/BullMQ/outbox/worker.
 [Planned data flows](docs/architecture/full-stack-architecture.md) describe those future
 save/conflict/file/job interactions without implying current callers. Google sign-in is
 already Phase 1, while Phase 13 expands the account/entitlement lifecycle.
@@ -231,4 +236,49 @@ original normalized payload hash detects misuse. Deleted keys remain reserved.
 
 [Note API](docs/features/notes-api.md) owns endpoint/failure details and
 [ADR-024](docs/decisions/ADR-024-note-write-concurrency-and-reconciliation.md) owns alternatives.
-The additive migration is locally verified, not yet applied to hosted Supabase.
+The additive migration was verified locally and applied to the configured development
+Supabase on 2026-10-05; production deployment remains a separate gate.
+
+## Protected workspace and API tooling — implemented 1F–1H
+
+`WorkspaceShell` verifies the safe session projection, owns a per-mounted QueryClient
+and issues an owner/generation lease. Account changes or logout abort work, clear private
+queries and transient layout, clear selection and unmount drafts. `createNotesApi` checks
+that lease before/after requests and validates returned ownership. Reverification on focus,
+periodically and before private requests detects cookie changes; no browser SDK/token store.
+Transient failures retain existing same-tab drafts but cannot authorize a new request.
+
+`NotesWorkspace` composes bounded list/detail queries, URL selection and transient pane
+state. `NoteEditor` owns a draft and acknowledged revision separately from cached records;
+refetch does not overwrite its draft. Save calls the API directly, never optimistically
+claims persistence and never automatically retries a write. A409 preserves the draft and
+loads the server version for explicit resolution. Uncertain creates retain a frozen input
+and operation key; uncertain updates refetch and compare before further writes.
+[Workspace behavior](docs/features/notes-workspace.md) owns the detailed failure rules.
+
+Shared Zod schemas feed native JSON Schema generation. Reviewed operation metadata owns
+HTTP semantics that schemas cannot infer. Generation produces OpenAPI and Postman; CI checks
+byte drift, route inventory/methods/references and executable disposable requests. Swagger is
+development-only by default, production opt-in, lazy-loaded and limited to same-origin API
+requests with no external validator or saved authorization. No hosted credential is exported.
+[Tooling](docs/integrations/api-tooling.md) owns configuration and limits.
+
+```text
+WorkspaceShell -> session projection -> owner/generation lease
+  -> NotesWorkspace -> URL selection -> scoped query -> validated API client
+  -> handleNotes -> verified session / Origin / Redis admission
+  -> service -> owner/revision repository -> scoped RLS transaction -> PostgreSQL commit
+  <- acknowledged note -> query invalidation / editor saved state
+
+Shared Zod + reviewed HTTP metadata -> generator -> OpenAPI / Postman
+  -> drift checks + opt-in Swagger -> same guarded HTTP APIs
+```
+
+## Presentation refinement — 2026-10-05
+
+The public homepage remains prerendered and contains only authored public content plus a
+small client theme control. Continuous sidebar/document framing replaces nested workspace
+cards. CSS semantic tokens select neutral charcoal in explicit/system dark mode and retain
+the light palette; theme context is temporary, never persisted. No account data, database
+imports, auth changes or Phase 2 editor behavior are introduced. Native CSS entry motion is
+public-only and disabled for reduced motion. See [ADR-026](docs/decisions/ADR-026-neutral-dark-theme-and-document-surfaces.md).

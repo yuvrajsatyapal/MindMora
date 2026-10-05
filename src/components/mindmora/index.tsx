@@ -98,8 +98,8 @@ export function TaskRow({
 export type SaveState = "unsaved" | "saving" | "saved" | "error";
 const saves = {
   unsaved: { label: "Unsaved changes", icon: Circle, tone: "warning" },
-  saving: { label: "Saving on this device…", icon: LoaderCircle, tone: "info" },
-  saved: { label: "Saved on this device", icon: HardDrive, tone: "success" },
+  saving: { label: "Saving to server…", icon: LoaderCircle, tone: "info" },
+  saved: { label: "Saved to server", icon: HardDrive, tone: "success" },
   error: {
     label: "Not saved — retry required",
     icon: AlertCircle,
@@ -109,7 +109,7 @@ const saves = {
   SaveState,
   { label: string; icon: typeof Circle; tone: Tone }
 >;
-/** Pass saved only after the local repository confirms a successful commit. */
+/** Pass saved only after the server confirms a successful PostgreSQL commit. */
 export function SaveStatus({ state }: { state: SaveState }) {
   const value = saves[state];
   return (
@@ -122,12 +122,12 @@ export function SaveStatus({ state }: { state: SaveState }) {
 export type SyncState =
   "disconnected" | "offline" | "syncing" | "synced" | "error";
 const syncs = {
-  disconnected: { label: "Drive not connected", icon: CloudOff, tone: "info" },
-  offline: { label: "Offline · sync paused", icon: CloudOff, tone: "warning" },
-  syncing: { label: "Syncing to your Drive…", icon: Cloud, tone: "info" },
-  synced: { label: "Synced to your Drive", icon: Check, tone: "success" },
+  disconnected: { label: "Not refreshing", icon: CloudOff, tone: "info" },
+  offline: { label: "Offline · refresh unavailable", icon: CloudOff, tone: "warning" },
+  syncing: { label: "Refreshing from server…", icon: Cloud, tone: "info" },
+  synced: { label: "Server data refreshed", icon: Check, tone: "success" },
   error: {
-    label: "Sync failed · local files retained",
+    label: "Refresh failed · draft retained",
     icon: AlertCircle,
     tone: "danger",
   },

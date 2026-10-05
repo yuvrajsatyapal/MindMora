@@ -1,12 +1,12 @@
 # Phase Roadmap
 
-**Status:** 📋 Full-stack roadmap revised 2026-10-03; UI foundation exists. No phase is marked complete by this revision.
+**Status:** ✅ Phase 1 development foundation implemented/accepted 2026-10-05; later phases remain planned. Production readiness is separately gated.
 
 The [product spec §17](../../PRODUCT_SPEC.md) owns phase scope. The [Phase 1 plan](../../.agent/active/phase-01-foundation.md) is the active detailed execution contract. Later plans/phase records are created when their work begins, after review of the preceding phase.
 
 | Phase | Target |
 |---|---|
-| 1 | Runtime Next.js, Google sign-in, PostgreSQL/Drizzle notes, Zod/Pino/Redis limits, state boundaries, API docs/tests |
+| 1 ✅ local acceptance | Runtime Next.js, Google sign-in, PostgreSQL/Drizzle notes, Zod/Pino/Redis limits, state boundaries, API docs/tests |
 | 2 | CodeMirror, sanitized preview and revision-safe server autosave |
 | 3 | Links/backlinks/tags and scoped search |
 | 4 | Private files, BullMQ/Redis worker, export/indexing/attachment jobs |

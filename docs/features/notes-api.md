@@ -2,7 +2,7 @@
 
 **Status:** ✅ Implemented; verified against disposable local PostgreSQL/Redis and the
 production Next server with a controlled Supabase provider. Hosted 1E migration and live
-provider note acceptance have not been executed. Workspace UI/cache/editor are planned.
+provider note acceptance have not been executed. The [protected workspace](notes-workspace.md) now consumes these APIs with memory-only cache/drafts.
 [Model](note-model.md) owns fields/bounds; [database](../integrations/supabase-database.md)
 owns SQL roles; [ADR-024](../decisions/ADR-024-note-write-concurrency-and-reconciliation.md)
 owns concurrency/reconciliation decisions; [phase record](../phases/phase-01-foundation.md)

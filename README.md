@@ -2,16 +2,17 @@
 
 MindMora is a personal knowledge workspace in development. The product roadmap includes
 Markdown notes, linked ideas, graph/canvas, tasks and optional AI with server-authoritative
-storage. Today you can run the shared UI showcase and backend Google authentication.
-Authenticated owner-scoped note APIs now persist records in PostgreSQL; the workspace UI is still planned.
+storage. Today the protected workspace supports Google sign-in, explicit note saves,
+revision conflicts and server persistence. The shared UI showcase remains sample-only.
 
-**Current:** ✅ Node runtime (1A), backend auth (1B), schema/database boundary (1C), HTTP/Redis admission and Pino (1D), plus once-per-process Redis/PostgreSQL startup health and revision-safe note APIs (1E).
-**Planned:** note editor/UI, protected workspace, query/UI/URL state libraries,
-Storage/jobs and interactive API tooling. [Exact progress and dated validation](docs/phases/phase-01-foundation.md).
+**Current:** ✅ Phase 1 foundation code: Node runtime, backend Google sessions,
+owner-scoped PostgreSQL/RLS note APIs, Redis admission/Pino, protected `/workspace/`,
+memory-only state, explicit Save/conflict recovery and generated API tooling.
+Production hosting/security evidence is separate; see the [Phase 1 record](docs/phases/phase-01-foundation.md).
 
 ## Run locally
 
-Prerequisites: Node **22.12+**, npm, and a terminal supporting the scripts' POSIX environment
+Prerequisites: Node **22.15+**, npm, and a terminal supporting the scripts' POSIX environment
 assignment syntax. Locked dependency versions are in `package-lock.json`. Cloud credentials
 and Docker are unnecessary for the public homepage/showcase in development. Missing backend
 settings produce startup warnings there; production startup requires Redis and PostgreSQL.
@@ -22,8 +23,11 @@ npm run dev
 # http://localhost:3000/dev/design-system/
 ```
 
-The homepage links to the showcase. Its sample note/task/save/sync states are presentation
-demos, not real persistence. Theme preference is React state and resets on reload.
+The homepage introduces MindMora and links to the protected workspace and design showcase.
+Its authored example note is static public content. Showcase note/task/save/sync states are
+presentation demos, not real persistence. Theme controls appear on the homepage, workspace
+and showcase; preference is React state and resets on reload. Dark mode uses neutral charcoal;
+the light palette is unchanged.
 
 ```sh
 npm run build
@@ -69,9 +73,9 @@ This is local counter state with no persistent volume. Hosted Redis requires `re
 and verified service/ingress settings. Without Redis admission, auth returns 503.
 
 The development project was migrated/provisioned through 1C. Milestone 1E adds
-`0001_note_create_idempotency.sql`; it has been verified locally but has not been applied
-to hosted Supabase in this milestone. Before using note routes, review it and run
-`npm run db:migrate` with the privileged development URL. Existing runtime credentials
+`0001_note_create_idempotency.sql`; it was applied to the configured development Supabase
+on 2026-10-05 after diagnosing a note-save failure. For a fresh environment, review it and
+run `npm run db:migrate` with the privileged development URL. Existing runtime credentials
 remain usable; do not reprovision them. [Note API contract](docs/features/notes-api.md)
 describes required operation keys, revisions and cursors.
 
@@ -117,3 +121,27 @@ Knowledge is intended to be server-readable, with access controls and verified t
 there is no E2EE vault or durable offline browser workspace. Storage/backup/production
 transport guarantees remain unverified. See [security](docs/architecture/security-architecture.md)
 and the dated [hosting constraints](docs/integrations/hosting-and-costs.md).
+
+## Using the notes workspace
+
+Open `/workspace/` after configuring Auth, Redis and the constrained database login above.
+Continue with Google, then follow the homepage workspace link. Create a note, edit its title
+and Markdown text, and press **Save note**. Only server-confirmed writes show saved.
+Drafts live in this tab; reload/closing can lose unsaved work. Conflicts keep your draft
+and require an explicit choice of server version or saving against the newer revision.
+Normal note writes use PostgreSQL directly.
+
+The configured development Supabase project now includes the additive 1E migration.
+Applying that schema does not establish live browser acceptance or production deployment.
+
+`npm run api:generate` regenerates OpenAPI and Postman from shared Zod schemas and reviewed
+operation metadata. `npm run api:check` checks drift; `npm run test:contract` checks route
+and contract boundaries. `/dev/api-docs/` loads Swagger in development; production returns
+404 unless `API_DOCS_ENABLED=true`. Use app Google sign-in for cookies. The console permits
+only same-origin API calls. Import `docs/api/mindmora.postman_collection.json` with a disposable
+local runtime; credentials are never included. See [API tooling](docs/integrations/api-tooling.md).
+
+`npm run test:auth` now includes protected workspace, two-user isolation, conflict, offline/
+response-loss, logout, accessibility, Swagger and generated-collection browser checks.
+It uses disposable Docker PostgreSQL/Redis and controlled Auth transport; it does not prove
+a fresh live Google or production deployment acceptance.

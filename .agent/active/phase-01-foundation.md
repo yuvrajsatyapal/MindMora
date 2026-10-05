@@ -1,12 +1,12 @@
 # Phase 01 — Full-Stack Foundation Execution Plan
 
-**Status:** ✅ 1A; ✅ 1B auth code/local checks; ✅ 1B live Google/session/refresh/replay acceptance verified; ✅ 1C database/contracts/RLS verified locally and hosted; ✅ 1D HTTP/Pino/Redis implemented and locally verified; ✅ 1E note APIs locally verified; 1F–1H planned.
-**Updated:** 2026-10-05 — 1E owner-scoped note APIs/reconciliation/local acceptance; stop before 1F.
+**Status:** ✅ Phase 1A–1H implemented and locally accepted. Hosted/production evidence remains a separate open deployment gate; Phase 2 is unstarted.
+**Updated:** 2026-10-05 — complete remaining1F–1H implementation, validation, independent reviews and documentation.
 **Goal:** Preserve the shared UI and deliver authenticated, server-authoritative note CRUD with validated APIs and observable, tested security boundaries.
 **Architecture:** Next.js Node Route Handlers → verified Supabase identity → scoped Drizzle repositories → Supabase PostgreSQL. React uses temporary editor state and in-memory TanStack Query, with Zustand UI and nuqs URL state.
-**Tech stack:** Existing React/Next.js/TypeScript/Tailwind/Radix; Zod/server-only configuration; Supabase auth SDK (1B code/live acceptance verified); PostgreSQL/Drizzle and shared note schemas (1C); Pino/Redis limits (1D); note API Zod (1E); planned TanStack Query, Zustand, nuqs and Swagger/Postman/generation; auth/note OpenAPI records exist.
+**Tech stack:** Existing React/Next.js/TypeScript/Tailwind/Radix; Zod/server-only configuration; Supabase auth SDK (1B code/live acceptance verified); PostgreSQL/Drizzle and shared note schemas (1C); Pino/Redis limits (1D); note API Zod (1E); implemented TanStack Query, Zustand, nuqs and generated Swagger/OpenAPI/Postman tooling (1F–1H).
 **Spec:** [PRODUCT_SPEC](../../PRODUCT_SPEC.md) §§3–6, 14, 17–21.
-**Standard:** [PLANS](../PLANS.md). Use the repository milestone/test-first execution workflow; implement only the requested milestone and stop. This plan does not authorize executing the whole phase or deploying infrastructure.
+**Standard:** [PLANS](../PLANS.md). Use the repository milestone/test-first execution workflow; the latest user request authorizes all remaining Phase 1 milestones together. Historical stop boundaries below record earlier authorization; no deployment or Phase 2 work is authorized.
 
 ## 1. Goal
 
@@ -240,10 +240,10 @@ Accepted ADR-016/018/019; ADR-001/002/003/017 superseded. Google/Supabase server
 - [x] 1C Database/Zod/RLS — local + hosted actual-driver acceptance and review verified.
 - [x] 1D HTTP security/Pino/Redis limits — local counter/expiry/outage/recovery, browser and regression checks; hosted deployment evidence pending.
 - [x] 1E Notes API/repositories (local verification; hosted migration pending).
-- [ ] 1F Protected shell/state.
-- [ ] 1G CRUD/conflict UI.
-- [ ] 1H Contract/runtime verification/documentation handoff.
-- [ ] Applicable SEC-01–08 proven; separate deployment evidence recorded where applicable.
+- [x] 1F Protected shell/state.
+- [x] 1G CRUD/conflict UI.
+- [x] 1H Contract/runtime verification/documentation handoff.
+- [x] Applicable SEC-01–08 local/development acceptance evidenced below; actual production TLS/rest encryption/backup/ingress gates remain open and explicitly separate.
 
 The earlier docs-only revision completed no implementation milestone. 1A was implemented and reviewed. 1B code/local/live acceptance is verified. User subsequently authorized 1C and then only 1D; their execution records follow below. Stop before 1E.
 
@@ -866,3 +866,174 @@ remains unstarted.
 Validation for this presentation update: documentation check passed 43 Markdown files,
 468 local links/anchors and balanced fences; `git diff --check` passed; SHA-256 comparison
 confirmed tracked/untracked non-Markdown application/config files were unchanged.
+
+## Remaining Phase 1 execution — 2026-10-05
+
+User explicitly authorizes all remaining 1F–1H as one pass, superseding historical
+individual milestone stop instructions. No Phase 2, commit, branch, cloud deploy or
+production infrastructure changes. Main was clean at inspection.
+
+Ruling: independent workspace/state and contract tasks use subagent-development skill;
+parent owns integration, full validation and documentation. Original contracts/backend
+remain authoritative. Native Zod4 JSON Schema conversion avoids another generator dependency.
+Swagger UI stays off in production unless API_DOCS_ENABLED=true; no remote validator or
+authorization persistence. Docker runtime packaging is optional and deferred: existing
+disposable PostgreSQL/Redis fixtures already exercise Node runtime without a second
+production database or new hosting topology.
+
+Dependencies verified by npm metadata/official documentation on 2026-10-05: exact
+@tanstack/react-query 5.104.1, zustand 5.0.15, nuqs 2.10.1 (MIT), swagger-ui-react 5.33.1
+(Apache2), @types/swagger-ui-react 5.18.0 (MIT). React 19/Next16/Node22 compatible peers;
+libraries require no service account, credit card or paid resource. Registry install
+reported zero vulnerabilities. Official usage: [Query](https://tanstack.com/query/latest/docs/framework/react/installation),
+[nuqs](https://nuqs.dev/docs/adapters), [Zustand](https://github.com/pmndrs/zustand),
+[Swagger configuration](https://swagger.io/docs/open-source-tools/swagger-ui/usage/configuration/).
+
+- [x] 1F protected session/memory boundaries and design review.
+- [x] 1G explicit CRUD/conflict/uncertainty/draft UI.
+- [x] 1H generated contracts/Swagger/Postman and smoke/drift gates.
+- [x] Fresh complete-phase validation and independent review.
+- [x] Documentation primary-home review and acceptance audit.
+
+Test tooling: browser Auth fixture now supports two verified identities while keeping
+old tokens bound to their original users; disposable DB contains both auth IDs.
+Loopback-server EPERM in sandbox is tooling setup, not a meaningful behavior red.
+
+### Final outcomes and rulings
+
+1F/1G: protected native-POST Google gate, workspace-local memory QueryClient, owner/generation
+leases with post-await checks/cancellation/401 invalidation, transient Zustand sidebar and
+nuqs selection. Bounded summary pages/detail fetch, explicit title/textarea create/edit/rename/
+soft-delete, dirty navigation warnings, confirmed saved feedback, retained conflicts and
+uncertain create keys/input. Clean refetch adopts newer commits; confirmed deletion leaves
+dirty copyable text with writes disabled. External query changes retain a temporary editor
+lease until discard is accepted or the URL restored. Public specimen remains sample-only.
+
+Ruling: compose providers inside the workspace instead of introducing empty root/provider
+modules from the proposed inventory — private memory lifetime is narrower and public pages
+remain independent. Editor mutation state directly calls the validated API; TanStack Query
+owns fetched/acknowledged records and invalidation, not draft text or durable mutation replay.
+Ruling: preserve known same-tab drafts on transient session connectivity failure; only a
+confirmed identity change/401 clears private memory. New private work still requires online
+verification and the backend never uses this display lease as authorization. Cost: an extra
+Auth HTTP check before private calls and up to 60s/focus detection of otherwise idle cookie changes.
+
+1H: native Zod JSON Schema + reviewed operation metadata generate OpenAPI/Postman. Drift
+checks compare generated bytes, route inventory, method admission sentinels and local refs.
+Status/Origin/security metadata and nonrepresentable refinements remain reviewed semantics,
+not automatically proven from JSON Schema. Swagger lazily loads only on development/operator
+opt-in, rejects foreign/non-API/OAuth redirect endpoints (slash variants included), disables
+its actual remote-validator configuration and authorization persistence. Authenticated console
+POST and generated disposable CRUD execute actual Next/SQL/Redis under controlled Auth.
+
+Dependencies use exact vetted versions; npm audit reports zero vulnerabilities. Swagger has
+two transitive React <=18 peer declarations although its direct peer allows React 19: real
+React 19 console rendering, GET and JSON POST passed; future widget changes need regression
+verification. Contract tooling requires Node >=22.15 for registerHooks; actual 22.22.3 used.
+Prettier 3.9.9 MIT was an ephemeral formatting tool, not a project dependency.
+
+### Test-first/debugging/review evidence
+
+- Initial workspace browser test meaningfully failed against the prior build's missing
+  workspace. API owner/late-response, editor failure/conflict and shell cases failed against
+  scaffolds before implementation. Missing sandbox ports/Docker were tooling issues, excluded.
+- Contract unsupported PUT mutation initially failed to reject; generator validation made it
+  green. Swagger trailing-slash OAuth rejection test failed before normalized policy fixed it.
+- Owner-mismatched/wrong-record responses, unconfirmed delete, late 401 and changed create
+  replay gained meaningful red/green tests; the latter preserves the original draft because
+  keyed replay returns the current active record.
+- Independent reviewer found clean-editor refresh and cached404 defects. Both were accepted,
+  fixed test-first and verified: clean newer props adopted; dirty drafts retained; deleted
+  notes surfaced and writes disabled. External URL discard guard also failed before fixing.
+  Focused independent rereview ACCEPT:15 tests / 2 files freshly passed.
+- First full browser pass found existing account helpers requested noncanonical auth URLs
+  while rejecting redirects. A failing canonical-path unit assertion preceded fixing both
+  session/logout paths. Collection header adapter and Swagger heading/308 response selectors
+  were test-harness corrections. A stopped browser run left its 4173 test server; identified
+  and terminated only that process, then all suites passed. No failure was relabeled a pass.
+- Design Gate ACCEPT after token/font/overflow fixes and fresh 375/768/1440 keyboard/Axe/long
+  text/conflict browser evidence. No Phase 2 editor, autosave, renderer, worker or file code.
+
+### Fresh complete-phase validation — 2026-10-05
+
+| Exact command | Observed result / evidence boundary |
+|---|---|
+| `npm run lint` | PASS ESLint and semantic style contract |
+| `npm run typecheck` | PASS strict TypeScript |
+| `npm run test` | PASS — 129 tests / 19 files; unit/component/provider fixtures |
+| `npm run build` | PASS final webpack Node build; public and safe workspace shell prerendered; auth/notes/docs dynamic |
+| `npm run test:db` | PASS — 7 real PostgreSQL RLS/constraint/pool tests plus provisioning rollback/migration re-run |
+| `npm run test:notes` | PASS — 12 real PostgreSQL/Redis/HTTP tests, actual overlap/revisions/idempotency/isolation/outage |
+| `npm run test:rate-limit` | PASS — 5 real local Redis-compatible counter/deadline tests |
+| `FORCE_COLOR=0 npm run test:startup` | PASS — 4 probe tests plus actual production twice/once, outage exits and development warnings; unchanged startup source |
+| `npm run test:boundary` | PASS — 3 isolated actual Next compiler/request-time credential/server-only checks |
+| `npm run api:generate` | PASS generated OpenAPI/Postman from actual shared schemas/metadata |
+| `npm run api:check` | PASS byte/schema/route inventory drift |
+| `npm run test:contract` | PASS negative methods/missing operations/refs/schema bounds/marker exclusion and collection revision adapter checks |
+| `FORCE_COLOR=0 npm run test:auth` | PASS — 13 Chromium tests: original3 auth,7 workspace,3 contract/Swagger; actual Next/PG/Redis, controlled Supabase transport |
+| `FORCE_COLOR=0 npm run test:e2e` | PASS — 12 Chromium showcase/runtime tests; workspace/public HTML+JS marker exclusion and default production docs404 |
+| `npm audit --audit-level=high --fetch-retries=0 --fetch-timeout=15000` | PASS — 0 vulnerabilities |
+| `python3 /tmp/mindmora-phase1-docs-check.py` | PASS repository Markdown links/anchors/fences and npm script references; final counts below |
+| `git diff --check` | PASS whitespace |
+
+The final auth/contract/workspace suite followed the final build and all source fixes;
+showcase suite ran afterward on the same build. No server/db/migration production source
+changed in this pass. Build-side config, actual request guards and local backend suites remain
+verified independently. No fresh live Google, hosted migration/notes, production deployment,
+restore, load or complete production certification was performed.
+
+### Documentation and acceptance audit
+
+Updated all five primary homes: README setup/workspace/tooling; PRODUCT_SPEC implementation
+status and current CI facts only (v3 requirements unchanged); ARCHITECTURE layers/flows/
+trust/failures; LEARNING concepts/reading order; FILE_MAP separate six-field rows and actual
+callers/ASCII flows. None remained unchanged. Updated design/component/dependency contracts,
+state/security/full-stack/model/note/API subsystem guides, ADR016/018/019 statuses, ADR025,
+docs index/roadmap and phase outcome record. Active plan owns checkboxes; phase record owns
+dated outcomes. Mermaid arrows reviewed against actual calls; no automated renderer used.
+
+Phase 1 development acceptance is satisfied: authenticated explicit CRUD/reload across browser
+contexts, actual two-user SQL/RLS/API/browser isolation, revisions/conflicts, uncertain-write
+reconciliation, private memory cleanup/late responses, rate limits, credential-exclusion,
+accessible responsive UI and generated/executed contracts. SEC-06 actual production TLS,
+storage/backup encryption/restore, ingress/logging/quota evidence is an open deployment gate,
+not local fixture evidence. Hosted development Supabase still needs the reviewed additive
+0001 migration before its note use; this pass migrates disposable test databases only.
+
+Phase 1 is complete for local/development review. Phase 2 is unstarted. No commit, branch,
+hosted mutation, credential-file change, billing action or deployment. Changes remain on main.
+
+Final documentation verification: `python3 /tmp/mindmora-phase1-docs-check.py` passed 46
+repository Markdown files, 549 local links/anchors, 22 npm script references and balanced
+fences. FILE_MAP structural audit passed 127 implemented entries with six separate fields
+each. 18 Mermaid blocks were manually reviewed, not rendered. `git diff --check` passed.
+Final tracked `src/server` and `supabase` diff is empty, branch remains main, credential
+files are untouched and no commit/deployment or Phase 2 work occurred.
+
+### Development note-save follow-up — 2026-10-05
+
+User reported “The service is unavailable. Your draft is retained” on explicit Save.
+Read-only hosted schema inspection confirmed notes had only the original eight columns:
+0001 creation identity metadata was absent. Applied the existing reviewed additive migration
+with `npm run db:migrate` (PASS: “Database migrations applied”). Existing notes and credentials
+were preserved; no application source, role provisioning or deployment was changed.
+
+Read-only verification through DATABASE_URL with transaction-local mindmora_request confirmed
+both create_operation_id and create_request_hash exist and the request role can SELECT the
+note schema. An initial direct-login SELECT returned 42501, as expected for the NOINHERIT
+login without direct table grants; the corrected check used the same role transition as
+application transactions. No note rows, cookies or credentials were printed. Live browser
+save confirmation remains pending; user should retry with the retained draft.
+
+README, ARCHITECTURE and the Supabase integration guide now reflect the applied development
+migration. Reviewed PRODUCT_SPEC, LEARNING and FILE_MAP: unchanged because scope, code,
+concepts and navigation did not change. Historical local-only evidence above remains dated.
+Phase 2 remains unstarted. No code fix/new tests needed: this was missing environment schema;
+previous application tests are historical, not fresh validation for this follow-up.
+
+### Visual refinement before Phase 2 — 2026-10-05
+
+User subsequently authorized a less generic presentation and charcoal dark mode while
+preserving the light palette. The separate [visual refinement ExecPlan](visual-refinement.md)
+owns that follow-up checklist and exact evidence. Homepage, workspace composition and
+semantic dark tokens changed; CRUD/auth/database boundaries and Phase 2 scope did not.

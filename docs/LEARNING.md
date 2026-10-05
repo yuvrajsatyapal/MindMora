@@ -1,8 +1,7 @@
 # Learning MindMora
 
-**Source inspected:** 2026-10-05, through 1E and startup-health/terminal-styling follow-ups. Study the system that exists first: public UI,
-backend auth, shared contracts, scoped PostgreSQL note APIs, HTTP/admission/logging and startup probes. Workspace/editor
-flow is still planned. [Architecture](../ARCHITECTURE.md) owns the system overview,
+**Source inspected:** 2026-10-05, through Phase 1F–1H and startup-health follow-ups. Study the system that exists first: public UI,
+backend auth, shared contracts, scoped PostgreSQL note APIs, HTTP/admission/logging and startup probes. Protected workspace/editor and API tooling are implemented. [Architecture](../ARCHITECTURE.md) owns the system overview,
 [FILE_MAP](FILE_MAP.md) owns navigation, and subsystem guides own exact operating rules.
 
 ## A progressive source-reading path
@@ -678,3 +677,96 @@ COMMIT -> service projection -> no-store JSON + cookie
         |
 Client                         safe Pino metadata
 ```
+
+## Phase 1 browser workspace and inspectable API
+
+Server authority means an editable draft and a fetched record are different things. The
+editor can retain an unsaved idea during a failure without claiming it is durable. An
+acknowledged PostgreSQL commit establishes saved; a query refetch only refreshes the
+browser's snapshot. This separation prevents cache updates from masquerading as persistence.
+
+Identity also has a lifetime. The backend verifies every request, while the browser's
+owner/generation lease prevents a response started earlier from updating a new account's
+screen. Cancellation alone is insufficient: an operation can finish just before cancellation,
+so the browser checks the lease again after awaiting its response. Scope keys separate
+cached data; logout clears it and unmounts draft owners. Transient connectivity failures
+preserve existing drafts; confirmed unauthenticated/switch outcomes clear private memory.
+
+```text
+Verified session -> owner/generation -> memory QueryClient
+                                      |
+URL note ID -> validated API -> list/detail -> editor base + separate draft
+                                      |
+Explicit Save -> Origin/auth/admission/Zod -> repository -> RLS transaction
+                                      |
+                         PostgreSQL COMMIT -> acknowledgement
+                                      |
+                         editor saved + invalidate query cache
+Conflict/uncertainty -> keep draft -> read current -> explicit decision
+Logout/switch -> abort + invalidate lease + clear queries -> unmount editor
+```
+
+Read the important implementation in this order:
+
+1. [WorkspaceShell](../src/components/workspace/WorkspaceShell.tsx) owns session verification,
+   cache construction, generation invalidation and logout. Understand `clear`, `check` and
+   `scope.verify`: UI identity is a display boundary, never backend permission.
+2. [Notes API adapter](../src/features/notes/api.ts) checks the lease before/after each request,
+   shares cancellation, validates JSON and checks owner/record identity. The server still
+   verifies cookies and applies owner/RLS filters independently.
+3. [Scoped query hooks](../src/features/notes/hooks.ts) keep bounded list/detail data in memory
+   under owner/generation keys. No persister or mutation retry queue is configured.
+4. [NotesWorkspace](../src/features/notes/components/NotesWorkspace.tsx) coordinates URL
+   selection, guarded draft navigation and confirmed-write invalidation. Zustand owns only
+   sidebar visibility; a temporary navigation guard retains the editor until selection is
+   deliberately accepted or restored.
+5. [NoteEditor](../src/features/notes/components/NoteEditor.tsx) separates base revision from
+   draft text and tracks pending create keys. A clean refetch can adopt a newer commit; a
+   dirty refetch cannot silently replace the draft. A confirmed deletion disables further
+   writes while permitting retained draft text to be recovered.
+6. [Contract generator](../scripts/generate-api-docs.mjs) derives JSON Schema from shared
+   Zod and combines reviewed HTTP metadata. Schema conversion cannot infer ownership,
+   statuses, UTF-8 refinements or every semantic rule; drift checks and actual requests remain
+   necessary. [Metadata](api/operation-metadata.json) owns those reviewed HTTP details.
+7. [Console policy](../src/app/dev/api-docs/policy.ts) gates production exposure and limits
+   requests to same-origin APIs. [Swagger wrapper](../src/app/dev/api-docs/swagger.tsx) loads
+   only on the client, disables remote validation and avoids authorization persistence.
+8. [Generated collection runner](../scripts/test-api-collection.mjs) executes disposable
+   requests, carries committed IDs/revisions forward and checks actual status/no-store
+   behavior. Browser fixtures exercise real Next/SQL/Redis with controlled identity transport.
+
+Create idempotency is narrower than general write replay. The original create key and exact
+input can recover an uncertain acknowledgement without duplication. If another tab has
+changed the created record, replay returns its current version: the editor preserves the
+original draft and treats the difference as a conflict. Update/delete use expectedRevision
+and reconciliation, never automatic overwrite. Comparing an attempted write with a newer
+read confirms the visible state, not which request caused it.
+
+The costs are extra online session checks, network dependence and deliberate user decisions
+on conflicts. Drafts vanish on approved reload/close; no durable offline promise or forensic
+RAM-erasure guarantee exists. Rich Markdown rendering/autosave, files and jobs remain later
+phases. [Workspace guide](features/notes-workspace.md), [state ownership](architecture/state-management.md)
+and [ADR-025](decisions/ADR-025-workspace-memory-and-contract-tooling.md) own detailed rules;
+[active plan](../.agent/active/phase-01-foundation.md) owns fresh evidence and deployment limits.
+
+## Visual refinement: change presentation without changing authority
+
+A semantic token describes a role (surface, text, focus), rather than a fixed color.
+`src/design-system/tokens.css` maps those roles to the unchanged light palette and the
+user-approved neutral dark palette. ThemeProvider projects only a temporary document attribute;
+CSS handles system preference before JavaScript. This choice avoids browser preference storage.
+
+The homepage is a Server Component with authored public example text; it renders Lucide
+icons directly because passing glyph functions into a client Icon wrapper crosses the RSC
+serialization boundary. Only ThemeSelect needs client context. WorkspaceShell and the note
+components remain client components with their existing session/lease/draft responsibilities.
+Their wrappers and CSS change layout, while acknowledged PostgreSQL commits still determine
+Saved to server. Switching theme must retain a dirty draft.
+
+```
+ThemeSelect -> temporary context -> html data-theme -> semantic CSS -> appearance
+Note editor -> existing verified API -> PostgreSQL commit -> existing saved feedback
+```
+
+Read [design contract](design/visual-refinement.md) for responsive/focus decisions and
+[ADR-026](decisions/ADR-026-neutral-dark-theme-and-document-surfaces.md) for trade-offs.

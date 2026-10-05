@@ -1,14 +1,14 @@
 # MindMora design system v1
 
-Status: ✅ Implemented and verified for the showcase scope.
+Status: ✅ Implemented. The original showcase evidence is historical; the 2026-10-05 visual refinement updates dark mode and product surfaces.
 
 ## Intent and scope
 
-A quiet, precise workspace language for user-owned knowledge. Carry forward the approved Junction M, teal #087F73, ink #162A2A, mint #70E0C5, paper #F6F8F5 and night #102322. Extend these with documented neutral surfaces and semantic feedback colors. This milestone creates the shared system and /dev/design-system only. It does not implement or redesign notes, Drive, graph, canvas, AI or persistence.
+A quiet, precise workspace language for user-owned knowledge. Preserve Junction M and the light palette: teal #087F73, ink #162A2A and paper #F6F8F5. The user-approved dark palette now uses neutral charcoal #181818, surface #141414 and off-white #E6E6E6 instead of green/mint surfaces and actions. Semantic feedback retains separate error/warning/success colors. The original milestone created the showcase; Phase 1 added the protected notes workspace. See [visual refinement](visual-refinement.md) and [ADR-026](../decisions/ADR-026-neutral-dark-theme-and-document-surfaces.md).
 
 ## Visual structure
 
-An editorial reference page with a compact left index, an understated brand masthead, numbered sections, wide specimen areas, and side-by-side usage notes. White/paper light surfaces and layered deep-green dark surfaces; teal reserved for primary actions, selection, links and focus. No gradients, decorative dashboard metrics or marketing cards. Mobile moves the index into an in-flow wrapping navigation; specimens stack without horizontal page overflow.
+An editorial reference page with a compact left index, an understated brand masthead, numbered sections, wide specimen areas, and side-by-side usage notes. White/paper light surfaces and layered neutral-charcoal dark surfaces; teal serves light primary actions, selection, links and focus, with off-white/gray equivalents in dark mode. No gradients, decorative dashboard metrics or marketing cards. Mobile moves the index into an in-flow wrapping navigation; specimens stack without horizontal page overflow.
 
 ## Token contract
 
@@ -54,7 +54,7 @@ Test controlled component behavior, theme precedence, invalid field association,
 
 See [component contracts](component-api.md) for imports, props, extension steps, and controlled-data boundaries; [dependency record](dependencies.md) for exact versions/licenses and tooling trade-offs. The implementation uses Next's supported Webpack mode because this environment prevents Turbopack's CSS subprocess from binding its evaluation port. Both dev and build scripts consistently use that mode; output now uses the Next Node runtime after Milestone 1A.
 
-Contrast adjustment: `--accent-text` uses #05675D for small text on pale teal in light mode. The approved #087F73 remains the logo/primary-action color. In dark mode, accent text remains mint. This resolves the measured 4.25:1 badge contrast failure.
+Contrast adjustment: `--accent-text` uses #05675D for small text on pale teal in light mode. The approved #087F73 remains the logo/primary-action color. Dark accent text is now off-white on neutral selection surfaces; the prior mint palette is historical. This resolves the measured 4.25:1 badge contrast failure.
 
 Verification: six component tests and nine static Chromium E2E tests pass; lint, strict typecheck, static build and dependency audit pass. Browser checks include both-theme axe checks, keyboard focus, 320–1440px reflow, system theme and reduced motion. Hosted CI and assistive-technology user testing are not claimed.
 
@@ -64,4 +64,4 @@ Historical implementation and test evidence above remain static UI evidence. Cur
 
 ### Existing status wording awaiting runtime integration
 
-The current controlled `SaveStatus` source still labels success “Saved on this device” with a local-commit comment; `SyncStatus` includes local-file/sync wording. These are existing showcase behavior, not implemented server semantics. Phase 1G will update the labels/comments and affected tests/specimens to server-confirmed saves and suitable refresh/job states before using them in the authenticated product. This documentation revision leaves source untouched.
+Phase 1G now labels `SaveStatus` success “Saved to server”; product callers set it only after an acknowledged commit or matching reconciliation read. `SyncStatus` reports server refresh state and draft retention. The showcase remains a controlled sample and performs no persistence. See the [workspace design contract](phase-01-foundation.md).

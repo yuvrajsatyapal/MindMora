@@ -54,3 +54,14 @@ it("uses a cookie-authenticated POST logout and reports unsuccessful revocation"
   vi.stubGlobal("fetch", async () => new Response(null, { status: 503 }));
   await expect(logout()).rejects.toThrow("Authentication request failed.");
 });
+
+it("uses canonical trailing-slash auth URLs so redirect rejection does not block session/logout", async () => {
+  const requests: string[] = [];
+  vi.stubGlobal("fetch", async (path: string) => {
+    requests.push(path);
+    return path.includes("session") ? new Response(null, { status: 401 }) : new Response(null, { status: 204 });
+  });
+  await readSession();
+  await logout();
+  expect(requests).toEqual(["/api/auth/session/", "/api/auth/logout/"]);
+});

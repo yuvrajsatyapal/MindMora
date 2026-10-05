@@ -4,7 +4,7 @@ export async function readSession(
   signal?: AbortSignal,
 ): Promise<SessionProjection | null> {
   try {
-    const response = await fetch("/api/auth/session", {
+    const response = await fetch("/api/auth/session/", {
       credentials: "same-origin",
       cache: "no-store",
       redirect: "error",
@@ -20,7 +20,7 @@ export async function readSession(
 
 export async function logout(): Promise<void> {
   try {
-    const response = await fetch("/api/auth/logout", {
+    const response = await fetch("/api/auth/logout/", {
       method: "POST",
       credentials: "same-origin",
       cache: "no-store",

@@ -1,0 +1,319 @@
+{
+  "info": {
+    "name": "MindMora Phase 1",
+    "description": "Disposable data only. Establish Google sign-in in the app. Keep cookies solely in a local Postman cookie jar; never export credentials. Callback placeholders are informational and cannot start a reusable session.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "noteId",
+      "value": "00000000-0000-4000-8000-000000000001"
+    },
+    {
+      "key": "createKey",
+      "value": "00000000-0000-4000-8000-000000000002"
+    },
+    {
+      "key": "callbackCode",
+      "value": ""
+    },
+    {
+      "key": "callbackState",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "authStart",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{baseUrl}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/start/"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"documented response status\", () => pm.expect([303,400,401,403,405,413,429,500,503]).to.include(pm.response.code));",
+              "pm.test(\"private response is not cached\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "authCallback",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/callback/?code={{callbackCode}}&state={{callbackState}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"documented response status\", () => pm.expect([303,400,401,403,405,413,429,500,503]).to.include(pm.response.code));",
+              "pm.test(\"private response is not cached\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "authSession",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/session/"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"documented response status\", () => pm.expect([200,400,401,403,405,413,429,500,503]).to.include(pm.response.code));",
+              "pm.test(\"private response is not cached\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "authLogout",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{baseUrl}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/logout/"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"documented response status\", () => pm.expect([204,400,401,403,405,413,429,500,503]).to.include(pm.response.code));",
+              "pm.test(\"private response is not cached\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "listNotes",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/notes/"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"documented response status\", () => pm.expect([200,400,401,403,405,413,429,500,503]).to.include(pm.response.code));",
+              "pm.test(\"private response is not cached\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "createNote",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{baseUrl}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{createKey}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/notes/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Disposable API smoke\",\n  \"content\": \"\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"documented response status\", () => pm.expect([200,201,400,401,403,404,405,409,413,415,429,500,503]).to.include(pm.response.code));",
+              "pm.test(\"private response is not cached\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "readNote",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/notes/{{noteId}}/"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"documented response status\", () => pm.expect([200,400,401,403,404,405,413,429,500,503]).to.include(pm.response.code));",
+              "pm.test(\"private response is not cached\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "updateNote",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{baseUrl}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/notes/{{noteId}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Disposable API smoke updated\",\n  \"expectedRevision\": 1\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"documented response status\", () => pm.expect([200,400,401,403,404,405,409,413,415,429,500,503]).to.include(pm.response.code));",
+              "pm.test(\"private response is not cached\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "softDeleteNote",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{baseUrl}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/notes/{{noteId}}/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"expectedRevision\": 2\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"documented response status\", () => pm.expect([200,400,401,403,404,405,409,413,415,429,500,503]).to.include(pm.response.code));",
+              "pm.test(\"private response is not cached\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\"));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

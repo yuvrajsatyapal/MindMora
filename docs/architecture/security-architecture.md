@@ -1,8 +1,8 @@
 # Security Boundaries and Acceptance
 
 **Current inspection:** 2026-10-05, through 1E. Auth/cookie validation, server-only configuration,
-scoped SQL controls and HTTP/Pino/Redis admission are implemented. Private UI/cache lifecycle,
-rendering/files/jobs and deployment controls remain planned; revision-safe note APIs are implemented. This is
+scoped SQL controls and HTTP/Pino/Redis admission are implemented. Private UI/cache lifecycle and revision-safe note APIs are implemented.
+Rendering/files/jobs and deployment controls remain planned. This is
 not a complete security certification. Exact historical checks live in the [phase record](../phases/phase-01-foundation.md).
 
 ## Assets, threat model and trust
@@ -64,7 +64,7 @@ cannot; local secret-file protection is a separate boundary from SQL transaction
 | Arbitrary owner object | WeakSet issuance/membership before SQL | Object may outlive session if trusted caller retains it |
 | Foreign note access in scoped query | USING/WITH CHECK owner policy, constrained role and column grants | RLS trusts supplied claims; admins bypass; repository also filters owner/active rows |
 | Cross-request claim leakage | Clean initial role/settings check and LOCAL role/claims | Rejects observed dirty state; not universal session-setting audit |
-| Orphan/invalid SQL records | Foreign keys and length/revision/time checks | Atomic revisions/keyed create replay implemented; no UI draft/conflict lifecycle yet |
+| Orphan/invalid SQL records | Foreign keys and length/revision/time checks | Atomic revisions/keyed create replay implemented; UI drafts/conflicts and generation-scoped cleanup implemented |
 | Private SQL error serialization | Fixed DatabaseFailure and safe reason, raw cause omitted | Business exceptions also wrapped; future HTTP mapping not implemented |
 | Credential loss on setup failure | Private fsynced pending file, transactional role/grant, atomic publication | Manual recovery, race/power-loss/backup limits remain |
 | Server imports in browser | server-only compiler guard + fixture/output tests | Explicit serialization and framework/deployment logs need independent review |
@@ -101,14 +101,14 @@ These are the current IDs; historical vault-specific SEC checks are superseded.
 
 | ID | Required outcome | Current evidence / remaining work |
 |---|---|---|
-| SEC-01 | Invalid/revoked sessions denied; callback/origin misuse rejected; logout revokes session | Auth fixtures/browser plus bounded live provider checks recorded; full private API/UI lifecycle still planned |
+| SEC-01 | Invalid/revoked sessions denied; callback/origin misuse rejected; logout revokes session | Auth fixtures/browser plus bounded live provider checks recorded; private API/UI lifecycle locally exercised; production/provider evidence separate |
 | SEC-02 | Foreign-owner list/read/update/delete and spoofed ownership rejected; actual roles/pool isolation | 1C actual SQL two-user/anonymous/privileged/reuse checks; 1E actual-driver note owner filters and foreign 404 responses verified locally |
-| SEC-03 | Bounded validated input before work; matching form/API contracts | Shared model/config tests and SQL constraints; HTTP body helper/auth bounds verified in 1D; 1E note route enforcement verified; form enforcement remains 1G |
-| SEC-04 | No private persistent browser cache; logout/switch clears memory/late results | Auth fixture browser checks and public memory-only UI; private cache/draft lifecycle remains 1F/1G |
-| SEC-05 | No private markers in logs/bundles/errors/exported contracts | Safe response/DB error/compiler/bundle evidence; Pino marker scans verified in 1D; external access logs/Swagger/Postman remain open |
+| SEC-03 | Bounded validated input before work; matching form/API contracts | Shared model/config tests and SQL constraints; HTTP body helper/auth bounds verified in 1D; 1E note route enforcement verified; form enforcement uses the same create/update schemas in 1G |
+| SEC-04 | No private persistent browser cache; logout/switch clears memory/late results | Auth fixture browser checks and public memory-only UI; private owner/generation cache/draft lifecycle implemented in 1F/1G; browser evidence in active plan |
+| SEC-05 | No private markers in logs/bundles/errors/exported contracts | Safe response/DB error/compiler/bundle evidence; Pino marker scans verified in 1D; Swagger/Postman marker/credential exclusion checked in 1H; external access logs remain deployment work |
 | SEC-06 | Encrypted production transport and verified storage/backup encryption | Server boundary and development DB verified-CA TLS evidence; production ingress, at-rest/backups/restore/Storage remain open |
 | SEC-07 | Rate limits/Retry-After, trusted IP handling and outage policy | 1D auth/default-forwarding/outage and local real Redis count/TTL/recovery verified; basic fallback helper tested; 1E note basic caller/degraded header verified; hosted ingress/TLS/quota evidence remains open |
-| SEC-08 | Concurrent revisions cannot silently overwrite; uncertain writes/drafts reconcile | 1E multi-connection atomic revision/delete races and lost-response create reconciliation verified; UI evidence remains 1G |
+| SEC-08 | Concurrent revisions cannot silently overwrite; uncertain writes/drafts reconcile | 1E multi-connection atomic revision/delete races and lost-response create reconciliation verified; UI conflicts/uncertainty implemented in 1G; browser evidence in active plan |
 | SEC-09 | Owner-scoped private files/jobs/results, retries/outbox and safe payloads | Planned Phase 4; no Storage/BullMQ runtime |
 | SEC-10 | Sanitized rendering/plugin permissions/provider consent | Planned with editor/AI/plugins; no renderer/BYOK integration |
 
@@ -122,8 +122,7 @@ controlled Auth transport is not live Google consent.
 Auth now applies byte/deadline bounds, no-store errors with correlation IDs, Redis admission
 and allowlisted Pino metadata. Forwarded addresses are ignored unless configured ingress
 trust is proven. Auth/expensive outage rejects admission; the basic helper demands issued
-verified ownership and returns a bounded degraded local budget. No note route consumes it
-yet. Admission-rejected logout retains cookies and is unsuccessful. [Services](../integrations/backend-services.md)
+verified ownership and returns a bounded degraded local budget. Note routes consume the verified-owner fallback. Admission-rejected logout retains cookies and is unsuccessful. [Services](../integrations/backend-services.md)
 owns exact windows, budgets, guard ordering and TLS/timeout configuration. Local Valkey,
 provider-fixture/browser and marker tests are layer-specific evidence, not a completed
 SEC-01–08 or production gate. External framework/proxy logs remain to be controlled.
@@ -171,3 +170,20 @@ DB outage returns fixed 503; a lost response can still follow a commit. Keys/ref
 uncertainty, not an automatic rollback promise. Local SDK/provider/browser fixtures are
 not a newly executed live Google or hosted note acceptance check.
 [Exact API/security rules](../features/notes-api.md) · [Evidence](../phases/phase-01-foundation.md).
+
+## Protected browser and API console boundaries — 1F–1H
+
+The browser receives safe session projections, never raw auth credentials. Its display
+lease is not authorization: the backend still verifies each API request. Lease checks,
+abort signals and owner-scoped keys prevent late results entering another identity's UI.
+Logout and confirmed identity changes clear memory and unmount drafts; transient network
+failures keep existing same-tab drafts while new operations must reverify online.
+No persister, service-worker private cache or mutation replay queue is installed.
+
+Note input uses shared Zod validation; Markdown remains textarea/plain React text and is
+not rendered as HTML. Revision conflicts and uncertain acknowledgements cannot silently
+overwrite. The API console is production-disabled by default and rejects foreign origins
+and OAuth redirect requests, including trailing-slash forms. Its actual configuration
+disables remote validation and saved authorization. Generated examples contain placeholders,
+not credentials or real private note records. Actual runtime tests and remaining hosting
+evidence are recorded in the [active plan](../../.agent/active/phase-01-foundation.md).

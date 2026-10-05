@@ -1,7 +1,7 @@
 # ADR-016 — Supabase for Identity and Server Data
 
 **Decision:** Accepted 2026-10-03. **Current:** Auth and minimal PostgreSQL/Drizzle foundation
-implemented through 1C; Storage and full knowledge/account lifecycle planned.
+implemented through 1G, including note APIs/workspace; Storage and full knowledge/account lifecycle planned.
 [Dated implementation evidence](../phases/phase-01-foundation.md).
 
 ## Context
@@ -31,7 +31,7 @@ verified identity and apply effective SQL RLS plus repository ownership checks.
 
 The accepted design keeps managed identity and the canonical database together while
 using maintained protocol/SQL libraries. It prepares one set of shared records across
-devices; that capability still needs note APIs/UI. This rationale comes from the accepted
+devices; note APIs/UI now provide that capability. This rationale comes from the accepted
 design, not a claim that the provider has better measured cost/performance than alternatives.
 
 ## Trade-offs

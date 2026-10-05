@@ -4,19 +4,29 @@ import { withTestPostgres } from "./local-test-postgres.mjs";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import http from "node:http";
+import { createClient } from "redis";
 import { fileURLToPath } from "node:url";
 import { authProviderFixture } from "../src/tests/auth-provider-fixture.ts";
 
 let fixture = authProviderFixture();
+let resetCounters = async () => {};
 const server = http.createServer(async (req, res) => {
   try {
     if (req.url === "/fixture/reset" && req.method === "POST") {
       fixture = authProviderFixture();
+      await resetCounters();
       res.writeHead(204);
       res.end();
       return;
     }
     const url = new URL(req.url, "http://127.0.0.1");
+    if (url.pathname === "/fixture/user" && req.method === "POST") {
+      fixture.selectUser(url.searchParams.get("second") === "true");
+      res.writeHead(204); res.end(); return;
+    }
+    if (url.pathname === "/fixture/revoke" && req.method === "POST") {
+      fixture.revoke(); res.writeHead(204); res.end(); return;
+    }
     if (url.pathname === "/auth/v1/authorize") {
       res.writeHead(302, { Location: fixture.authorize(url.toString()) });
       res.end();
@@ -48,8 +58,12 @@ const address = server.address();
 assert.ok(address && typeof address !== "string");
 const providerUrl = `http://127.0.0.1:${address.port}`;
 try {
-  await withTestRedis((redisUrl) =>
-    withTestPostgres(
+  await withTestRedis(async (redisUrl) => {
+    const counters = createClient({ url: redisUrl });
+    counters.on("error", () => {});
+    await counters.connect();
+    resetCounters = () => counters.flushDb();
+    try { return await withTestPostgres(
       async (databaseUrl) => {
         const child = spawn(
           process.execPath,
@@ -62,6 +76,7 @@ try {
             ),
             "test",
             "--config=playwright.auth.config.ts",
+            ...process.argv.slice(2),
           ],
           {
             stdio: "inherit",
@@ -76,6 +91,7 @@ try {
               SUPABASE_URL: providerUrl,
               SUPABASE_PUBLISHABLE_KEY: "sb_publishable_fixture",
               AUTH_TEST_PROVIDER_URL: providerUrl,
+              API_DOCS_ENABLED: "true",
             },
           },
         );
@@ -85,8 +101,8 @@ try {
         process.exitCode = code ?? 1;
       },
       { schema: true },
-    ),
-  );
+    ); } finally { resetCounters = async () => {}; counters.destroy(); }
+  });
 } finally {
   server.closeAllConnections();
   await new Promise((resolve) => server.close(resolve));

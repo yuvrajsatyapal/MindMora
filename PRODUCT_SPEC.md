@@ -3,8 +3,8 @@
 > **Your knowledge. Your files. Your control.**
 
 **Target reader:** Codex and human contributors.
-**Updated:** 2026-10-05 — implementation-status synchronization through 1E and startup health; v3 requirements remain unchanged.
-**Implementation status:** ✅ Shared UI/showcase, Next Node runtime (1A), backend-owned Google/Supabase auth routes (1B), profiles/notes schema and scoped PostgreSQL/RLS boundary (1C), HTTP validation/Redis admission/Pino (1D), Redis/PostgreSQL startup connectivity checks, and authenticated owner-scoped revision/idempotency-safe note repositories/CRUD APIs (1E) are implemented. 📋 Protected workspace, query/UI/URL state integration, private Storage, jobs/workers, Swagger UI and Postman generation remain planned. Auth and note OpenAPI contract records exist; Swagger UI, generation and drift tooling remain planned. Auth pages do not yet consume account helpers; note routes now call the scoped SQL boundary. The 1E migration is locally verified and awaits hosted application. [Current architecture](ARCHITECTURE.md) and [dated phase evidence](docs/phases/phase-01-foundation.md) distinguish implementation from provider/production acceptance.
+**Updated:** 2026-10-05 — implementation-status synchronization through Phase 1; v3 requirements remain unchanged.
+**Implementation status:** ✅ Phase 1 code includes the shared UI, Next Node runtime, backend-owned Google/Supabase sessions, scoped PostgreSQL/RLS note CRUD, Redis admission/Pino/startup health, protected workspace with memory-only query/UI/URL state, explicit textarea saves/conflict recovery, and generated OpenAPI/Postman plus opt-in Swagger. Private Storage, jobs/workers and the rich editor remain later phases. Hosted migration/application and production readiness remain separate from local fixture verification. [Current architecture](ARCHITECTURE.md) and [dated phase evidence](docs/phases/phase-01-foundation.md) distinguish implementation from provider/production acceptance.
 **Budget:** Target free tiers for approximately 3–4 daily users. Free software does not include free hosting, unlimited storage, uninterrupted availability or unlimited worker compute. Verify current limits before introducing services; no paid infrastructure or paid AI dependency without explicit user approval. Optional BYOK usage is paid by the user.
 
 ## Revision summary
@@ -49,7 +49,7 @@ Without connectivity, an existing in-memory draft may remain editable in the sam
 
 ## 3. Full-Stack Architecture
 
-Next.js App Router runs as a Node.js application with backend Route Handlers. Milestone 1A completed the Node runtime migration; public homepage/showcase pages remain prerendered and auth/note routes are dynamic. Milestone 1E implemented note repositories/APIs. The diagram below describes the full target: private UI/state, private Storage, queues/workers and optional ingress remain planned. Current implemented boundaries are documented in [ARCHITECTURE](ARCHITECTURE.md).
+Next.js App Router runs as a Node.js application with backend Route Handlers. Milestone 1A completed the Node runtime migration; public homepage/showcase pages remain prerendered and auth/note routes are dynamic. Milestone 1E implemented note repositories/APIs. The diagram below describes the full target: private UI/state is implemented in 1F/1G; private Storage, queues/workers and optional ingress remain planned. Current implemented boundaries are documented in [ARCHITECTURE](ARCHITECTURE.md).
 
 ```mermaid
 flowchart TD
@@ -324,7 +324,7 @@ Files planned with the relevant milestone: `Dockerfile`, `docker-compose.yml`, `
 
 ## 13. CI/CD and Hosting
 
-Existing GitHub Actions validates runtime Next.js and the UI: locked install → dependency audit → lint → typecheck → unit/component tests → Redis and database/RLS integration → compiler/runtime boundaries → production build → startup connectivity/process checks → Playwright showcase/runtime and auth fixtures. These local fixtures do not prove hosted-provider or production readiness. Queue integration checks arrive with Phase 4. Never use real user data in CI.
+Existing GitHub Actions validates runtime Next.js and the UI: locked install → dependency audit → lint → typecheck → unit/component tests → generated API drift/contract checks → Redis and database/RLS integration → compiler/runtime boundaries → production build → startup connectivity/process checks → Playwright showcase/runtime and auth/workspace/Swagger/Postman fixtures. These local fixtures do not prove hosted-provider or production readiness. Queue integration checks arrive with Phase 4. Never use real user data in CI.
 
 CD must deploy a Node-compatible Next.js runtime and, when queued work is introduced, a separate worker process. Self-hosting may use Nginx; managed ingress may replace it. Static-only hosts cannot run backend APIs or a persistent BullMQ worker. A serverless request handler cannot be assumed to execute work after returning a response.
 
@@ -771,6 +771,6 @@ OpenAPI → Swagger UI + generated Postman collection
 ```
 
 Retained: Markdown, links, graphs, canvas, tasks, database views, portability, plugins, optional local models, free-tier target, testing/docs and learning workflow.
-Superseded: local-first knowledge storage, frontend-only/static-only target, Drive as sync authority, persistent offline note editing and E2EE vault/recovery mechanics. Current source implements the public UI, Node runtime, auth, scoped SQL/RLS, HTTP/Redis/Pino and note CRUD APIs through 1E; private workspace/state/editor and later integrations remain planned.
+Superseded: local-first knowledge storage, frontend-only/static-only target, Drive as sync authority, persistent offline note editing and E2EE vault/recovery mechanics. Current source implements the public UI, Node runtime, auth, scoped SQL/RLS, HTTP/Redis/Pino and note CRUD APIs through 1E; protected workspace/state/textarea editor and API tooling implemented through 1H; rich editor and later integrations remain planned.
 
 ---

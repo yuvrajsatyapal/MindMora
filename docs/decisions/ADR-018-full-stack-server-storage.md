@@ -1,7 +1,7 @@
 # ADR-018 — Server-Authoritative Storage without a Browser Vault
 
 **Decision:** Accepted 2026-10-03. **Current:** Node runtime, auth and minimal SQL foundation
-implemented through 1C; knowledge CRUD/UI, Storage and private cache lifecycle planned.
+implemented through 1C; knowledge CRUD/UI and private cache lifecycle implemented through 1G; Storage planned.
 Supersedes ADR-001/002/003/017 as requirements; their historical records remain.
 
 ## Context

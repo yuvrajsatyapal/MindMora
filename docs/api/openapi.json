@@ -3,7 +3,7 @@
   "info": {
     "title": "MindMora auth and notes API",
     "version": "0.1.0",
-    "description": "Implemented auth and Milestone 1E note contract records. Note APIs use online verified cookies, owner-scoped SQL/RLS, revisions and create keys. Reviewed records only: Swagger UI, generated Postman and automated route drift tooling remain planned for 1H. Hosted 1E migration and production readiness are unverified; dated evidence lives in docs/phases/phase-01-foundation.md."
+    "description": "Phase 1 auth and notes API. Online verified protected cookies, owner-scoped SQL/RLS, optimistic revisions and create-operation keys. Generated shared schemas; reviewed operation and security metadata. Production readiness and provider acceptance evidence are documented separately."
   },
   "paths": {
     "/api/auth/start": {
@@ -186,6 +186,15 @@
               }
             }
           },
+          "413": {
+            "$ref": "#/components/responses/BoundedRequest"
+          },
+          "429": {
+            "$ref": "#/components/responses/AuthThrottled"
+          },
+          "500": {
+            "$ref": "#/components/responses/UnexpectedFailure"
+          },
           "503": {
             "description": "Provider/config or Redis admission unavailable. Admission-rejected logout retains cookies and is unsuccessful.",
             "headers": {
@@ -218,15 +227,6 @@
                 }
               }
             }
-          },
-          "413": {
-            "$ref": "#/components/responses/BoundedRequest"
-          },
-          "429": {
-            "$ref": "#/components/responses/AuthThrottled"
-          },
-          "500": {
-            "$ref": "#/components/responses/UnexpectedFailure"
           }
         }
       }
@@ -420,6 +420,15 @@
               }
             }
           },
+          "413": {
+            "$ref": "#/components/responses/BoundedRequest"
+          },
+          "429": {
+            "$ref": "#/components/responses/AuthThrottled"
+          },
+          "500": {
+            "$ref": "#/components/responses/UnexpectedFailure"
+          },
           "503": {
             "description": "Provider/config or Redis admission unavailable. Admission-rejected logout retains cookies and is unsuccessful.",
             "headers": {
@@ -452,15 +461,6 @@
                 }
               }
             }
-          },
-          "413": {
-            "$ref": "#/components/responses/BoundedRequest"
-          },
-          "429": {
-            "$ref": "#/components/responses/AuthThrottled"
-          },
-          "500": {
-            "$ref": "#/components/responses/UnexpectedFailure"
           }
         }
       }
@@ -636,6 +636,15 @@
               }
             }
           },
+          "413": {
+            "$ref": "#/components/responses/BoundedRequest"
+          },
+          "429": {
+            "$ref": "#/components/responses/AuthThrottled"
+          },
+          "500": {
+            "$ref": "#/components/responses/UnexpectedFailure"
+          },
           "503": {
             "description": "Provider/config or Redis admission unavailable. Admission-rejected logout retains cookies and is unsuccessful.",
             "headers": {
@@ -668,15 +677,6 @@
                 }
               }
             }
-          },
-          "413": {
-            "$ref": "#/components/responses/BoundedRequest"
-          },
-          "429": {
-            "$ref": "#/components/responses/AuthThrottled"
-          },
-          "500": {
-            "$ref": "#/components/responses/UnexpectedFailure"
           }
         }
       }
@@ -856,6 +856,15 @@
               }
             }
           },
+          "413": {
+            "$ref": "#/components/responses/BoundedRequest"
+          },
+          "429": {
+            "$ref": "#/components/responses/AuthThrottled"
+          },
+          "500": {
+            "$ref": "#/components/responses/UnexpectedFailure"
+          },
           "503": {
             "description": "Provider/config or Redis admission unavailable. Admission-rejected logout retains cookies and is unsuccessful.",
             "headers": {
@@ -888,15 +897,6 @@
                 }
               }
             }
-          },
-          "413": {
-            "$ref": "#/components/responses/BoundedRequest"
-          },
-          "429": {
-            "$ref": "#/components/responses/AuthThrottled"
-          },
-          "500": {
-            "$ref": "#/components/responses/UnexpectedFailure"
           }
         }
       }
@@ -905,7 +905,7 @@
       "get": {
         "operationId": "listNotes",
         "summary": "listNotes",
-        "description": "Server-only Node route. Bounds/method/Origin \u2192 online session verification \u2192 basic admission \u2192 strict input \u2192 scoped transaction \u2192 normalized response. All outcomes no-store. Lazy profile insert preserves existing profile. No queued save or workspace UI.",
+        "description": "Server-only Node route. Bounds/method/Origin → online session verification → basic admission → strict input → scoped transaction → normalized response. All outcomes no-store. Lazy profile insert preserves existing profile. No queued save; workspace uses these APIs.",
         "security": [
           {
             "AppSession": []
@@ -1063,7 +1063,7 @@
       "post": {
         "operationId": "createNote",
         "summary": "createNote",
-        "description": "Server-only Node route. Bounds/method/Origin \u2192 online session verification \u2192 basic admission \u2192 strict input \u2192 scoped transaction \u2192 normalized response. All outcomes no-store. Lazy profile insert preserves existing profile. No queued save or workspace UI.",
+        "description": "Server-only Node route. Bounds/method/Origin → online session verification → basic admission → strict input → scoped transaction → normalized response. All outcomes no-store. Lazy profile insert preserves existing profile. No queued save; workspace uses these APIs.",
         "security": [
           {
             "AppSession": []
@@ -1277,7 +1277,7 @@
       "get": {
         "operationId": "readNote",
         "summary": "readNote",
-        "description": "Server-only Node route. Bounds/method/Origin \u2192 online session verification \u2192 basic admission \u2192 strict input \u2192 scoped transaction \u2192 normalized response. All outcomes no-store. Lazy profile insert preserves existing profile. No queued save or workspace UI.",
+        "description": "Server-only Node route. Bounds/method/Origin → online session verification → basic admission → strict input → scoped transaction → normalized response. All outcomes no-store. Lazy profile insert preserves existing profile. No queued save; workspace uses these APIs.",
         "security": [
           {
             "AppSession": []
@@ -1429,7 +1429,7 @@
       "patch": {
         "operationId": "updateNote",
         "summary": "updateNote",
-        "description": "Server-only Node route. Bounds/method/Origin \u2192 online session verification \u2192 basic admission \u2192 strict input \u2192 scoped transaction \u2192 normalized response. All outcomes no-store. Lazy profile insert preserves existing profile. No queued save or workspace UI.",
+        "description": "Server-only Node route. Bounds/method/Origin → online session verification → basic admission → strict input → scoped transaction → normalized response. All outcomes no-store. Lazy profile insert preserves existing profile. No queued save; workspace uses these APIs.",
         "security": [
           {
             "AppSession": []
@@ -1597,7 +1597,7 @@
       "delete": {
         "operationId": "softDeleteNote",
         "summary": "softDeleteNote",
-        "description": "Server-only Node route. Bounds/method/Origin \u2192 online session verification \u2192 basic admission \u2192 strict input \u2192 scoped transaction \u2192 normalized response. All outcomes no-store. Lazy profile insert preserves existing profile. No queued save or workspace UI.",
+        "description": "Server-only Node route. Bounds/method/Origin → online session verification → basic admission → strict input → scoped transaction → normalized response. All outcomes no-store. Lazy profile insert preserves existing profile. No queued save; workspace uses these APIs.",
         "security": [
           {
             "AppSession": []
@@ -1780,8 +1780,96 @@
       }
     },
     "schemas": {
+      "AuthError": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message",
+              "correlationId"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "auth_unavailable",
+                  "unauthenticated",
+                  "origin_rejected",
+                  "invalid_auth_request",
+                  "invalid_auth_callback",
+                  "method_not_allowed",
+                  "invalid_request",
+                  "payload_too_large",
+                  "rate_limited",
+                  "admission_unavailable",
+                  "internal_error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "correlationId": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        }
+      },
+      "NoteError": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message",
+              "correlationId"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "invalid_request",
+                  "unauthenticated",
+                  "origin_rejected",
+                  "not_found",
+                  "method_not_allowed",
+                  "revision_conflict",
+                  "idempotency_conflict",
+                  "payload_too_large",
+                  "unsupported_media_type",
+                  "rate_limited",
+                  "auth_unavailable",
+                  "admission_unavailable",
+                  "service_unavailable",
+                  "internal_error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "correlationId": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        }
+      },
       "SessionProjection": {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
           "user": {
@@ -1829,92 +1917,49 @@
         ],
         "additionalProperties": false
       },
-      "AuthError": {
-        "type": "object",
-        "required": [
-          "error"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "error": {
-            "type": "object",
-            "required": [
-              "code",
-              "message",
-              "correlationId"
-            ],
-            "additionalProperties": false,
-            "properties": {
-              "code": {
-                "type": "string",
-                "enum": [
-                  "auth_unavailable",
-                  "unauthenticated",
-                  "origin_rejected",
-                  "invalid_auth_request",
-                  "invalid_auth_callback",
-                  "method_not_allowed",
-                  "invalid_request",
-                  "payload_too_large",
-                  "rate_limited",
-                  "admission_unavailable",
-                  "internal_error"
-                ]
-              },
-              "message": {
-                "type": "string"
-              },
-              "correlationId": {
-                "type": "string",
-                "format": "uuid"
-              }
-            }
-          }
-        }
-      },
       "Note": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
           },
           "userId": {
             "type": "string",
             "format": "uuid",
-            "description": "Server-derived verified owner; cannot be submitted in mutation input."
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
           },
           "title": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 200,
-            "description": "Trimmed, nonempty, at most 200 Unicode code points; no NUL."
+            "description": "Trimmed nonempty text; at most 200 Unicode code points; NUL rejected. Enforced by shared Zod refinement."
           },
           "content": {
             "type": "string",
-            "description": "Markdown, at most 1,048,576 UTF-8 bytes, no NUL. Empty string allowed; storage API does not render/sanitize HTML."
+            "description": "At most 1,048,576 UTF-8 bytes; NUL rejected. Enforced by shared Zod refinement."
           },
           "revision": {
             "type": "integer",
-            "minimum": 1,
+            "exclusiveMinimum": 0,
             "maximum": 2147483647
           },
           "createdAt": {
             "type": "string",
             "format": "date-time",
-            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
           },
           "updatedAt": {
             "type": "string",
             "format": "date-time",
-            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
           },
           "deletedAt": {
             "anyOf": [
               {
                 "type": "string",
                 "format": "date-time",
-                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
               },
               {
                 "type": "null"
@@ -1939,40 +1984,40 @@
         "properties": {
           "id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
           },
           "userId": {
             "type": "string",
             "format": "uuid",
-            "description": "Server-derived verified owner; cannot be submitted in mutation input."
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
           },
           "title": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 200,
-            "description": "Trimmed, nonempty, at most 200 Unicode code points; no NUL."
+            "description": "Trimmed nonempty text; at most 200 Unicode code points; NUL rejected. Enforced by shared Zod refinement."
           },
           "revision": {
             "type": "integer",
-            "minimum": 1,
+            "exclusiveMinimum": 0,
             "maximum": 2147483647
           },
           "createdAt": {
             "type": "string",
             "format": "date-time",
-            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
           },
           "updatedAt": {
             "type": "string",
             "format": "date-time",
-            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
           },
           "deletedAt": {
             "anyOf": [
               {
                 "type": "string",
                 "format": "date-time",
-                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
               },
               {
                 "type": "null"
@@ -1997,11 +2042,12 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time",
-            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
           },
           "id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
           }
         },
         "required": [
@@ -2014,16 +2060,86 @@
         "type": "object",
         "properties": {
           "items": {
-            "type": "array",
             "maxItems": 100,
+            "type": "array",
             "items": {
-              "$ref": "#/components/schemas/NoteSummary"
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "userId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "revision": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 2147483647
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                },
+                "updatedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                },
+                "deletedAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "userId",
+                "title",
+                "revision",
+                "createdAt",
+                "updatedAt",
+                "deletedAt"
+              ],
+              "additionalProperties": false
             }
           },
           "nextCursor": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/NoteCursor"
+                "type": "object",
+                "properties": {
+                  "updatedAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "updatedAt",
+                  "id"
+                ],
+                "additionalProperties": false
               },
               {
                 "type": "null"
@@ -2043,12 +2159,11 @@
           "title": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 200,
-            "description": "Trimmed, nonempty, at most 200 Unicode code points; no NUL."
+            "description": "Trimmed nonempty text; at most 200 Unicode code points; NUL rejected. Enforced by shared Zod refinement."
           },
           "content": {
             "type": "string",
-            "description": "Markdown, at most 1,048,576 UTF-8 bytes, no NUL. Empty string allowed; storage API does not render/sanitize HTML."
+            "description": "At most 1,048,576 UTF-8 bytes; NUL rejected. Enforced by shared Zod refinement."
           }
         },
         "required": [
@@ -2060,20 +2175,19 @@
       "UpdateNote": {
         "type": "object",
         "properties": {
-          "expectedRevision": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 2147483646
-          },
           "title": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 200,
-            "description": "Trimmed, nonempty, at most 200 Unicode code points; no NUL."
+            "description": "Trimmed nonempty text; at most 200 Unicode code points; NUL rejected. Enforced by shared Zod refinement."
           },
           "content": {
             "type": "string",
-            "description": "Markdown, at most 1,048,576 UTF-8 bytes, no NUL. Empty string allowed; storage API does not render/sanitize HTML."
+            "description": "At most 1,048,576 UTF-8 bytes; NUL rejected. Enforced by shared Zod refinement."
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 2147483646
           }
         },
         "required": [
@@ -2098,7 +2212,7 @@
         "properties": {
           "expectedRevision": {
             "type": "integer",
-            "minimum": 1,
+            "exclusiveMinimum": 0,
             "maximum": 2147483646
           }
         },
@@ -2106,52 +2220,6 @@
           "expectedRevision"
         ],
         "additionalProperties": false
-      },
-      "NoteError": {
-        "type": "object",
-        "required": [
-          "error"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "error": {
-            "type": "object",
-            "required": [
-              "code",
-              "message",
-              "correlationId"
-            ],
-            "additionalProperties": false,
-            "properties": {
-              "code": {
-                "type": "string",
-                "enum": [
-                  "invalid_request",
-                  "unauthenticated",
-                  "origin_rejected",
-                  "not_found",
-                  "method_not_allowed",
-                  "revision_conflict",
-                  "idempotency_conflict",
-                  "payload_too_large",
-                  "unsupported_media_type",
-                  "rate_limited",
-                  "auth_unavailable",
-                  "admission_unavailable",
-                  "service_unavailable",
-                  "internal_error"
-                ]
-              },
-              "message": {
-                "type": "string"
-              },
-              "correlationId": {
-                "type": "string",
-                "format": "uuid"
-              }
-            }
-          }
-        }
       }
     },
     "headers": {
@@ -2704,5 +2772,11 @@
         }
       }
     }
-  }
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Current same-origin application"
+    }
+  ]
 }

@@ -20,17 +20,23 @@
     "test:db:hosted": "node --env-file=.env node_modules/vitest/vitest.mjs run --config vitest.database.config.ts",
     "test:rate-limit": "node scripts/test-rate-limit.mjs",
     "test:startup": "node scripts/test-startup-health.mjs",
-    "test:notes": "node scripts/test-notes-api.mjs"
+    "test:notes": "node scripts/test-notes-api.mjs",
+    "api:generate": "node --experimental-strip-types scripts/generate-api-docs.mjs",
+    "api:check": "node --experimental-strip-types scripts/generate-api-docs.mjs --check",
+    "test:contract": "node --experimental-strip-types scripts/test-api-contract.mjs",
+    "test:api-collection": "node --experimental-strip-types scripts/test-api-collection.mjs"
   },
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.15.0"
   },
   "dependencies": {
     "@supabase/auth-js": "2.117.2",
     "@tailwindcss/postcss": "4.3.3",
+    "@tanstack/react-query": "5.104.1",
     "drizzle-orm": "0.45.3",
     "lucide-react": "1.51.0",
     "next": "16.3.8",
+    "nuqs": "2.10.1",
     "pino": "10.4.0",
     "postgres": "3.4.9",
     "radix-ui": "1.6.7",
@@ -38,8 +44,10 @@
     "react-dom": "19.3.0",
     "redis": "6.3.0",
     "server-only": "0.0.1",
+    "swagger-ui-react": "5.33.1",
     "tailwindcss": "4.3.3",
-    "zod": "4.6.5"
+    "zod": "4.6.5",
+    "zustand": "5.0.15"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
@@ -51,6 +59,7 @@
     "@types/node": "26.6.4",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
+    "@types/swagger-ui-react": "5.18.0",
     "@vitejs/plugin-react": "6.1.1",
     "drizzle-kit": "0.31.11",
     "eslint": "9.39.5",

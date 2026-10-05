@@ -40,10 +40,10 @@ describe("shared interaction contracts", () => {
     );
     expect(change).toHaveBeenCalledWith(true);
   });
-  it("never labels a failed local write as saved", () => {
+  it("never labels a failed write as saved", () => {
     render(<SaveStatus state="error" />);
     expect(screen.getByRole("status")).toHaveTextContent("Not saved");
-    expect(screen.queryByText("Saved on this device")).not.toBeInTheDocument();
+    expect(screen.queryByText("Saved to server")).not.toBeInTheDocument();
   });
   it("supports explicit themes and returns authority to system CSS", async () => {
     render(

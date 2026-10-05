@@ -220,7 +220,8 @@ are sanitized as DatabaseFailure. The service maps those values after commit.
 `0001_note_create_idempotency.sql` adds nullable immutable metadata/checks and a partial
 unique owner/key index. Existing INSERT/SELECT grants cover the columns; explicit UPDATE
 grants do not. Legacy rows remain valid. Run reviewed `npm run db:migrate` before hosted
-note access; this milestone applied it only to disposable local PostgreSQL. Do not rerun
+note access in a fresh environment. The configured development Supabase received this
+migration on 2026-10-05 after a save failure exposed the missing columns. Do not rerun
 provisioning to apply a schema migration.
 
 `npm run test:notes` uses three pool connections; a barrier/PID assertion proves two

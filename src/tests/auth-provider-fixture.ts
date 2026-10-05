@@ -17,8 +17,9 @@ export const fixtureUser = {
 
 /** Test-only provider transport. It exercises the real SDK, not real Google/Supabase. */
 export function authProviderFixture() {
-  const codes = new Map<string, string>();
-  const tokens = new Map<string, { sessionId: string; exp: number }>();
+  let currentUser = fixtureUser;
+  const codes = new Map<string, { challenge: string; user: typeof fixtureUser }>();
+  const tokens = new Map<string, { sessionId: string; exp: number; user: typeof fixtureUser }>();
   const refreshes = new Map<string, string>();
   const rotated = new Map<string, ReturnType<typeof issue>>();
   const revoked = new Set<string>();
@@ -26,11 +27,11 @@ export function authProviderFixture() {
   let failRefresh = false;
   let expired = false;
   const calls: string[] = [];
-  function issue(sessionId: string = randomUUID()) {
+  function issue(sessionId: string = randomUUID(), user = currentUser) {
     const exp = Math.floor(Date.now() / 1000) + (expired ? -30 : 3600);
-    const access = `${Buffer.from('{"alg":"HS256"}').toString("base64url")}.${Buffer.from(JSON.stringify({ sub: fixtureUser.id, exp, session_id: sessionId })).toString("base64url")}.${randomUUID()}`;
+    const access = `${Buffer.from('{"alg":"HS256"}').toString("base64url")}.${Buffer.from(JSON.stringify({ sub: user.id, exp, session_id: sessionId })).toString("base64url")}.${randomUUID()}`;
     const refresh = `refresh-marker-${randomUUID()}`;
-    tokens.set(access, { sessionId, exp });
+    tokens.set(access, { sessionId, exp, user });
     refreshes.set(refresh, sessionId);
     return {
       access_token: access,
@@ -38,7 +39,7 @@ export function authProviderFixture() {
       expires_in: expired ? -30 : 3600,
       expires_at: exp,
       token_type: "bearer",
-      user: fixtureUser,
+      user,
       provider_token: "google-private-marker",
       provider_refresh_token: "google-refresh-private-marker",
     };
@@ -60,13 +61,14 @@ export function authProviderFixture() {
         const challenge = createHash("sha256")
           .update(data.code_verifier ?? "")
           .digest("base64url");
-        if (!data.auth_code || codes.get(data.auth_code) !== challenge)
+        if (!data.auth_code || codes.get(data.auth_code)?.challenge !== challenge)
           return Response.json(
             { message: "private-code-marker", code: "bad_code_verifier" },
             { status: 400 },
           );
+        const user = codes.get(data.auth_code)!.user;
         codes.delete(data.auth_code);
-        return Response.json(issue());
+        return Response.json(issue(undefined, user));
       }
       const sessionId = refreshes.get(data.refresh_token);
       if (failRefresh || !sessionId || revoked.has(sessionId))
@@ -80,7 +82,8 @@ export function authProviderFixture() {
       // Model the documented active-parent reuse exception for concurrent request fixtures.
       const previous = rotated.get(data.refresh_token);
       if (previous) return Response.json(previous);
-      const next = issue(sessionId);
+      const user = [...tokens.values()].find((token) => token.sessionId === sessionId)!.user;
+      const next = issue(sessionId, user);
       rotated.set(data.refresh_token, next);
       return Response.json(next);
     }
@@ -95,7 +98,7 @@ export function authProviderFixture() {
           { message: "private-user-marker" },
           { status: 401 },
         );
-      return Response.json(fixtureUser);
+      return Response.json(token.user);
     }
     if (url.pathname.endsWith("/logout")) {
       const token = tokens.get(access);
@@ -111,6 +114,9 @@ export function authProviderFixture() {
   return {
     fetcher,
     calls,
+    selectUser(second: boolean) {
+      currentUser = second ? { ...fixtureUser, id: "22222222-2222-4222-8222-222222222222", email: "second@example.test", user_metadata: { ...fixtureUser.user_metadata, full_name: "Second Learner" } } : fixtureUser;
+    },
     authorize(authorizeUrl: string) {
       const url = new URL(authorizeUrl);
       const challenge = url.searchParams.get("code_challenge");
@@ -120,7 +126,7 @@ export function authProviderFixture() {
       )
         throw new Error("Fixture requires S256 PKCE");
       const code = randomUUID();
-      codes.set(code, challenge);
+      codes.set(code, { challenge, user: currentUser });
       const callback = new URL(url.searchParams.get("redirect_to")!);
       callback.searchParams.set("code", code);
       return callback.toString();

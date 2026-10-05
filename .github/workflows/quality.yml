@@ -16,6 +16,8 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - run: npm run api:check
+      - run: npm run test:contract
       - run: npm run test:rate-limit
       - run: npm run test:notes
       - run: npm run test:db

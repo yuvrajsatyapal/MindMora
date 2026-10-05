@@ -1,6 +1,7 @@
 # Phase 01 — Full-Stack Foundation Record
 
-**Status:** ✅ UI/runtime and 1B auth code/local verification; ✅ live Google/session/refresh/replay acceptance verified; ✅ 1C minimal schema/database/RLS; ✅ 1D HTTP/Redis/Pino locally verified; ✅ 1E note CRUD/reconciliation locally verified; 📋 protected UI and later milestones. Updated 2026-10-05.
+**Status:** ✅ Phase 1A–1H implemented and accepted locally on 2026-10-05.
+Hosted/production readiness remains a separate open gate; Phase 2 unstarted.
 
 ## Goal and scope
 
@@ -392,3 +393,47 @@ is historical. No new paid resources, dependency, deployment or Git commit. Prot
 state/editor and full contract tooling remain unstarted 1F–1H. Product requirements unchanged.
 [Note API](../features/notes-api.md) · [Learning](../LEARNING.md#milestone-1e-code-understanding-summary) ·
 [File map](../FILE_MAP.md#authenticated-note-api) · [ADR-024](../decisions/ADR-024-note-write-concurrency-and-reconciliation.md).
+
+## Complete remaining Phase 1 outcome — 2026-10-05
+
+Implemented protected workspace with memory-only owner/generation query scope, transient
+layout and URL selection; explicit textarea CRUD, dirty navigation guards, conflict and
+uncertain acknowledgement recovery. Logout/identity changes clear private memory and late
+responses cannot rehydrate it. Clean refetch adopts newer commits; confirmed deletion leaves
+unsaved text copyable and disables writes. The public showcase remains a specimen.
+
+Implemented native Zod OpenAPI/Postman generation, metadata/route drift checks, executable
+disposable collection and lazy Swagger console. Development enables docs; production defaults
+404 with explicit opt-in. Console requests are same-origin, remote validation/auth persistence
+disabled, OAuth sign-in remains native navigation. Exact-version libraries and Node 22.15
+minimum documented. No Phase 2 rich editor/autosave or Phase 4 files/workers.
+
+Fresh acceptance:129 unit/component tests;7 SQL/RLS and12 note integration tests;5 Redis
+tests; startup/boundary checks;13 auth/workspace/contract Chromium tests;12 showcase/runtime
+Chromium tests; lint/typecheck/build/contract drift/audit pass. Design Gate and independent
+code rereview ACCEPT after fixing refresh/404 defects. [Active execution record](../../.agent/active/phase-01-foundation.md#remaining-phase-1-execution--2026-10-05)
+owns exact commands, failures/corrections, evidence boundaries and acceptance audit.
+
+Local foundation acceptance is complete. Auth transport is controlled, not a fresh live
+Google run; hosted 0001 migration/notes and production HTTPS/encryption/backups/restore/
+ingress/quota evidence remain open. Unsaved drafts are memory-only. Optional application
+Docker packaging deferred; disposable backend test containers verified. No cloud/credential
+change, commit, branch or deployment. Stop for Phase 1 review; Phase 2 requires authorization.
+
+### Development save follow-up — 2026-10-05
+
+A user-reported service-unavailable save exposed the unapplied 0001 migration in configured
+Supabase development. The existing additive migration was applied successfully, and a
+read-only check with the transaction-local request role confirmed the new columns and SELECT
+access. Live browser save confirmation is pending. No source, credentials, provisioning or
+production deployment changed. See the active plan for exact evidence and limitations.
+
+### Visual refinement — 2026-10-05
+
+User-authorized follow-up introduced a typography-led public homepage, neutral charcoal
+system/explicit dark mode, temporary theme controls on product surfaces, continuous note
+navigation/document framing and a compact mobile account header. Light semantic palette and
+existing CRUD/session behavior are preserved. Design decisions live in
+[ADR-026](../decisions/ADR-026-neutral-dark-theme-and-document-surfaces.md); exact fresh
+validation is in the [follow-up plan](../../.agent/active/visual-refinement.md). No Phase 2
+editor functionality, dependency, server change or deployment was added.

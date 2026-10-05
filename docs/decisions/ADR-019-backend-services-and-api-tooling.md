@@ -2,7 +2,7 @@
 
 **Decision:** Accepted for staged planning 2026-10-03. **Current:** Zod config/auth/note
 contracts and auth/note OpenAPI records exist. Pino/Redis admission were implemented in
-1D, note callers in 1E. BullMQ, Swagger/Postman generation and optional Nginx remain planned;
+1D, note callers in 1E. Phase 1H implements native Zod schema generation, drift checks, Swagger and generated Postman. BullMQ and optional Nginx remain planned;
 this accepted decision itself did not install/deploy services.
 
 ## Context
@@ -32,7 +32,7 @@ ingress may replace it. Normal note saves go directly to PostgreSQL, independent
 
 The accepted separation keeps fast record writes independent of future long work and
 keeps inputs/contracts explicit. Queue implementation waits for real jobs, avoiding an
-unused worker. Zod is already used; the broader contract generation approach is not selected yet.
+unused worker. Zod is already used; Phase 1H selects its native JSON Schema generation plus reviewed HTTP operation metadata, detailed in [ADR-025](ADR-025-workspace-memory-and-contract-tooling.md).
 
 ## Trade-offs
 
@@ -47,8 +47,7 @@ unlimited hosting or complete security.
 1D owns admission/Pino; 1H owns interactive/generated tooling. Phase 4 owns jobs/files,
 outbox/reconciliation and private result APIs. No bodies/secrets in queue payloads/logs or
 canonical notes in Redis. Security gates activate with the feature; provider/topology/cost
-must be checked before installation/deployment. The existing OpenAPI file is not proof of
-automated route drift enforcement or Postman acceptance.
+must be checked before installation/deployment. Generated contract/method/reference drift checks are now implemented. Generated records still require actual runtime acceptance; fixture evidence and production/provider limits stay explicit.
 
 [Services](../integrations/backend-services.md) · [API tooling](../integrations/api-tooling.md) ·
 [Dated hosting research](../integrations/hosting-and-costs.md) · [Phase 1 progress](../../.agent/active/phase-01-foundation.md).

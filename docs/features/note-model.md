@@ -1,7 +1,7 @@
 # Note and Profile Model Contracts
 
 **Implemented:** 1C schema/input/domain definitions and 1E note services/HTTP CRUD,
-profile creation and response projections. **Planned:** workspace/editor. This document owns field/bound rules. Runtime SQL
+profile creation and response projections. The protected textarea workspace is implemented in 1F/1G; the rich editor remains Phase 2. This document owns field/bound rules. Runtime SQL
 scope lives in the [database guide](../integrations/supabase-database.md), not here.
 
 ## Purpose and representation

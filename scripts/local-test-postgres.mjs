@@ -67,7 +67,7 @@ export async function withTestPostgres(run, { schema = false } = {}) {
         migrationsFolder: "supabase/migrations",
       });
       await connection.unsafe("GRANT mindmora_request TO mindmora_app");
-      await connection`INSERT INTO auth.users(id) VALUES ('11111111-1111-4111-8111-111111111111')`;
+      await connection`INSERT INTO auth.users(id) VALUES ('11111111-1111-4111-8111-111111111111'), ('22222222-2222-4222-8222-222222222222')`;
     }
     return await run(
       `postgresql://mindmora_app:${password}@127.0.0.1:${port}/postgres`,

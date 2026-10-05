@@ -1,59 +1,79 @@
-# API Contracts and Tooling
+# API contracts and interactive reference
 
-**Current:** Four auth and two note Route Handler modules, safe projections, shared
-Zod contracts and auth/note `openapi.json` records. **Planned:** broader schema/
-route generation and drift enforcement, Swagger UI and generated Postman collections.
+**Status:** ✅ Implemented for Phase 1 auth and note APIs. The checked-in contract contains
+no deployment credentials, provider tokens or private note examples. Validation evidence
+belongs in the [active ExecPlan](../../.agent/active/phase-01-foundation.md).
 
-## Existing contract boundary
+## One schema source and reviewed operation metadata
 
-The auth provider validates a shared projection before routes return it. Browser account
-helpers validate successful JSON again; TypeScript alone does not validate a fetch response.
-Auth and note HTTP policies own methods/origins/cookies/errors. Note handlers parse
-strict inputs and services validate normalized output. [Model](../features/note-model.md) owns their exact rules.
+[Shared note validation](../../src/features/notes/validation.ts) and
+[response schemas](../../src/features/notes/types.ts) own runtime payload shapes.
+[The generator](../../scripts/generate-api-docs.mjs) uses Zod 4's built-in `toJSONSchema`
+with input semantics, rather than a second schema library. It combines generated schemas
+with [reviewed metadata](../api/operation-metadata.json) for routes, responses, headers,
+cookies and security. Metadata is the editable source; do not manually edit generated
+[OpenAPI](../api/openapi.json) or [Postman](../api/mindmora.postman_collection.json) outputs.
 
-[openapi.json](../api/openapi.json) describes auth and note routes without real credentials. Its
-projection schema was derived from Zod during implementation; there is no current npm
-script automatically regenerating the whole contract or failing on route drift. A machine-
-readable file is not the same as Swagger/Postman integration or an executed acceptance test.
-Its description now links the recorded live acceptance; that status is historical evidence,
-not a freshly executed provider check.
-[Auth guide](supabase-auth.md#http-contract-and-guard-order) owns exact guard/error behavior.
+`npm run api:generate` regenerates both outputs; `npm run api:check` compares exact bytes
+and validates local references, concrete Route Handler inventory/exported methods and
+facade admission rules. `npm run test:contract` tests that unsupported/missing operations
+and unresolved references fail. These checks deliberately require reviewed metadata when
+route admission rules change. They do not prove every runtime response status by themselves;
+auth/note integration and browser checks provide that evidence.
 
-## Planned contract flow — 1H
+JSON Schema cannot express UTF-8 byte length, Unicode code-point counts, NUL rejection or
+all refinements. The generator documents those enforced Zod restrictions and explicitly
+adds PATCH's at-least-one-changed-field rule. The runtime remains authoritative. Browser
+and Postman tools cannot bypass runtime validation, owner checks or admission.
 
-```mermaid
-flowchart LR
-  Z["Shared Zod contracts"] --> G["Broader generation approach — not selected"]
-  G --> O["Versioned OpenAPI"]
-  O --> W["Planned Swagger UI"]
-  O --> P["Planned Postman collection"]
-  Routes["Actual routes"] --> Drift["Planned request/response drift checks"]
-  O --> Drift
+## Swagger execution boundary
+
+`/dev/api-docs` lazy-loads `swagger-ui-react` 5.33.1 (Apache-2.0), with SSR disabled from a
+Client Component as required by the installed Next.js guide. The server page is dynamic:
+it is available in development and returns 404 outside development unless
+`API_DOCS_ENABLED=true` is explicitly configured. This opt-in exposes a public API reference;
+it does not grant private API access. Swagger's remote validator is disabled and auth
+persistence is disabled. The outgoing interceptor allows only the current origin's `/api/`
+paths, rejects embedded URL credentials, and uses same-origin cookies. Editable server or
+request fields therefore cannot send app requests and session cookies to another origin.
+
+Google start/callback execution is rejected by the API console: establish sign-in through
+the application's top-level Google flow. Normal browser mutations send the native Origin
+header and still pass the backend's Origin/CSRF controls. A logged-in developer can issue
+real note writes from Swagger, so use disposable notes. No credential is embedded in the
+specification, client module or collection.
+
+## Postman and executable smoke
+
+Import the generated collection and set `baseUrl` to your local application origin. The
+only supplied variables are localhost, disposable UUIDs and empty callback placeholders.
+Use a local cookie jar after legitimate app sign-in; never export cookies or credentials.
+Create/PATCH/DELETE examples contain disposable titles, empty content and expected revisions.
+Set `noteId` from the create response and update revisions when doing requests manually.
+Collection test scripts check documented status membership and private no-store headers.
+OAuth callback placeholders are documentation, not a replayable authentication flow.
+
+`npm run test:api-collection` executes all generated requests against a running disposable
+localhost runtime (`API_SMOKE_BASE_URL` defaults to `http://localhost:3000`). It uses manual
+redirect handling and checks actual statuses, no-store and correlation headers. Without
+`API_SMOKE_COOKIE`, it verifies unauthenticated/admission behavior; this is not authenticated
+CRUD evidence. With an in-memory disposable local cookie it asserts session and complete
+create/list/get/update/delete success, including commit-confirmed revisions. It never prints
+or writes the cookie. Auth start/callback/logout run only in unauthenticated mode; authenticated smoke does not revoke the disposable CRUD session. Never run it against production.
+
+```text
+Shared Zod schemas + reviewed operation metadata
+             |
+        generate / drift check
+             |
+     OpenAPI + Postman collection
+       |                 |
+ Swagger same-origin   localhost smoke
+       |                 |
+      Existing auth / note HTTP security and services
+             |
+       Owner-scoped PostgreSQL
 ```
 
-The selected generation library/version, interactive route/exposure policy and automated
-collection runner are unresolved implementation choices. Proposed errors/admission helpers
-and file/job APIs belong in their milestone plans, not as current source references.
-
-## Constraints, failure and trade-offs
-
-Contracts must describe supported methods, cookie/Origin controls, error envelope and
-actual response/status schemas. Note APIs use validated cursors, expected revisions and a required create key; they
-reject submitted owner/plan inputs. Swagger Try It must respect cookie/CSRF
-policy; exported Postman examples use placeholders/disposable fixtures, never copied tokens,
-private note data or signed URLs. Production exposure/CSP/provider pricing needs review.
-
-Sharing schemas reduces drift but generated output still needs route verification and
-review. Input validity does not authorize access or sanitize content. A contract cannot
-establish provider reachability, RLS effectiveness or production security. No runtime
-failure of Swagger/collection generation can be described yet because those systems do
-not exist. Historical API/projection evidence is in the [phase record](../phases/phase-01-foundation.md).
-
-## Minimal note contract records — 1E
-
-GET/POST `/api/notes` and GET/PATCH/DELETE `/api/notes/{id}` are recorded with public
-response shapes, UUID create keys, JSON cursor query, expectedRevision, Origin, cookie
-authentication, no-store, correlation IDs, degraded admission and safe errors. These are
-reviewed records, not an automated generator or route-drift gate. Schema descriptions
-include Unicode/UTF-8/NUL rules that JSON Schema cannot fully express here.
-[Exact behavior](../features/notes-api.md) remains the subsystem guide. 1H is unstarted.
+See [auth/session integration](supabase-auth.md), [note API](../features/notes-api.md) and
+[security architecture](../architecture/security-architecture.md) for runtime boundaries.

@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { ThemeProvider } from "../components/ui/theme";
 import "./globals.css";
 export const metadata: Metadata = {
-  title: "MindMora — Design system",
+  title: "MindMora — Knowledge workspace",
   description:
-    "The shared design language for your local-first knowledge workspace.",
+    "Your server-backed personal knowledge workspace.",
 };
 export default function RootLayout({
   children,
