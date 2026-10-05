@@ -2,13 +2,13 @@
 
 MindMora is a personal knowledge workspace in development. The product roadmap includes
 Markdown notes, linked ideas, graph/canvas, tasks and optional AI with server-authoritative
-storage. Today the protected workspace supports Google sign-in, explicit note saves,
-revision conflicts and server persistence. The shared UI showcase remains sample-only.
+storage. Today the protected workspace supports Google sign-in, CodeMirror Markdown editing,
+safe rich preview, server-confirmed autosave and revision-conflict recovery. The shared UI showcase remains sample-only.
 
-**Current:** ✅ Phase 1 foundation code: Node runtime, backend Google sessions,
+**Current:** ✅ Phase 1 foundation and Phase 2 editor locally accepted: Node runtime, backend Google sessions,
 owner-scoped PostgreSQL/RLS note APIs, Redis admission/Pino, protected `/workspace/`,
-memory-only state, explicit Save/conflict recovery and generated API tooling.
-Production hosting/security evidence is separate; see the [Phase 1 record](docs/phases/phase-01-foundation.md).
+memory-only state, revision-safe autosave/Save/conflict recovery and generated API tooling.
+Production hosting/security evidence is separate; see the [Phase 2 record](docs/phases/phase-02-editor.md).
 
 ## Run locally
 
@@ -43,7 +43,7 @@ settings/services are unavailable. Checks run once per server process, not on re
 See [startup behavior and limits](docs/integrations/backend-services.md#server-startup-health--implemented-follow-up-to-1d).
 Build writes `.next/`; preview uses `next start` on loopback port 4173. Standard runtime:
 `npm run start -- --hostname 127.0.0.1 --port 3000`. Public pages are prerendered and served
-by Node; auth and note Route Handlers are dynamic. This is not the former static `out/` deployment.
+by Node; the nonce-protected workspace and auth/note Route Handlers are dynamic. This is not the former static `out/` deployment.
 
 ## Backend configuration
 
@@ -126,7 +126,7 @@ and the dated [hosting constraints](docs/integrations/hosting-and-costs.md).
 
 Open `/workspace/` after configuring Auth, Redis and the constrained database login above.
 Continue with Google, then follow the homepage workspace link. Create a note, edit its title
-and Markdown text, and press **Save note**. Only server-confirmed writes show saved.
+and Markdown text. Valid edits autosave after idle; **Save note** flushes immediately. Only server-confirmed current drafts show saved.
 Drafts live in this tab; reload/closing can lose unsaved work. Conflicts keep your draft
 and require an explicit choice of server version or saving against the newer revision.
 Normal note writes use PostgreSQL directly.
@@ -145,3 +145,9 @@ local runtime; credentials are never included. See [API tooling](docs/integratio
 response-loss, logout, accessibility, Swagger and generated-collection browser checks.
 It uses disposable Docker PostgreSQL/Redis and controlled Auth transport; it does not prove
 a fresh live Google or production deployment acceptance.
+
+## Editor behavior
+
+CodeMirror provides Markdown source, formatting and Edit/Preview/Split views. Valid changed drafts autosave after 1.5 seconds idle, with at least 5 seconds between automatic write starts. Save note or the primary-modifier+S shortcut flushes the same controller. Typing during a save is retained; Saved to server means the current draft matches an acknowledged PostgreSQL record. Conflicts, throttling and uncertain writes pause for explicit recovery. Drafts remain in memory only; refresh/close can lose unsaved text.
+
+Preview sanitizes Markdown, renders bounded local math and explicitly requested Mermaid diagrams, and never automatically fetches external images. Large/complex previews show a source-safe fallback; the existing 1 MiB save limit is unchanged. Workspace CSP uses request nonces; public pages remain prerendered. See [editor behavior and limitations](docs/features/editor.md), [design](docs/design/phase-02-editor.md), and [Phase 2 execution/evidence](.agent/active/phase-02-editor.md).

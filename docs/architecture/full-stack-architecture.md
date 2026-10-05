@@ -1,7 +1,7 @@
 # Data Flows: Current Foundation and Planned Features
 
 **Current:** Phase 1 runtime/auth/scoped SQL, HTTP/admission/logging, protected note UI/cache
-and generated API tooling. **Planned below:** file storage and jobs. [ARCHITECTURE](../../ARCHITECTURE.md) is the primary
+and generated API tooling, plus Phase 2 snapshot-safe editor/autosave and local sanitized preview. **Planned below:** file storage and jobs. [ARCHITECTURE](../../ARCHITECTURE.md) is the primary
 current system architecture; this companion owns future data-flow constraints and failure
 scenarios. [Model](../features/note-model.md), [database](../integrations/supabase-database.md)
 and [state](state-management.md) own existing model/SQL/state details.
@@ -32,10 +32,10 @@ sequenceDiagram
     P-->>S: Updated record / revision
     S-->>H: Normalized domain result
     H-->>Q: Typed response
-    H-->>E: Acknowledged commit; show saved
+    H-->>E: Acknowledged commit, show saved
     E->>Q: Update/invalidate memory cache
   else Conflict or failure
-    H-->>E: Typed outcome; retain draft
+    H-->>E: Typed outcome, retain draft
   end
 ```
 
@@ -86,3 +86,9 @@ checks, secret handling and failure semantics. No second production database or 
 Nginx/managed ingress and worker hosting remain unselected. [Hosting constraints](../integrations/hosting-and-costs.md)
 are dated research, not current deployment guarantees. Encryption-at-rest/backups/restore
 and production cache/transport controls must be verified with actual provider configuration.
+
+## Phase 2 editor extension — implemented and locally validated
+
+Editing now creates immutable operation snapshots through the memory-only controller. An acknowledged save advances its base revision but leaves newer local typing intact; dirty state clears only when current normalized draft matches that confirmed base. Automatic writes are serialized/debounced/spaced; failures pause instead of replaying on reconnect. Uncertain mutation recovery first observes owned persisted state. New-note ID binding retains the existing controller. The original note HTTP/SQL flow above is unchanged.
+
+Rich preview derives from unsaved source independently of persistence and is bounded/sanitized before controlled rendering. Math stays local; explicit Mermaid SVG is sanitized into a scriptless sandbox. Preview failures cannot unmount the editor/controller. Workspace-only nonce CSP makes that shell dynamic without changing public prerendering or fetching notes on the server. [Editor guide](../features/editor.md) owns exact render/save limits and failure behavior.

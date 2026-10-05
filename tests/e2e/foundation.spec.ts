@@ -52,7 +52,7 @@ test("explicit saves commit, reload across contexts, rename and soft-delete", as
     .fill("Workspace private marker");
   await page.getByLabel("Markdown content").fill("Committed private marker");
   await page.getByRole("button", { name: "Save note", exact: true }).click();
-  await expect(page.getByLabel("Markdown content")).toHaveValue(
+  await expect(page.getByLabel("Markdown content")).toHaveText(
     "Committed private marker",
   );
   await expect(
@@ -68,7 +68,7 @@ test("explicit saves commit, reload across contexts, rename and soft-delete", as
   await device.addCookies(await context.cookies());
   const other = await device.newPage();
   await other.goto(`/workspace/?note=${id}`);
-  await expect(other.getByLabel("Markdown content")).toHaveValue(
+  await expect(other.getByLabel("Markdown content")).toHaveText(
     "Committed private marker",
   );
   await page
@@ -100,7 +100,7 @@ test("concurrent tabs preserve draft and require explicit conflict resolution", 
     "Original",
   );
   await page.goto(`/workspace/?note=${note.id}`);
-  await expect(page.getByLabel("Markdown content")).toHaveValue("Original");
+  await expect(page.getByLabel("Markdown content")).toHaveText("Original");
   await page.getByLabel("Markdown content").fill("My unsaved draft");
   const updated = await context.request.patch(`/api/notes/${note.id}/`, {
     headers,
@@ -115,7 +115,7 @@ test("concurrent tabs preserve draft and require explicit conflict resolution", 
   await expect(
     page.getByRole("button", { name: "Keep draft with latest revision" }),
   ).toBeVisible();
-  await expect(page.getByLabel("Markdown content")).toHaveValue(
+  await expect(page.getByLabel("Markdown content")).toHaveText(
     "My unsaved draft",
   );
   await page.setViewportSize({ width: 375, height: 844 });
@@ -160,14 +160,14 @@ test("offline save retains same-tab draft, response loss reconciles create", asy
   });
   await page.getByRole("button", { name: "Save note", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Retry same create" }),
+    page.getByRole("button", { name: "Retry save" }),
   ).toBeVisible();
   expect(committed).toBe(true);
-  await expect(page.getByLabel("Markdown content")).toHaveValue(
+  await expect(page.getByLabel("Markdown content")).toHaveText(
     "Unsaved private text",
   );
   await page.unroute("**/api/notes/");
-  await page.getByRole("button", { name: "Retry same create" }).click();
+  await page.getByRole("button", { name: "Retry save" }).click();
   await expect(
     page.getByText("Saved to server", { exact: true }),
   ).toBeVisible();
@@ -180,7 +180,7 @@ test("offline save retains same-tab draft, response loss reconciles create", asy
   await page.getByLabel("Markdown content").fill("Offline retained draft");
   await context.setOffline(true);
   await page.getByRole("button", { name: "Save note", exact: true }).click();
-  await expect(page.getByLabel("Markdown content")).toHaveValue(
+  await expect(page.getByLabel("Markdown content")).toHaveText(
     "Offline retained draft",
   );
   await expect(page.getByText("Saved to server", { exact: true })).toHaveCount(
@@ -201,7 +201,7 @@ test("foreign note, logout/account switch and late private response stay isolate
     "owner-one-private-marker",
   );
   await page.goto(`/workspace/?note=${note.id}`);
-  await expect(page.getByLabel("Markdown content")).toHaveValue(
+  await expect(page.getByLabel("Markdown content")).toHaveText(
     "owner-one-private-marker",
   );
   const secondContext = await browser.newContext();
@@ -261,6 +261,10 @@ test("workspace keyboard, mobile and accessibility", async ({
   await signIn(page, context);
   await page.getByRole("button", { name: "New note", exact: true }).click();
   await expect(page.getByLabel("Title", { exact: true })).toBeFocused();
+  for (const name of ["Heading", "Bold", "Italic", "List", "Checklist", "Quote", "Link", "Code block", "Edit", "Preview", "Split"]) {
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("button", { name, exact: true })).toBeFocused();
+  }
   await page.keyboard.press("Tab");
   await expect(page.getByLabel("Markdown content")).toBeFocused();
   await page.getByLabel("Title", { exact: true }).fill("W".repeat(200));
@@ -274,7 +278,7 @@ test("workspace keyboard, mobile and accessibility", async ({
     ).toBe(true);
     for (const theme of ["light", "dark"]) {
       await page.getByLabel("Theme", { exact: true }).selectOption(theme);
-      await expect(page.getByLabel("Markdown content")).toHaveValue("L".repeat(3000));
+      await expect(page.getByLabel("Markdown content")).toHaveText("L".repeat(3000));
       expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
       await page.screenshot({ path: `/tmp/mindmora-workspace-${theme}-${width}.png`, fullPage: true });
     }
@@ -292,7 +296,7 @@ test("clean refresh adopts newer commits and deletion keeps only an unsaved draf
     "Initial server text",
   );
   await page.goto(`/workspace/?note=${note.id}`);
-  await expect(page.getByLabel("Markdown content")).toHaveValue(
+  await expect(page.getByLabel("Markdown content")).toHaveText(
     "Initial server text",
   );
   expect(
@@ -304,7 +308,7 @@ test("clean refresh adopts newer commits and deletion keeps only an unsaved draf
     ).status(),
   ).toBe(200);
   await page.getByRole("button", { name: "Refresh notes" }).click();
-  await expect(page.getByLabel("Markdown content")).toHaveValue(
+  await expect(page.getByLabel("Markdown content")).toHaveText(
     "New server text",
   );
   await page.getByLabel("Markdown content").fill("Retained deleted note draft");
@@ -317,7 +321,7 @@ test("clean refresh adopts newer commits and deletion keeps only an unsaved draf
     ).status(),
   ).toBe(200);
   await page.getByRole("button", { name: "Refresh notes" }).click();
-  await expect(page.getByLabel("Markdown content")).toHaveValue(
+  await expect(page.getByLabel("Markdown content")).toHaveText(
     "Retained deleted note draft",
   );
   await expect(

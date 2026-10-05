@@ -1,13 +1,13 @@
 # Phase Roadmap
 
-**Status:** ✅ Phase 1 development foundation implemented/accepted 2026-10-05; later phases remain planned. Production readiness is separately gated.
+**Status:** ✅ Phase 1 foundation and Phase 2 editor locally accepted 2026-10-05; Phase 3 onward remain planned. Production readiness is separately gated.
 
-The [product spec §17](../../PRODUCT_SPEC.md) owns phase scope. The [Phase 1 plan](../../.agent/active/phase-01-foundation.md) is the active detailed execution contract. Later plans/phase records are created when their work begins, after review of the preceding phase.
+The [product spec §17](../../PRODUCT_SPEC.md) owns phase scope. The [Phase 1 plan](../../.agent/active/phase-01-foundation.md) preserves the completed foundation execution and evidence. The [Phase 2 ExecPlan](../../.agent/active/phase-02-editor.md) records the completed single editor phase; its [phase record](phase-02-editor.md) summarizes observed outcomes. Further detailed plans and phase outcome records are created as their work begins.
 
 | Phase | Target |
 |---|---|
 | 1 ✅ local acceptance | Runtime Next.js, Google sign-in, PostgreSQL/Drizzle notes, Zod/Pino/Redis limits, state boundaries, API docs/tests |
-| 2 | CodeMirror, sanitized preview and revision-safe server autosave |
+| 2 ✅ local acceptance | CodeMirror, sanitized preview and revision-safe server autosave |
 | 3 | Links/backlinks/tags and scoped search |
 | 4 | Private files, BullMQ/Redis worker, export/indexing/attachment jobs |
 | 5 | 2D/optional 3D graph |

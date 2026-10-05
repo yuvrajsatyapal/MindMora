@@ -18,9 +18,11 @@ import { ApiError } from "../../../lib/api/client";
 export function NotesWorkspace({
   scope,
   dirtyRef,
+  nonce,
 }: {
   scope: NoteScope;
   dirtyRef: React.RefObject<boolean>;
+  nonce?: string;
 }) {
   const api = useMemo(() => createNotesApi(scope), [scope]);
   const query = useQueryClient();
@@ -62,11 +64,13 @@ export function NotesWorkspace({
   }
   const onSaved = (note: Note) => {
     scope.assertActive();
-    dirtyRef.current = false;
-    setDirty(false);
-    query.setQueryData([...noteKeys(scope), "detail", note.id], note);
+    query.setQueryData<Note>([...noteKeys(scope), "detail", note.id], previous =>
+      previous && previous.revision > note.revision ? previous : note);
     void query.invalidateQueries({ queryKey: [...noteKeys(scope), "list"] });
-    if (!selection.id) void selection.select(note.id);
+    if (!editorSelection.id) {
+      setEditorSelection({id:note.id,invalid:false});
+      void selection.select(note.id);
+    }
   };
   const onDeleted = () => {
     scope.assertActive();
@@ -196,10 +200,11 @@ export function NotesWorkspace({
             </Alert>
           ) : (
             <NoteEditor
-              key={`${editorSelection.id ?? "new"}:${editorKey}`}
+              key={editorKey}
               note={editorSelection.id ? (detail.data ?? null) : null}
               unavailable={unavailable}
               api={api}
+              nonce={nonce}
               onSaved={onSaved}
               onDeleted={onDeleted}
               onDirty={onDirty}

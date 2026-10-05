@@ -1,6 +1,6 @@
 # MindMora Architecture
 
-**Inspected:** 2026-10-05, current source through remaining Phase 1 (1F–1H). This document owns the technical
+**Inspected:** 2026-10-05, current source through Phase 2 editor implementation; complete-phase local acceptance passed on 2026-10-05; hosted/production acceptance remains separate. This document owns the technical
 system overview. Detailed operating rules live in the linked integration/security guides;
 validation evidence lives in the [phase record](docs/phases/phase-01-foundation.md).
 
@@ -127,20 +127,20 @@ sequenceDiagram
   participant D as Database run(owner, operation)
   participant P as PostgreSQL
   C->>V: Request with protected session cookie
-  V->>A: Refresh if needed; getUser(accessToken)
+  V->>A: Refresh if needed, getUser(accessToken)
   A-->>V: Verified user projection
   V-->>C: owner + projection + tokens + refreshed
   C->>D: Actual issued owner object + trusted callback
   D->>D: WeakSet membership assertion
-  D->>P: BEGIN; inspect actual roles/grants/initial settings
-  D->>P: SET LOCAL role and verified claims; set SQL timeouts
+  D->>P: BEGIN, inspect actual roles/grants/initial settings
+  D->>P: SET LOCAL role and verified claims, set SQL timeouts
   D->>P: Parameterized callback queries
   P->>P: Constraints + auth.uid owner RLS
   alt Callback and commit succeed
-    P-->>D: COMMIT; local settings end
+    P-->>D: COMMIT, local settings end
     D-->>C: Callback result
   else SQL or callback fails
-    P-->>D: ROLLBACK; local settings end
+    P-->>D: ROLLBACK, local settings end
     D-->>C: Safe DatabaseFailure
   end
 ```
@@ -155,7 +155,7 @@ owns exact role grants, timeouts, failure categories and CLI recovery.
 
 Supabase Auth owns provider accounts/sessions. PostgreSQL owns the implemented `profiles`
 and `notes` structures. A validated note request creates a missing profile within its SQL
-transaction; login still creates neither. No product page calls these APIs yet. Profiles reference `auth.users`;
+transaction; login still creates neither. The protected workspace calls these APIs. Profiles reference `auth.users`;
 notes reference profiles, with deletion cascades for privileged account cleanup. The
 request role has no hard DELETE grant; the repository updates nullable `deleted_at` for soft deletion.
 
@@ -206,12 +206,12 @@ Auth SDK refresh can retry transient errors; per-fetch timeout is not a total de
 The DB wrapper has no automatic retry. A lost commit response can be ambiguous; create
 reconciliation uses the same Idempotency-Key/payload, while mutation reconciliation requires
 an owner-scoped refetch before deliberate retry. A database exception does not prove no commit. Production ingress,
-provider encryption at rest/backups/restore and private cache lifecycle are not validated.
+provider encryption at rest/backups/restore remain unvalidated. Local fixture tests cover private memory-cache cleanup; hosted/provider and ingress behavior need separate evidence.
 
 ## Accepted target, separately from implementation
 
-1A–1H foundation code is implemented: protected workspace/state, explicit saves and
-conflict recovery now consume the owner-filtered note APIs. Generated API contracts,
+1A–1H foundation code implements protected workspace/state and owner-filtered note APIs.
+Phase 2 adds CodeMirror, sanitized preview and serialized autosave with explicit conflict recovery. Generated API contracts,
 Postman and opt-in Swagger have drift and runtime checks. Phase 4 adds private Storage/BullMQ/outbox/worker.
 [Planned data flows](docs/architecture/full-stack-architecture.md) describe those future
 save/conflict/file/job interactions without implying current callers. Google sign-in is
@@ -249,9 +249,9 @@ periodically and before private requests detects cookie changes; no browser SDK/
 Transient failures retain existing same-tab drafts but cannot authorize a new request.
 
 `NotesWorkspace` composes bounded list/detail queries, URL selection and transient pane
-state. `NoteEditor` owns a draft and acknowledged revision separately from cached records;
-refetch does not overwrite its draft. Save calls the API directly, never optimistically
-claims persistence and never automatically retries a write. A409 preserves the draft and
+state. `NoteEditor` composes the Phase 2 controller, which owns a draft and acknowledged revision separately from cached records;
+refetch does not overwrite its draft. The editor controller calls the API directly with serialized immutable snapshots, never optimistically
+claims persistence and pauses failed writes for deliberate recovery. A409 preserves the draft and
 loads the server version for explicit resolution. Uncertain creates retain a frozen input
 and operation key; uncertain updates refetch and compare before further writes.
 [Workspace behavior](docs/features/notes-workspace.md) owns the detailed failure rules.
@@ -282,3 +282,25 @@ cards. CSS semantic tokens select neutral charcoal in explicit/system dark mode 
 the light palette; theme context is temporary, never persisted. No account data, database
 imports, auth changes or Phase 2 editor behavior are introduced. Native CSS entry motion is
 public-only and disabled for reduced motion. See [ADR-026](docs/decisions/ADR-026-neutral-dark-theme-and-document-surfaces.md).
+
+## Phase 2 editor and rendering boundaries
+
+The notes feature composes `useNoteAutosave`, a pure snapshot machine, CodeMirror and disposable preview. Controller memory owns current text, acknowledged base/revision, immutable active operation, unresolved result and timers. CodeMirror owns selection/history and reports document transactions. Acknowledgement advances the base without overwriting newer edits. NotesWorkspace updates monotonic scoped cache data and binds new-note IDs without remounting the controller; draft guards are independent of cache acknowledgements.
+
+A 1.5-second debounce and 5-second automatic-start spacing coalesce edits; one operation/reconciliation runs at once. Writes reuse the existing note API and PostgreSQL transaction. Failed writes pause; uncertain PATCH/DELETE reads reconcile before another mutation, uncertain POST retries the same key/payload. Keep draft changes the acknowledged base but requires an explicit save. Session-generation invalidation cancels timers and rejects late responses/renders. No SQL schema, worker or transport contract changed.
+
+Preview converts source through bounded remark/GFM/math parsing and an explicit rehype sanitize schema to controlled React output. Raw HTML is omitted, code escaped, URLs rechecked and images inert. KaTeX loads locally with trust disabled. Mermaid is explicit, capped and fixed-config: a disposable nonce-aware measurement subtree produces SVG, which is sanitized and shown in a scriptless opaque sandbox. Only validated local arrow-marker references survive. PreviewBoundary isolates chunk/render failures from the source/controller. No note body is sent to an external renderer.
+
+`src/proxy.ts` supplies fresh workspace CSP nonces and no-store headers. The dynamic workspace reads a safe nonce and forwards it to generated CodeMirror/Mermaid styles; public pages retain prerendering. Production script policy has no unsafe-inline/eval; style attributes are allowed for library positioning while untrusted Markdown/SVG style is rejected. The workspace Referrer-Policy is same-origin so native same-origin auth POST retains Origin; external preview links explicitly use no-referrer. CSP and SVG sandbox supplement sanitization, not authentication.
+
+```text
+Session lease -> scoped note -> NoteEditor / useNoteAutosave
+  -> current draft -> CodeMirror transactions + bounded sanitized preview
+  -> serialized snapshot -> existing guarded NotesApi -> owner/revision RLS -> PG commit
+  <- acknowledgement -> base/cache advances; newer draft retained
+
+Workspace proxy -> fresh CSP nonce -> dynamic shell -> trusted generated styles
+Mermaid source -> fixed local renderer -> sanitized SVG -> scriptless sandbox
+```
+
+See [editor guide](docs/features/editor.md), [editor ADR](docs/decisions/ADR-027-editor-autosave-and-safe-rendering.md), and [active Phase 2 evidence](.agent/active/phase-02-editor.md). Phase 3 knowledge features and Phase 4 files/jobs remain unstarted.

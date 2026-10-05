@@ -1,8 +1,8 @@
 # MindMora Documentation
 
-**Updated:** 2026-10-05. ✅ Phase 1 foundation code, protected workspace and API tooling.
+**Updated:** 2026-10-05. ✅ Phase 1 foundation and Phase 2 editor locally accepted.
 Local/browser acceptance and outstanding hosted/production evidence are recorded separately
-in the [phase record](phases/phase-01-foundation.md).
+in the [Phase 2 record](phases/phase-02-editor.md).
 
 | Document | Job |
 |---|---|
@@ -13,8 +13,10 @@ in the [phase record](phases/phase-01-foundation.md).
 | [Architecture](../ARCHITECTURE.md) | Authoritative current runtime, data/trust boundaries and failures; separate target |
 | [Plan standard](../.agent/PLANS.md) | How to write self-contained milestone plans |
 | [Phase 1 ExecPlan](../.agent/active/phase-01-foundation.md) | Full-stack migration, files, tests, live checklist |
+| [Phase 2 ExecPlan](../.agent/active/phase-02-editor.md) | Completed editor contract and exact validation evidence: CodeMirror, safe preview and revision-safe autosave |
 | [Roadmap](phases/README.md) | Revised 14 phases and plan timing |
-| [Phase 1 record](phases/phase-01-foundation.md) | Observed outcomes and limitations |
+| [Phase 1 record](phases/phase-01-foundation.md) | Foundation outcomes and limitations |
+| [Phase 2 record](phases/phase-02-editor.md) | Editor outcomes, validation boundaries and limitations |
 | [File map](FILE_MAP.md) | Actual significant file responsibilities |
 | [Learning](LEARNING.md) | Implemented concepts versus planned backend explanations |
 | [Full-stack design](architecture/full-stack-architecture.md) | Separately labeled planned save/conflict/file/job flows |

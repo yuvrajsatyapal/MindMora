@@ -52,6 +52,29 @@ Buttons forward native props and React 19 refs through their props, so Radix asC
 
 The lint contract blocks common style escapes; it is not a complete design reviewer. Human review still checks whether a new class is appropriate and whether component reuse was possible. Semantic token changes require both-theme visual review and contrast checks. Breakpoints and geometrical transforms are documented CSS exceptions, not new brand styles.
 
-### Existing status wording awaiting runtime integration
+### Implemented status wording
 
 Phase 1G now labels `SaveStatus` success “Saved to server”; product callers set it only after an acknowledged commit or matching reconciliation read. `SyncStatus` reports server refresh state and draft retention. The showcase remains a controlled sample and performs no persistence. See the [workspace design contract](phase-01-foundation.md).
+
+
+## Editor feature composition — Phase 2
+
+These controls belong to `src/features/editor/components`, composed by NoteEditor rather
+than added to the generic UI barrel. Reuse shared Button/TextField/Alert/SaveStatus and the
+semantic editor classes. [Design](phase-02-editor.md) owns interaction/layout; complete
+acceptance remains in the [active plan](../../.agent/active/phase-02-editor.md).
+
+| Export | Main props / responsibility |
+|---|---|
+| CodeMirrorEditor | `value`, `onChange`, `onSave`, `nonce?`, `onComposing?`, `handle?`; one labelled source view with transaction-based adoption/formatting and destroy on unmount |
+| EditorHandle / FormatAction | `focus`, `format`; heading/bold/italic/list/checklist/quote/link/code selection actions |
+| EditorToolbar / EditorMode | `mode`, `setMode`, `handle`; native pressed Edit/Preview/Split controls and shared formatting buttons; formatting disabled in Preview |
+| MarkdownPreview | `content`, `nonce?`; separate 250 ms bounded preview, immediately retires prior source generation |
+| MathBlock | `source`, `display`; bounded lazy trusted KaTeX with safe source/error fallback |
+| MermaidBlock | `source`, `claimRender`, `nonce?`; explicit bounded render, fixed config, cleanup and titled scriptless SVG frame |
+
+The controller's clean/saving/dirty/error-family phases map to existing SaveStatus values;
+paused/invalid/conflict/unavailable details are adjacent alerts/actions, not new generic
+status variants. Saved requires the current normalized draft to match acknowledged server
+state. Cache callbacks never set draft clean. Images are alt/source placeholders with a
+permitted explicit source link, and task checkboxes are disabled/read-only.

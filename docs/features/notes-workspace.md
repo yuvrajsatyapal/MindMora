@@ -1,83 +1,92 @@
-# Phase 1 notes workspace
+# Protected notes workspace
 
-**Status:** ✅ Implemented at `/workspace/`. Complete-phase validation and provider versus
-fixture evidence live in the [active ExecPlan](../../.agent/active/phase-01-foundation.md).
-The [design handoff](../design/phase-01-foundation.md) records intended accessibility
-and responsive behavior; the current source owns actual behavior.
+**Status:** ✅ Phase 1 workspace and Phase 2 editor implementation present at `/workspace/`.
+Complete Phase 2 local acceptance is recorded in its [active ExecPlan](../../.agent/active/phase-02-editor.md).
+Historical Phase 1 evidence remains [dated separately](../phases/phase-01-foundation.md).
+[Editor behavior](editor.md) owns rich preview/autosave details; [design](../design/phase-02-editor.md)
+records intended keyboard, responsive and accessibility behavior.
 
 ## User flow
 
-The workspace first verifies the server session. Signed-out users see Google sign-in;
-credentials remain in protected server-owned cookies. Signed-in users can page through
-owner-scoped notes, select a note via its UUID URL state, create, explicitly save, refresh
-and soft-delete notes. A note's title/content stays in the mounted editor until a confirmed
-save. Empty/loading/error states and save/sync feedback describe current requests.
+The workspace verifies the server session before showing private notes. Signed-out users
+see Google sign-in; credentials stay in protected server cookies. Signed-in users page
+through owner-scoped summaries, select a UUID in URL state and create/edit/refresh/soft-delete
+notes. The dynamic workspace shell receives a fresh CSP nonce; it does not fetch private
+note bodies on the server. Public showcase routes remain independent.
 
-No tree, attachment, AI, graph, Markdown rendering engine, durable offline editor or later
-Phase 2 feature is included. The content field edits Markdown text; it never executes or
-renders submitted HTML. Public showcase routes remain independent.
+Title and CodeMirror Markdown source form a same-tab draft. Valid changed drafts autosave
+through the existing note API; explicit Save note and primary-modifier+S use the same
+coordinator. Edit/Preview/Split and formatting derive from current typing. No attachment,
+AI, graph, wiki-link resolution or durable offline editor is included. Images are inert
+placeholders; rich rendering never authorizes a write or supplies persistence status.
 
 ## Participating components
 
-- [WorkspaceShell](../../src/components/workspace/WorkspaceShell.tsx) owns online session
-  checks, owner leases, QueryClient lifecycle and sign-out cleanup.
-- [NotesWorkspace](../../src/features/notes/components/NotesWorkspace.tsx) joins list/detail
-  queries, URL selection, transient sidebar state and confirmed cache updates.
-- [NoteEditor](../../src/features/notes/components/NoteEditor.tsx) owns draft/base revision,
-  explicit saves, conflict decisions, uncertain create replay and deletion feedback.
-- [API helper](../../src/features/notes/api.ts) verifies the active lease/session, validates
-  requests/responses and checks returned owner/deletion/revision expectations.
-- Existing [HTTP routes](../../src/server/notes/routes.ts),
-  [service](../../src/server/notes/service.ts) and
-  [repository](../../src/server/notes/repository.ts) own authoritative admission, session,
-  Origin, validation and owner-scoped persistence. The browser is not an authorization layer.
+- [WorkspaceShell](../../src/components/workspace/WorkspaceShell.tsx) owns session checks,
+  owner/generation leases, memory QueryClient, nonce propagation and sign-out cleanup.
+- [NotesWorkspace](../../src/features/notes/components/NotesWorkspace.tsx) joins list/detail,
+  URL selection, sidebar state, guarded editor leases and committed cache updates.
+- [NoteEditor](../../src/features/notes/components/NoteEditor.tsx) composes the
+  [autosave hook](../../src/features/editor/use-note-autosave.ts), source/toolbar/preview,
+  shared save feedback and deliberate recovery controls.
+- [API helper](../../src/features/notes/api.ts) rechecks active lease/session, validates
+  requests/responses and rejects wrong owner/record/deletion/revision results.
+- Existing [routes](../../src/server/notes/routes.ts), [service](../../src/server/notes/service.ts)
+  and [repository](../../src/server/notes/repository.ts) own admission, online identity,
+  Origin, validation, owner-scoped revision transactions and effective RLS.
 
-## Failure behavior and safeguards
+## Acknowledgement, failure and identity safeguards
 
-Session-generation keys plus cancellation prevent late results from crossing accounts.
-Logout clears private UI first; failed revocation is shown as unconfirmed. Network/save
-failure preserves the mounted draft. Refetch does not overwrite it. A revision conflict
-shows server content as escaped text and asks the user to choose which draft to retain;
-keeping local text still requires an explicit new save against the refreshed revision.
+A commit response confirms its captured snapshot. Newer local typing stays dirty; cache
+updates do not clear the navigation guard. New-note POST binds its ID/URL without remounting
+that draft. A genuinely accepted selection starts a new editor lease. Per-owner/generation
+keys and post-await checks reject old-account responses.
 
-Create requests use one UUID idempotency key. An uncertain result retains that UUID and
-original input for an exact retry, with editing disabled until resolved. Delete uses the
-expected revision; a response must match owner, note ID, next revision and deletion marker.
-Ambiguous saves/deletes read back before presenting a conclusion. Reload/close can lose
-unsaved work and unresolved create recovery. Navigation warnings are best effort.
+Failures preserve the mounted draft and pause scheduling. 429 blocks deliberate retry
+until Retry-After expires. A newer dirty refetch or revision conflict shows the authorized
+server candidate as escaped text. Keeping the draft adopts the latest base but requires
+explicit save; using the server version confirms discard. An uncertain PATCH reconciles
+by reading; an uncertain POST retries its original frozen UUID/input separately from newer
+typing. A differing create replay requires review. Source remains editable during ordinary
+writes and recovery; no offline permission or replay queue is introduced.
 
-The editor focuses its title field on mount. Shared primitives supply labeled inputs,
-button state and alerts; list buttons indicate the selected note, sidebar toggle exposes
-expanded state/controlled list ID and responsive CSS stacks the panels on smaller screens.
-Theme selection is temporary context and retains the draft. Neutral dark tokens and continuous
-navigation/document framing are defined by the [visual design contract](../design/visual-refinement.md). Browser/axe checks
-and remaining accessibility limitations belong in dated acceptance evidence; implementation
-alone is not a claim of exhaustive assistive-technology verification.
-
-```text
-/workspace -> verify cookie session -> owner/generation lease
-                                         |
-                            URL selection -> Query list/detail
-                                         |
-                                    editor draft
-                                         |
-                 explicit mutation -> existing secured note API
-                                         |
-                        owner-scoped SQL + effective RLS
-                                         |
-                  committed response -> saved/cache invalidation
-```
-
-[State ownership](../architecture/state-management.md) explains memory cleanup and trade-offs.
-[Note API](notes-api.md) owns protocol details; [API tooling](../integrations/api-tooling.md)
-owns Swagger/Postman generation and safe interactive execution.
+Delete cancels pending autosave, awaits/reconciles active work and confirms against the
+latest acknowledged revision. Ambiguous deletion reads before another mutation. Refresh/
+close can lose unsaved source and the in-memory create recovery key. An already sent write
+can commit after navigation. Logout clears private UI first; failed revocation is shown as
+unconfirmed. Confirmed identity changes remove source, preview and pending rich render DOM.
 
 ## Refresh and navigation safeguards
 
-A clean, idle editor adopts a strictly newer committed revision. A dirty editor retains
-its draft and old revision for explicit conflict resolution. Confirmed404 after refetch
-shows an unavailable state for a clean note; a dirty draft remains editable/copyable with
-Save/Delete disabled and no saved label. Sidebar/new-note navigation and external query
-changes require discard confirmation; a temporary editor lease holds the existing draft
-until URL selection is accepted or restored. The homepage uses native workspace navigation
-so ordinary back/reload/close triggers the browser beforeunload warning for dirty drafts.
+A clean idle editor adopts only a strictly newer committed record. Dirty drafts retain
+text and expose a newer server candidate; older responses cannot roll back the acknowledged
+base/detail cache. Confirmed 404 disables writes and leaves a dirty draft copyable; a clean
+unavailable note shows the safe error. Sidebar/new-note/external URL changes confirm discard.
+Declining restores accepted selection without clearing conflict/cooldown state.
+
+The title receives initial focus. CodeMirror has a labelled multiline textbox; formatting
+uses source transactions and returns focus to source. Presentation controls are pressed
+native buttons; task boxes are read-only and diagram frames are titled. Long content scrolls
+inside panes, with stacked Split on narrow screens. Temporary theme changes retain the draft.
+Browser/Axe/IME and CSP evidence belongs in the active plan; source presence alone is not
+exhaustive assistive-technology or production acceptance.
+
+```text
+/workspace -> nonce shell -> verify cookie session -> owner/generation lease
+                                                        |
+                           guarded URL selection -> query list/detail
+                                                        |
+                          CodeMirror/controller draft -> safe preview
+                                                        |
+                         captured autosave -> secured existing note API
+                                                        |
+                            owner revision SQL + effective RLS -> commit
+                                                        |
+                      acknowledged base/cache + retain newer local typing
+Logout/switch -> invalidate lease -> abort/clear/unmount source and preview
+```
+
+[State ownership](../architecture/state-management.md) explains memory and lease lifetimes;
+[note API](notes-api.md) owns protocol; [API tooling](../integrations/api-tooling.md) owns
+Swagger/Postman generation. Server-readable notes, same-tab failure retention and refresh
+loss remain explicit product limits.

@@ -1,6 +1,6 @@
 # Learning MindMora
 
-**Source inspected:** 2026-10-05, through Phase 1F–1H and startup-health follow-ups. Study the system that exists first: public UI,
+**Source inspected:** 2026-10-05, through Phase 2 editor implementation; complete Phase 2 local acceptance passed. Study the system that exists first: public UI,
 backend auth, shared contracts, scoped PostgreSQL note APIs, HTTP/admission/logging and startup probes. Protected workspace/editor and API tooling are implemented. [Architecture](../ARCHITECTURE.md) owns the system overview,
 [FILE_MAP](FILE_MAP.md) owns navigation, and subsystem guides own exact operating rules.
 
@@ -24,6 +24,8 @@ files, not proposed examples.
 | 11 | [HTTP policy](../src/server/http/), [admission](../src/server/rate-limit/), [logging facade](../src/server/logging/) | Why are validation, admission and safe observability distinct from authentication? |
 | 12 | [instrumentation](../src/instrumentation.ts), [startup coordinator](../src/server/startup/health.ts), [probes](../src/server/startup/probes.ts), [color/once tests](../src/server/startup/health.test.ts) | What runs once at startup, what runs per request, and what does connectivity fail to prove? |
 | 13 | [Note handler](../src/server/notes/routes.ts), [service](../src/server/notes/service.ts), [repository](../src/server/notes/repository.ts), [note API](features/notes-api.md) | Why do commit, revision and create identity solve different problems? |
+| 14 | [save machine](../src/features/editor/save-machine.ts), [autosave](../src/features/editor/use-note-autosave.ts), [source adapter](../src/features/editor/components/CodeMirrorEditor.tsx) | Why can an older acknowledgement advance the base while current typing remains unsaved? |
+| 15 | [Markdown boundary](../src/features/editor/markdown.ts), [preview](../src/features/editor/components/MarkdownPreview.tsx), [SVG boundary](../src/features/editor/svg.ts), [workspace Proxy](../src/proxy.ts) | Why are parsing, sanitization, controlled URLs and CSP distinct controls? |
 
 ## 1. Presentation, state and persistence are different things
 
@@ -377,9 +379,9 @@ Pino or jobs. A bounded list returns summaries, then detail fetch supplies Markd
 provider verification and RLS are separate controls. Key metadata is immutable to the
 request role and hidden from JSON, but its digest is not anonymization. A stale mutation409
 requires refetch/compare. Deleted retries404 cannot resurrect a row. Cursor pagination is
-not a snapshot under edits. Refresh cookies survive later errors. The planned client must
-retain keys/original input for uncertain creates and use deliberate refetch for uncertain
-mutations; no draft, cache or workspace UX was added. The hosted 1E migration is pending.
+not a snapshot under edits. Refresh cookies survive later errors. The Phase 2 controller retains keys/original input for uncertain creates and uses deliberate
+refetch for uncertain mutations. Milestone 1E itself added no draft/cache/workspace UX; those
+arrived in 1F/1G and Phase 2. Hosted migration evidence remains in the dated Phase 1 record.
 
 Read the [API guide](features/notes-api.md) for exact contracts and
 [ADR-024](decisions/ADR-024-note-write-concurrency-and-reconciliation.md) for alternatives.
@@ -697,11 +699,11 @@ Verified session -> owner/generation -> memory QueryClient
                                       |
 URL note ID -> validated API -> list/detail -> editor base + separate draft
                                       |
-Explicit Save -> Origin/auth/admission/Zod -> repository -> RLS transaction
+Captured save snapshot -> Origin/auth/admission/Zod -> repository -> RLS transaction
                                       |
                          PostgreSQL COMMIT -> acknowledgement
                                       |
-                         editor saved + invalidate query cache
+                 advance editor base/cache; retain any newer typing
 Conflict/uncertainty -> keep draft -> read current -> explicit decision
 Logout/switch -> abort + invalidate lease + clear queries -> unmount editor
 ```
@@ -720,8 +722,9 @@ Read the important implementation in this order:
    selection, guarded draft navigation and confirmed-write invalidation. Zustand owns only
    sidebar visibility; a temporary navigation guard retains the editor until selection is
    deliberately accepted or restored.
-5. [NoteEditor](../src/features/notes/components/NoteEditor.tsx) separates base revision from
-   draft text and tracks pending create keys. A clean refetch can adopt a newer commit; a
+5. [NoteEditor](../src/features/notes/components/NoteEditor.tsx) composes the Phase 2
+   controller, CodeMirror source and bounded preview. [useNoteAutosave](../src/features/editor/use-note-autosave.ts)
+   separates acknowledged base from draft and tracks captured operations/create keys. A clean refetch can adopt a newer commit; a
    dirty refetch cannot silently replace the draft. A confirmed deletion disables further
    writes while permitting retained draft text to be recovered.
 6. [Contract generator](../scripts/generate-api-docs.mjs) derives JSON Schema from shared
@@ -744,10 +747,10 @@ read confirms the visible state, not which request caused it.
 
 The costs are extra online session checks, network dependence and deliberate user decisions
 on conflicts. Drafts vanish on approved reload/close; no durable offline promise or forensic
-RAM-erasure guarantee exists. Rich Markdown rendering/autosave, files and jobs remain later
+RAM-erasure guarantee exists. Phase 2 adds rich preview/autosave below; files and jobs remain later
 phases. [Workspace guide](features/notes-workspace.md), [state ownership](architecture/state-management.md)
 and [ADR-025](decisions/ADR-025-workspace-memory-and-contract-tooling.md) own detailed rules;
-[active plan](../.agent/active/phase-01-foundation.md) owns fresh evidence and deployment limits.
+[Phase 1 record](phases/phase-01-foundation.md) keeps historical evidence; [Phase 2 plan](../.agent/active/phase-02-editor.md) owns current checks and deployment limits.
 
 ## Visual refinement: change presentation without changing authority
 
@@ -770,3 +773,111 @@ Note editor -> existing verified API -> PostgreSQL commit -> existing saved feed
 
 Read [design contract](design/visual-refinement.md) for responsive/focus decisions and
 [ADR-026](decisions/ADR-026-neutral-dark-theme-and-document-surfaces.md) for trade-offs.
+
+
+## Phase 2: a response confirms a snapshot, not all current typing
+
+**Concept.** Local edit sequence and server revision answer different questions. Sequence
+says whether this tab changed after it sent an operation; revision says whether the server
+changed since its acknowledged base. If revision1 stores `A`, a captured PATCH saves `B`,
+and the user types `C` before response, revision2 confirms `B`. The visible `C` must stay
+dirty and the next PATCH must compare revision2. Neither cache invalidation nor an HTTP200
+proves that newer typing is saved.
+
+**Why needed.** Autosave overlaps user input with network latency. Freezing the input would
+interrupt writing; replacing it with every response would lose later work. The pure
+[acknowledge rule](../src/features/editor/save-machine.ts) advances base and adopts returned
+text only when captured/live sequences still match. The
+[coordinator](../src/features/editor/use-note-autosave.ts) validates normalized snapshots,
+serializes operations and publishes separate draft/base/phase state. Dirty compares the
+current normalized draft with committed base and includes unresolved operations.
+
+```text
+base rev1 A -> edit B / seq1 -> PATCH rev1 B -----> response rev2 B
+                            -> type C / seq2          |
+                                   ^                  |
+                                   +-- retain C; base becomes rev2 B
+                                          |
+                                next PATCH rev2 C -> response rev3 C -> clean
+```
+
+**Scheduling and recovery.** A 1,500 ms idle debounce coalesces typing; 5,000 ms automatic
+spacing controls normal write rate; single-flight prevents this editor racing itself. They
+do not replace admission across tabs. Explicit save flushes delay but still respects a
+cooldown/active operation. IME composition pauses scheduling until a coherent result.
+Invalid input and failures pause rather than spin/replay. Uncertain PATCH reads first;
+uncertain POST retries the frozen original key/input while retaining newer typing. Keeping
+a conflict draft adopts the latest revision but remains paused for explicit save. Delete
+awaits/reconciles active work before comparing its latest confirmed revision.
+
+**Ownership and security.** [NotesWorkspace](../src/features/notes/components/NotesWorkspace.tsx)
+receives acknowledged records for scoped cache updates without clearing dirty guards. First
+creation binds ID/URL while keeping its editor lease; a real accepted selection replaces that
+lease. Every operation still passes the existing client session check and server cookie,
+Origin, admission, owner/revision and RLS path. A local sequence is ordering evidence, never
+permission. Navigation/logout removes local owners but cannot roll back an already sent
+SQL write. Drafts/recovery keys survive only while mounted.
+
+**Read next.** Start with the small `save-machine.ts`, then the hook's `accept`, `execute`,
+`reconcile`, scheduling effect, conflict choices and `remove`. Read
+[NoteEditor](../src/features/notes/components/NoteEditor.tsx) for composition and
+[CodeMirrorEditor](../src/features/editor/components/CodeMirrorEditor.tsx) for view lifecycle,
+annotated external adoption and selection-preserving formatting. The source view owns
+selection/history, while the hook decides whether current draft is acknowledged.
+[Feature](features/editor.md) owns exact behavior; [ADR-027](decisions/ADR-027-editor-autosave-and-safe-rendering.md)
+owns alternatives and limits.
+
+## Phase 2: Markdown structure is different from execution authority
+
+**Concept.** Parsing discovers structure; sanitization removes capabilities; controlled
+components decide how permitted structure behaves. React escaping protects plain text but
+is not sufficient for every URL/SVG/generated-HTML path. Owner-authored text is still
+untrusted when it crosses a rendering boundary. Save schemas validate size/shape, not scripts.
+
+**Current implementation.** [MarkdownPreview](../src/features/editor/components/MarkdownPreview.tsx)
+follows the draft after a separate 250 ms debounce. Source change immediately retires the
+old render generation. [markdown.ts](../src/features/editor/markdown.ts) first caps UTF-8
+source, markup delimiters and lines, then parses GFM/math, checks AST size, converts to HAST
+without raw HTML and runs an explicit sanitizer schema. Raw HTML is omitted; generic code
+stays escaped text. Controlled React links recheck schemes/controls/credentials and use
+protected explicit external navigation. Images are placeholders, never automatic fetches.
+The dense-source admission follows an observed adversarial-fixture timeout under concurrent
+service startup; it reduces expensive inputs before parse rather than claiming a CPU deadline.
+
+**Rich blocks.** [MathBlock](../src/features/editor/components/MathBlock.tsx) lazy-loads local
+KaTeX with trust disabled and expression/expansion/size limits; locally generated HTML/MathML
+is the only audited HTML sink. [MermaidBlock](../src/features/editor/components/MermaidBlock.tsx)
+loads only on Render diagram, rejects source configuration/resources/styles and uses fixed
+strict configuration. Installed Mermaid needs connected DOM sizing, so
+[svg.ts](../src/features/editor/svg.ts) supplies a disposable measurement subtree that nonces
+its generated styles through subtree-only insertion hooks. Instance-only serialization removes measurement styles before Mermaid’s internal sanitizer reparses SVG, avoiding hidden-nonce CSP violations without changing the live sizing DOM. Its sanitizer strips active and
+resource SVG capabilities while preserving validated local marker arrows. The final SVG
+enters an empty-permissions scriptless sandbox. Source/unmount cleanup removes measurement
+DOM and rejects late results. [PreviewBoundary](../src/features/editor/components/PreviewBoundary.tsx)
+keeps chunk/render failures from unmounting source or the save coordinator.
+
+```text
+Current draft -> preparse admission -> parsed AST -> explicit sanitize schema
+  -> controlled React -> safe text/links/placeholders
+                     -> bounded lazy KaTeX -> trusted generated HTML + MathML
+                     -> explicit bounded Mermaid -> nonce measurement
+                          -> SVG sanitation -> scriptless sandbox frame
+```
+
+**CSP and trade-offs.** [Proxy](../src/proxy.ts) generates a nonce independent of browser
+headers and passes the request policy to Next; the
+[dynamic page](../src/app/workspace/page.tsx) forwards it to local rendering. Production
+scripts require nonce/strict-dynamic and have no unsafe-inline/eval. Stylesheets require
+self/nonce; generated style attributes have a deliberate compatibility allowance while
+Markdown styles remain forbidden. CSP form navigation permits self plus configured
+Supabase/Google OAuth origins so native sign-in redirects work; it grants no new API access.
+External preview links still use no-referrer even though the workspace uses same-origin
+referrer policy for native auth POST Origin behavior.
+
+Bounds are smaller than storage because preview cost and save capacity differ. There is no
+worker/preemptive deadline, persistent preview cache, custom Mermaid theme, arbitrary HTML,
+attachment proxy or automatic external image fetch. Sanitization/CSP/sandbox complement
+backend authorization; they do not replace it or establish exhaustive production security.
+Read [security](architecture/security-architecture.md#rich-content-and-workspace-csp-boundary--phase-2)
+for the exact trust boundary, [FILE_MAP](FILE_MAP.md#editor-source-autosave-and-safe-preview--phase-2)
+for callers and [active plan](../.agent/active/phase-02-editor.md) for fresh acceptance.

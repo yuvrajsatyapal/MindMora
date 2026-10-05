@@ -1,6 +1,6 @@
 # MindMora File Map
 
-**Inspected:** 2026-10-05, through Phase 1F–1H and startup-health follow-ups.
+**Inspected:** 2026-10-05, through Phase 2 source/editor/CSP implementation; full Phase 2 local acceptance passed.
 Each row separates where code lives, why it exists, its exports, callers, dependencies
 and the next runtime step. Only implemented files appear here. Some implemented libraries
 have test callers but no product caller; those gaps are explicitly identified.
@@ -212,7 +212,7 @@ routes.ts -> safe no-store JSON / protected refreshed cookie
 Client       logger.ts -> safe Pino metadata
 ```
 
-No workspace page calls these endpoints yet. Auth refresh/Redis/HTTP delivery do not share
+The protected workspace calls these endpoints through the lease-checked notes API adapter. Auth refresh/Redis/HTTP delivery do not share
 PostgreSQL's transaction. [API behavior](features/notes-api.md) · [Learning summary](LEARNING.md#milestone-1e-code-understanding-summary).
 
 ## Privileged CLI and credential recovery
@@ -311,23 +311,23 @@ Browser: npm test:e2e / test:auth -> services/provider fixtures
 
 Tests/configuration define checks, not proof that hosted CI or production passed. [Phase record](phases/phase-01-foundation.md) owns dated outcomes; [startup execution record](../.agent/active/startup-health.md) owns its exact evidence.
 
-[Documentation index](README.md) maps document responsibilities. The [active Phase 1 plan](../.agent/active/phase-01-foundation.md) owns live progress. No proposed repositories, caches, workers or routes are listed as implemented files.
+[Documentation index](README.md) maps document responsibilities. The [active Phase 2 plan](../.agent/active/phase-02-editor.md) owns current live progress; Phase 1 evidence stays historical. No proposed repositories, caches, workers or routes are listed as implemented files.
 
 ## Protected workspace and API tooling — Phase 1F–1H
 
 | File | Purpose | Important exports | Called by | Dependencies | Flow |
 |---|---|---|---|---|---|
-| [src/app/workspace/page.tsx](../src/app/workspace/page.tsx) | Compose the protected browser workspace with URL adaptation. | default WorkspacePage | Next `/workspace/` route | Suspense; NuqsAdapter; WorkspaceShell | Public shell markup → browser session check → private workspace. |
-| [src/components/workspace/WorkspaceShell.tsx](../src/components/workspace/WorkspaceShell.tsx) | Own verified identity leases and private cache lifetime. | WorkspaceShell | WorkspacePage; component tests | account API; QueryClient; NotesWorkspace; UI store; URL selection; Logo/ThemeSelect | Verify session → issue lease → mount workspace; logout/switch → abort/clear/unmount. |
+| [src/app/workspace/page.tsx](../src/app/workspace/page.tsx) | Compose the protected browser workspace with URL adaptation. | default WorkspacePage | Next `/workspace/` route | async headers; local KaTeX CSS; Suspense; NuqsAdapter; WorkspaceShell | Dynamic nonce-only shell → browser session check → private workspace; no server note fetch. |
+| [src/components/workspace/WorkspaceShell.tsx](../src/components/workspace/WorkspaceShell.tsx) | Own verified identity leases and private cache lifetime. | WorkspaceShell | WorkspacePage; component tests | account API; QueryClient; NotesWorkspace; UI store; URL selection; Logo/ThemeSelect; nonce prop | Verify session → issue lease → mount workspace; logout/switch → abort/clear/unmount. |
 | [src/features/account/components/SignInGate.tsx](../src/features/account/components/SignInGate.tsx) | Explain server storage and start native Google navigation. | SignInGate | WorkspaceShell | Shared Card/Button | User submits same-origin POST → auth start → Google callback → homepage. |
 | [src/lib/api/client.ts](../src/lib/api/client.ts) | Validate fetched responses and project fixed public errors. | apiRequest; ApiError | notes API | fetch; Zod | no-store same-origin fetch → schema validation → result or safe typed error. |
 | [src/features/notes/api.ts](../src/features/notes/api.ts) | Apply session leases and ownership to browser note operations. | createNotesApi; NoteScope; NotesApi | NotesWorkspace; API tests | API client; note schemas; AbortSignal | Verify active identity → request → reject expired lease/wrong owner → validated note. |
 | [src/features/notes/hooks.ts](../src/features/notes/hooks.ts) | Fetch paginated list/detail into scoped memory query keys. | noteKeys; useNotes; useNote | NotesWorkspace | TanStack Query; NotesApi | owner/generation key → cancellable request → memory data; no write replay. |
 | [src/features/notes/use-note-selection.ts](../src/features/notes/use-note-selection.ts) | Validate a note ID stored in the URL. | useNoteSelection | WorkspaceShell; NotesWorkspace | nuqs; Zod | `?note=` → UUID validation → selection or safe invalid state. |
 | [src/stores/ui-store.ts](../src/stores/ui-store.ts) | Own transient sidebar visibility only. | useUiStore | WorkspaceShell; NotesWorkspace | Zustand create without persist | Toggle/reset → presentation; no note/session authority. |
-| [src/features/notes/components/NotesWorkspace.tsx](../src/features/notes/components/NotesWorkspace.tsx) | Coordinate queries, selection, draft navigation and cache invalidation. | NotesWorkspace | WorkspaceShell | note hooks/API; NoteList; NoteEditor; UI/URL state | List/detail fetch → editor draft → acknowledged write → invalidate/refetch. |
+| [src/features/notes/components/NotesWorkspace.tsx](../src/features/notes/components/NotesWorkspace.tsx) | Coordinate queries, stable editor identity, draft guards and committed cache updates. | NotesWorkspace | WorkspaceShell | note hooks/API; NoteList; NoteEditor; UI/URL state | Query snapshot → stable draft lease → acknowledged record cache; bind first ID without remount → invalidate list. |
 | [src/features/notes/components/NoteList.tsx](../src/features/notes/components/NoteList.tsx) | Present bounded authorized summaries and accessible selection. | NoteList | NotesWorkspace | NoteSummary; shared Button/Icon/EmptyState; Lucide FileText | Summary data → selected button → guarded URL selection. |
-| [src/features/notes/components/NoteEditor.tsx](../src/features/notes/components/NoteEditor.tsx) | Own a draft, revision and explicit write/reconciliation state. | NoteEditor | NotesWorkspace; component tests | NotesApi; input validation; shared controls/status | Edit draft → validate → write → acknowledge or preserve/resolve conflict. |
+| [src/features/notes/components/NoteEditor.tsx](../src/features/notes/components/NoteEditor.tsx) | Compose autosave, source, preview and deliberate recovery. | NoteEditor | NotesWorkspace; component tests | useNoteAutosave; CodeMirrorEditor; EditorToolbar; lazy MarkdownPreview; PreviewBoundary; shared controls/status | Draft typing → coordinator/derived preview → saved or paused/conflict UI; cache callbacks receive acknowledgements. |
 | [src/app/dev/api-docs/page.tsx](../src/app/dev/api-docs/page.tsx) | Gate interactive API documentation by environment. | default ApiDocsPage; dynamic; runtime | Next `/dev/api-docs/` | notFound; docsEnabled; ApiDocs | Development/operator opt-in → console; default production →404. |
 | [src/app/dev/api-docs/policy.ts](../src/app/dev/api-docs/policy.ts) | Constrain console exposure and outgoing API requests. | docsEnabled; sameOriginRequest; DocsRequest | API docs page/Swagger; policy tests | URL parsing | Reject foreign origin/non-API/OAuth redirect endpoint → same-origin cookie request. |
 | [src/app/dev/api-docs/swagger.tsx](../src/app/dev/api-docs/swagger.tsx) | Lazy-load the interactive generated API console. | default ApiDocs | API docs page | Swagger UI; generated OpenAPI; console policy | Client-only console → no remote validator/auth persistence → guarded API. |
@@ -339,7 +339,7 @@ Tests/configuration define checks, not proof that hosted CI or production passed
 | [scripts/test-api-collection.mjs](../scripts/test-api-collection.mjs) | Execute generated requests against a disposable local runtime. | runCollectionSmoke | CLI; contracts browser tests; unit adapter | generated contracts/collection; fetch-compatible adapter | Run guards or authenticated create/read/update/delete using returned IDs/revisions. |
 | [scripts/test-api-collection.d.mts](../scripts/test-api-collection.d.mts) | Type the JavaScript collection runner for tests. | CollectionRequestOptions; CollectionResponse; runCollectionSmoke signature | TypeScript E2E compiler only | Corresponding runner | Compile adapter types; no product runtime caller. |
 | [src/components/workspace/WorkspaceShell.test.tsx](../src/components/workspace/WorkspaceShell.test.tsx) | Test identity, deep links and draft/cache lifetime. | None; tests | Vitest only | shell; Testing Library; nuqs testing adapter | Controlled session transitions → assert isolation/retained draft. |
-| [src/features/notes/components/NoteEditor.test.tsx](../src/features/notes/components/NoteEditor.test.tsx) | Test explicit acknowledgement and recoverable drafts. | None; tests | Vitest only | editor; typed API fixtures; Testing Library | Failed/conflicting writes or refetch → verify state and deliberate resolution. |
+| [src/features/notes/components/NoteEditor.test.tsx](../src/features/notes/components/NoteEditor.test.tsx) | Test editor composition, acknowledgement and preserved drafts. | None; tests | Vitest only | editor; typed API fixtures; Testing Library; CodeMirror | Edit/save/refetch/preview failure → verify retained draft and deliberate recovery. |
 | [src/features/notes/api.test.ts](../src/features/notes/api.test.ts) | Test owner/lease/response contract boundaries. | None; tests | Vitest only | browser notes API; fetch fixtures | Foreign/wrong/late response → reject; deletion → validate acknowledgement. |
 | [src/app/dev/api-docs/policy.test.ts](../src/app/dev/api-docs/policy.test.ts) | Test console opt-in and outgoing origin constraints. | None; tests | Vitest only | console policy | Unsafe endpoint/origin → reject; allowed API → same-origin. |
 | [tests/e2e/foundation.spec.ts](../tests/e2e/foundation.spec.ts) | Exercise protected notes in the real browser and SQL runtime. | None; tests | auth browser harness only | Playwright; Axe; disposable Auth/DB/Redis | Sign in → CRUD/conflict/offline/response loss/owner/logout → UI and API assertions. |
@@ -348,9 +348,61 @@ Tests/configuration define checks, not proof that hosted CI or production passed
 ```text
 WorkspacePage -> WorkspaceShell -> verified owner/generation
   -> NotesWorkspace -> query list/detail -> createNotesApi -> HTTP -> PostgreSQL
-  -> NoteEditor draft -> explicit write -> confirmed acknowledgement -> cache refresh
+  -> NoteEditor -> autosave snapshot -> committed acknowledgement -> cache refresh
+                  -> CodeMirror draft -> bounded sanitized preview
 Logout/switch -> abort lease + queries -> clear memory -> unmount editor
 
 Zod + operation metadata + real routes -> generator -> OpenAPI + Postman
   -> drift/collection tests + opt-in Swagger -> guarded HTTP routes
+```
+
+
+## Editor source, autosave and safe preview — Phase 2
+
+Implementation exists; complete acceptance remains in the [active plan](../.agent/active/phase-02-editor.md).
+Each row keeps six fields separate; test callers are identified rather than treated as product flow.
+
+| File | Purpose | Important exports | Called by | Dependencies | Flow |
+|---|---|---|---|---|---|
+| [src/features/editor/save-machine.ts](../src/features/editor/save-machine.ts) | Separate live draft sequence from acknowledged server base. | EditorDraft; SavePhase; SaveOperation; SaveMachine; initialMachine; editMachine; acknowledge; sameDraft | useNoteAutosave; pure tests | Note type | Initialize base → local edit sequence → snapshot acknowledgement advances base and preserves newer typing. |
+| [src/features/editor/use-note-autosave.ts](../src/features/editor/use-note-autosave.ts) | Coordinate bounded serialized writes, recovery and delete for one draft lease. | AutosaveOptions; useNoteAutosave | NoteEditor; hook tests | save-machine; NotesApi; shared createNoteSchema; ApiError; React refs/effects; monotonic clock | Edit → debounce/spacing → frozen operation → API acknowledgement/reconciliation → current draft/save phase and callbacks. |
+| [src/features/editor/components/CodeMirrorEditor.tsx](../src/features/editor/components/CodeMirrorEditor.tsx) | Own source view, selection/history and Markdown transactions. | CodeMirrorEditor; EditorHandle; FormatAction | NoteEditor; EditorToolbar type imports; source tests | CodeMirror state/view/commands/Markdown/language; Lezer tags; React refs | Mount nonce-labelled view → edits/IME/save callback → controller; formatting/adoption transactions → same view; unmount destroys. |
+| [src/features/editor/components/EditorToolbar.tsx](../src/features/editor/components/EditorToolbar.tsx) | Present source-formatting and Edit/Preview/Split actions. | EditorToolbar; EditorMode | NoteEditor | shared Button; EditorHandle/FormatAction types | Native control → editor transaction/focus or temporary mode; no persistence call. |
+| [src/features/editor/components/PreviewBoundary.tsx](../src/features/editor/components/PreviewBoundary.tsx) | Isolate preview chunk/render failures from editable source and autosave. | PreviewBoundary | NoteEditor; boundary tests | React Component | Preview error → fixed fallback while source/controller stay mounted; mode unmount/reopen retries. |
+| [src/features/editor/markdown.ts](../src/features/editor/markdown.ts) | Bound parse work and sanitize untrusted Markdown structure/URLs. | PREVIEW_BYTES; PreviewResult; parseMarkdown; safeMarkdownUrl | MarkdownPreview; parser tests | unified; remark parse/GFM/math/rehype; rehype-sanitize; HAST types | UTF-8/delimiter/line admission → bounded AST → sanitized HAST; URL checks → permitted navigation or inert text. |
+| [src/features/editor/components/MarkdownPreview.tsx](../src/features/editor/components/MarkdownPreview.tsx) | Derive controlled rich output from the current draft generation. | MarkdownPreview | lazy NoteEditor preview; preview tests | markdown parser/URL policy; hast-util-to-jsx-runtime; React JSX runtime; MathBlock; MermaidBlock | Debounce → sanitized tree → semantic React/URL/image/task adapters → bounded lazy rich blocks; source change retires output. |
+| [src/features/editor/components/MathBlock.tsx](../src/features/editor/components/MathBlock.tsx) | Render bounded local trusted math with safe fallback. | MathBlock | MarkdownPreview; math tests | lazy KaTeX; React lifecycle; locally imported workspace CSS/fonts | Expression cap → trust-disabled generated HTML/MathML → audited HTML sink or escaped source; stale completion discarded. |
+| [src/features/editor/components/MermaidBlock.tsx](../src/features/editor/components/MermaidBlock.tsx) | Admit explicit fixed-config diagram work and isolate its SVG. | MermaidBlock | MarkdownPreview; diagram tests | lazy Mermaid; SVG helper; React ID/generation refs; serialized render queue | Render action → input/attempt admission → nonce measurement subtree → sanitized SVG/srcDoc → empty-permissions sandbox; cleanup/late-result rejection. |
+| [src/features/editor/svg.ts](../src/features/editor/svg.ts) | Restrict diagram input, generated SVG and connected measurement styling. | allowedDiagram; sanitizeDiagramSvg; diagramDocument; createDiagramContainer | MermaidBlock; SVG tests | DOMPurify SVG profile; DOMParser/XMLSerializer; local DOM insertion hooks | Reject config/resource input → nonce generated style insertion → omit measurement styles before internal serialization reparse → strip SVG capabilities/preserve local markers → fixed restrictive frame document. |
+| [src/server/http/content-security-policy.ts](../src/server/http/content-security-policy.ts) | Build workspace nonce resource/execution policy without granting API authority. | workspacePolicy | Proxy; policy tests | Trusted nonce/environment/optional configured OAuth origin; URL | Production nonce/strict-dynamic script and style rules → header policy; development-only eval; explicit OAuth form redirect origins. |
+| [src/proxy.ts](../src/proxy.ts) | Issue fresh workspace nonce and no-store/CSP/referrer headers. | proxy; config | Next workspace request matching | Node randomBytes; NextResponse; workspacePolicy; configured Supabase origin | Workspace request → overwrite nonce/CSP input → request policy for Next and response CSP/no-store → dynamic page nonce propagation. |
+| [src/features/editor/save-machine.test.ts](../src/features/editor/save-machine.test.ts) | Assert newer typing survives an older save acknowledgement. | None; tests | Vitest only | pure save-machine; Note fixtures | Captured operation + later edits → assert base advancement/current draft retention. |
+| [src/features/editor/use-note-autosave.test.tsx](../src/features/editor/use-note-autosave.test.tsx) | Exercise scheduler, racing snapshots and deliberate recovery. | None; tests | Vitest only | hook; fake clocks; deferred typed API fixtures; Testing Library | Edit/time/network outcome → assert single-flight, revision/key, retained typing, cooldown/IME/conflict/delete and cleanup. |
+| [src/features/editor/components/CodeMirrorEditor.test.tsx](../src/features/editor/components/CodeMirrorEditor.test.tsx) | Assert source transactions and lifecycle against an actual view. | None; tests | Vitest only | CodeMirrorEditor; Testing Library; DOM layout shims | Mount/type/adopt/format/history → verify callbacks, selection/text and cleanup. |
+| [src/features/editor/markdown.test.ts](../src/features/editor/markdown.test.ts) | Test real parse/sanitize, preparse admission and URL rejection. | None; tests | Vitest only | markdown parser; hostile and bounded fixtures | Source/URL → assert semantic inert tree or safe limit/rejection. |
+| [src/features/editor/svg.test.ts](../src/features/editor/svg.test.ts) | Test real SVG sanitation, local arrows and scoped nonce insertion. | None; tests | Vitest only | SVG helper; DOMPurify; actual DOM | Hostile generated SVG/subtree insertions → assert removed capabilities, preserved safe markers and local nonce-only effects. |
+| [src/features/editor/components/MarkdownPreview.test.tsx](../src/features/editor/components/MarkdownPreview.test.tsx) | Test controlled DOM, limits, generation replacement and real math. | None; tests | Vitest only | MarkdownPreview; Testing Library; fake clocks; real KaTeX | Draft → debounced semantic/inert DOM; replacement removes old generation; permitted local math output. |
+| [src/features/editor/components/MathBlock.test.tsx](../src/features/editor/components/MathBlock.test.tsx) | Assert real KaTeX MathML/trust and expression bounds. | None; tests | Vitest only | MathBlock; real KaTeX; Testing Library | Hostile/capped expression → no active navigation/resources or safe source fallback. |
+| [src/features/editor/components/MermaidBlock.test.tsx](../src/features/editor/components/MermaidBlock.test.tsx) | Assert admission and stale async measurement/output cleanup. | None; tests | Vitest only | MermaidBlock; deferred Mermaid fixture; real SVG helper/DOM | Render/config/limit/unmount → fixed fallback or immediate subtree removal; late result discarded. |
+| [src/features/editor/components/PreviewBoundary.test.tsx](../src/features/editor/components/PreviewBoundary.test.tsx) | Verify preview errors preserve source/control state. | None; tests | Vitest only | PreviewBoundary; failing child fixture; Testing Library | Render failure → fixed fallback; sibling source survives. |
+| [src/features/notes/components/NotesWorkspace.test.tsx](../src/features/notes/components/NotesWorkspace.test.tsx) | Assert stable create identity, scoped cache and guard integration. | None; tests | Vitest only | NotesWorkspace; QueryClient; typed API/query fixtures; nuqs test adapter | POST acknowledgement/newer draft → bind ID without remount or false guard cleanup. |
+| [src/server/http/content-security-policy.test.ts](../src/server/http/content-security-policy.test.ts) | Check production/development policy and configured OAuth forms. | None; tests | Vitest only | workspacePolicy | Trusted config → assert nonce/resource rules and absence of production script eval. |
+| [tests/e2e/editor.spec.ts](../tests/e2e/editor.spec.ts) | Exercise editor/autosave/rich-content behavior in the production browser harness. | None; tests | Existing auth browser harness only | Playwright; Axe; controlled provider; disposable SQL/Redis; production Next | Actual source/typing/recovery/preview/CSP requests → browser/network/DOM assertions; results remain dated evidence. |
+
+```text
+Workspace Proxy -> fresh CSP nonce -> dynamic WorkspacePage -> WorkspaceShell lease
+  -> NotesWorkspace -> NoteEditor -> CodeMirror source + toolbar
+                                    |
+                             useNoteAutosave -> existing NotesApi
+                                    |               |
+                       snapshot/base/sequence       -> server -> SQL commit
+                                    ^                         |
+                                    +----- acknowledgement ---+
+                                    |
+                              dirty/cache callbacks
+
+Current draft -> MarkdownPreview -> admission/parser -> sanitize -> controlled React
+  -> bounded local MathBlock -> trusted KaTeX HTML/MathML
+  -> explicit MermaidBlock -> nonce measurement -> sanitized SVG -> scriptless sandbox
+Source change/logout -> retire render generation -> remove measurement/output
 ```

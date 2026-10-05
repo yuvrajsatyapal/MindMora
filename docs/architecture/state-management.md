@@ -1,88 +1,106 @@
 # State ownership
 
-**Status:** ✅ Phase 1 workspace memory ownership implemented. PostgreSQL remains the
-persistent authority; the browser owns disposable working state. This guide describes
-actual ownership and failure boundaries. [Workspace behavior](../features/notes-workspace.md)
-owns the product flow; [ADR-025](../decisions/ADR-025-workspace-memory-and-contract-tooling.md)
-owns the engineering decisions.
+**Status:** ✅ Phase 1 workspace ownership and Phase 2 editor implementation present;
+complete Phase 2 validation remains in the [active plan](../../.agent/active/phase-02-editor.md).
+PostgreSQL owns persistence; browser state is disposable. [Workspace](../features/notes-workspace.md)
+and [editor](../features/editor.md) own detailed product flows; ADR-[025](../decisions/ADR-025-workspace-memory-and-contract-tooling.md)
+and [027](../decisions/ADR-027-editor-autosave-and-safe-rendering.md) own decisions.
 
 | Owner | Implemented responsibility | Reset / limit |
 |---|---|---|
-| PostgreSQL / server repositories | Profiles and authoritative notes/revisions/create keys | Owner-scoped transaction and effective RLS; confirmed commit is the saved boundary |
-| Protected cookie | Server-owned session tuple and pending Google sign-in state | HttpOnly lifecycle; online provider verification determines identity |
+| PostgreSQL / server repositories | Authoritative notes, profiles, revisions and create keys | Owner-scoped transaction and effective RLS; confirmed commit is the saved boundary |
+| Protected cookie | Server-owned session tuple and pending Google sign-in state | HttpOnly lifecycle; online provider verification establishes identity |
 | Request-local auth SDK Map | PKCE/session protocol state | Disposed after each auth/identity request |
-| Verified owner object | Evidence of identity verification at issuance | In-process identity, never a client-supplied user ID |
-| TanStack Query | Fetched note pages/details and confirmed mutation results | Memory only; owner ID plus lease generation in keys; cancel/clear on account transition/logout |
-| Editor component | Same-tab draft, base revision, unresolved create input/key, conflict feedback | Component unmount/reload loses unsaved state; network failure retains it while mounted |
-| Zustand | Sidebar visibility | No persistence middleware; reset on private state cleanup |
-| nuqs | UUID note selection in `?note=` | Shallow replace; no private title/body or credential in URL |
-| React showcase/theme state | Public sample interactions and transient theme choice | Page reload resets; no browser persistence |
-| Redis | Admission counters | Expiring coordination, never canonical note records/session authority |
+| Verified owner object | Evidence of identity verification at issuance | In-process identity, never a submitted user ID or durable session authority |
+| TanStack Query | Fetched pages/details and acknowledged mutation records | Memory only; owner/generation keys; cancel/clear on logout/account transition |
+| Autosave controller | Acknowledged base, live title/content draft, local sequence, active snapshot, unresolved operation and conflict candidate | One mounted editor lease; same-tab retention during failures; unmount/reload loses draft/recovery key |
+| CodeMirror | Source document, selection and undo history | One mounted view; annotated external adoption avoids callback loops; destroy on lease unmount |
+| Preview | Sanitized derived AST, rich block output and render generation | 250 ms debounce; source/AST/math/diagram caps; old output discarded on change/unmount |
+| React editor mode | Edit/Preview/Split choice | Local temporary state; source view stays mounted across modes |
+| Zustand | Sidebar visibility | No persistence middleware; reset on private cleanup |
+| nuqs | UUID note selection in `?note=` | Shallow replace; no title/body/session tokens in URL |
+| React showcase/theme state | Public samples and temporary theme choice | Reload resets; no browser persistence |
+| Redis | Admission counters | Expiring coordination; never canonical notes or default session authority |
 
-Private Storage and BullMQ workers remain later-phase components. No IndexedDB,
-localStorage/sessionStorage knowledge persistence, Query persister or durable mutation
-queue is implemented. Account fetch helpers return values/errors and own no state store.
+Private Storage/BullMQ remain later phases. No IndexedDB, localStorage/sessionStorage
+knowledge persistence, query persister, durable replay queue or private service-worker
+cache is introduced. Preview does not own save state or a persistent HTML cache.
 
-## Lease and cleanup
+## Identity lease and cleanup
 
-[WorkspaceShell](../../src/components/workspace/WorkspaceShell.tsx) creates one QueryClient
-per mounted workspace. It reads a safe server session projection, then issues a lease
-containing the owner, generation and AbortController. Session checks run on initial mount,
-window focus, a 60-second timer and before each note operation. A sequence number rejects
-older session-check responses. The cookie and backend verification remain authoritative;
-the lease controls whether this component may accept asynchronous results.
+[WorkspaceShell](../../src/components/workspace/WorkspaceShell.tsx) constructs one mounted
+QueryClient, verifies a safe session projection and issues an owner/generation/AbortController
+lease. Initial, focus, periodic and pre-operation checks reject older responses. Note API
+helpers recheck the lease before/after verification and response parsing. Backend verification
+and SQL owner controls remain independent authority; the UI lease only determines whether
+an asynchronous completion may enter this screen.
 
-Owner changes and sign-out increment the generation, abort the old lease, cancel and clear
-queries, reset transient UI, clear selection and unmount the old editor. An initial session
-check preserves a valid deep-link selection. Note API helpers assert that their lease is
-still current before/after session verification and after the API response; query abort
-signals are combined with lease cancellation. Therefore a late response cannot populate
-the new owner's memory. Sign-out clears private state before asking the server to revoke
-the session; a failed logout is visibly unconfirmed and requires verification before reuse.
+Logout/account changes increment generation, abort/cancel/clear private queries, reset
+sidebar/URL state and unmount editor/preview. Late saves/renders cannot repopulate a later
+identity's UI. Sign-out clears private state before server revocation; failure is shown as
+unconfirmed. Transient verification outage retains same-tab work but grants no offline
+permission. This lifecycle is not forensic RAM erasure or rollback of a sent SQL operation.
 
-A temporary verification/network failure reports an error. It does not invent a new session
-or persist credentials in UI state. Every subsequent note operation still verifies identity.
-Unsaved same-tab work can remain visible while retrying; changing identity clears it.
+## Acknowledged base versus live draft
 
-## Save, conflicts and uncertainty
+Query data seeds the controller. Typing increments a local sequence, independent of server
+revision. A captured operation contains normalized title/content and its sequence plus
+create key or `{id,expectedRevision}`. One active promise serializes write/reconciliation.
+Debounce waits 1,500 ms after edit/composition completion; automatic starts are spaced by
+5,000 ms. Explicit save flushes delay, respects active cooldown and coalesces with an active
+operation instead of overlapping. Invalid input waits for a new edit; failures pause.
 
-Query data supplies an editor's initial snapshot. The editor then owns title/content and
-base revision; background refetch never silently overwrites that draft. Explicit navigation
-asks before discarding dirty work, and beforeunload requests the browser's native warning.
-This is a warning, not durable recovery or a guarantee against every navigation source.
+A response advances the base/revision and committed cache record. Returned text replaces
+current draft only if the local sequence still matches the captured sequence. Later typing
+remains dirty and schedules a follow-up using the new revision. `onSaved` therefore means
+acknowledged record, while `onDirty` alone governs draft guards. A first POST binds the new
+ID/URL without changing the editor key. Genuine accepted selection changes replace the
+editor lease; declining discard restores selection.
 
-A successful mutation is parsed, checked against the active owner and committed response,
-then updates detail memory and invalidates the list. “Saved” follows the response, never a
-pending optimistic write. Revision conflicts/read-after-uncertain-update expose the current
-server version. The owner explicitly chooses the server version or keeps the draft against
-the refreshed revision, then saves again. Matching later revision/content can reconcile a
-write whose response was lost. Ambiguous deletes read back the note to determine whether
-it remains accessible; absent/deleted records are reported as removed for this owner.
+Clean newer refetch can adopt server text; dirty newer refetch retains draft and exposes
+conflict. Older revisions do not roll the acknowledged base or detail cache backward.
+“Keep draft with latest revision” adopts the base but stays paused for explicit save;
+“Use server version” deliberately confirms discard. Confirmed missing/deleted records disable
+writes while retaining dirty source for copying.
 
-Uncertain creation freezes the original input and idempotency UUID in component memory.
-Retry sends exactly the same operation, allowing the server to replay the committed note
-rather than creating a duplicate. Editing stays disabled during unresolved create recovery.
-Closing the tab loses this in-memory recovery key; no offline queue is promised.
+## Uncertain outcomes, admission and delete
+
+Uncertain POST retains the exact original input/key separately from editable typing. Retry
+uses that pair; a differing replay is a conflict. Uncertain PATCH retries a read first.
+Matching snapshot plus newer revision acknowledges observed persistence while retaining newer
+local edits; a different value requires review. Failed reconciliation stays paused. A 429
+uses a monotonic Retry-After deadline; expiry does not automatically replay the failed write.
+
+Delete cancels pending scheduling, awaits active save/reconciliation, then uses the latest
+confirmed revision after confirmation. Uncertain deletion stores a reconciliation candidate
+and reads before further mutations. Navigation and beforeunload guards include unresolved
+operations; approved discard loses in-memory recovery. No unload-save promise exists.
+
+## Disposable rich rendering
+
+The preview debounces separately and immediately hides a prior source generation. Sanitized
+HAST becomes controlled React output; links/images receive an additional URL check. Lazy
+math output belongs to its expression lifecycle. Explicit Mermaid attempts share a serialized
+renderer queue because its configuration is singleton, with generation checks before/after
+async work. Disposable nonce-bearing measurement DOM is removed immediately on unmount;
+late output is discarded. Sanitized SVG lives only in a scriptless sandbox frame. No global
+private preview cache or background persistence worker is added.
 
 ```text
-Server session projection -> owner/generation lease
-                                  |
-PostgreSQL -> note API -> owner-scoped Query memory -> editor draft
-                                                        |
-                                         explicit save + expected revision
-                                                        |
-                                committed response -> cache update/invalidation
-
-Logout / new owner -> abort lease -> cancel/clear cache -> unmount draft -> reset UI/URL
+Verified session -> owner/generation lease -> scoped Query memory
+PostgreSQL -> existing note API -> acknowledged base
+                                      |
+CodeMirror typing -> live draft + local sequence -> bounded preview generation
+                                      |
+                   debounce/spacing -> immutable operation
+                                      |
+                    existing verified API -> PostgreSQL commit
+                                      |
+              acknowledge base/cache -> retain any newer draft -> next snapshot
+Conflict/uncertainty -> pause -> read/explicit decision -> deliberate save
+Logout/switch -> invalidate lease -> cancel/clear queries -> unmount source/preview
 ```
 
-See [auth](../integrations/supabase-auth.md), [database](../integrations/supabase-database.md),
-[security](security-architecture.md) and the [active plan](../../.agent/active/phase-01-foundation.md)
-for verified-provider, RLS and complete acceptance evidence. Unit fixtures do not prove
-production provider isolation or uptime.
-
-A temporary editor-selection lease delays URL-driven remount while discard is confirmed;
-nuqs remains canonical and declining restores that URL. Clean refetch adopts only newer
-revisions; dirty drafts keep their baseline. Confirmed deletion disables writes but leaves
-unsaved text recoverable. [Workspace safeguards](../features/notes-workspace.md#refresh-and-navigation-safeguards)
-own the exact behavior.
+[Auth](../integrations/supabase-auth.md), [database](../integrations/supabase-database.md)
+and [security](security-architecture.md) distinguish local fixtures, effective RLS checks,
+live-provider and production evidence. Exact runs belong to dated execution records.

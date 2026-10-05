@@ -1,6 +1,6 @@
 # Dependency record
 
-Current locked inventory through Phase 1; metadata/license verification dates are recorded below. This documentation review does not recheck registry metadata or audits. All dependencies run locally without paid tiers or accounts. UI packages remain browser-compatible; Zod config and server-only are used on the Node server; tooling runs at development/build time. No external fonts or services are needed.
+Current locked inventory through Phase 2 implementation; metadata/license verification dates are recorded below. This documentation review does not recheck registry metadata or audits. All dependencies run locally without paid tiers or accounts. UI packages remain browser-compatible; Zod config and server-only are used on the Node server; tooling runs at development/build time. No external fonts or services are needed.
 
 | Package | Exact version | License | Scope |
 |---|---|---|---|
@@ -30,6 +30,23 @@ Current locked inventory through Phase 1; metadata/license verification dates ar
 | @testing-library/jest-dom | 7.0.1 | MIT | development |
 | @testing-library/react | 16.3.3 | MIT | development |
 | @testing-library/user-event | 14.6.7 | MIT | development |
+| @codemirror/commands | 6.11.1 | MIT | browser source/history/keymaps |
+| @codemirror/lang-markdown | 6.5.2 | MIT | browser Markdown syntax |
+| @codemirror/language | 6.12.4 | MIT | browser syntax highlighting |
+| @codemirror/state | 6.7.6 | MIT | browser editor transactions |
+| @codemirror/view | 6.43.13 | MIT | browser source view and CSP nonce styles |
+| @lezer/highlight | 1.2.5 | MIT | browser semantic syntax tags |
+| unified | 11.0.5 | MIT | browser Markdown AST pipeline |
+| remark-parse | 11.0.0 | MIT | browser Markdown parser |
+| remark-gfm | 4.0.1 | MIT | browser tables/checklists/strikethrough |
+| remark-math | 6.0.0 | MIT | browser math AST |
+| remark-rehype | 11.1.2 | MIT | browser Markdown-to-HAST conversion |
+| rehype-sanitize | 6.0.0 | MIT | browser explicit preview capability schema |
+| hast-util-to-jsx-runtime | 2.3.6 | MIT | browser controlled React rendering |
+| katex | 0.19.0 | MIT | lazy local bounded math; local CSS/fonts |
+| mermaid | 12.1.0 | MIT | lazy explicit local diagram rendering |
+| dompurify | 3.4.16 | MPL-2.0 OR Apache-2.0 | browser generated-SVG sanitation |
+| @types/katex | 0.16.8 | MIT | development KaTeX declarations |
 | @types/node | 26.6.4 | MIT | development |
 | @types/react | 19.3.0 | MIT | development |
 | @types/react-dom | 19.3.0 | MIT | development |
@@ -115,3 +132,32 @@ Official project references: [TanStack Query](https://tanstack.com/query/latest/
 [Zustand](https://github.com/pmndrs/zustand), [nuqs](https://nuqs.dev/docs/adapters),
 [Swagger React distribution](https://github.com/swagger-api/swagger-ui/tree/master/flavors/swagger-ui-react),
 [Zod JSON Schema](https://zod.dev/json-schema).
+
+
+## Phase 2 editor dependencies — 2026-10-05
+
+Direct versions above match `package.json` and the lockfile. Metadata/license/runtime
+verification was performed during Phase 2 installation; these are local libraries and
+require no hosted account, fee or credit card. Mermaid 12.1.0 declares Node >=22.12.0;
+installed Node 22.22.3 and the project's >=22.15.0 engine satisfy it. Existing React19,
+strict TypeScript and direct CodeMirror integration avoid adding a wrapper peer boundary.
+DOMPurify's declared license is MPL-2.0 OR Apache-2.0; other editor additions are MIT.
+
+CodeMirror/unified form the authenticated client editor/preview path. KaTeX/Mermaid are
+loaded only for math/explicit diagrams; KaTeX CSS and fonts are bundled from the local
+workspace import. No CDN, remote font/icon pack, render telemetry, attachment proxy or
+new service is selected. Sanitizer/parser dependencies stay client-side and never replace
+server Zod/auth/owner controls. Mermaid requires real connected DOM sizing plus the
+nonce-aware disposable subtree adapter; this installed-version assumption must be checked
+on upgrades. CSP never adds production script eval for a renderer.
+
+Installation audit reported zero vulnerabilities; full fresh audit/build/browser evidence
+and any later failures belong in the [active Phase 2 plan](../../.agent/active/phase-02-editor.md).
+This inventory does not claim completion of those checks, provider acceptance, free hosting
+or an operational worker. [ADR-027](../decisions/ADR-027-editor-autosave-and-safe-rendering.md)
+and [editor behavior](../features/editor.md) own the trade-offs.
+
+Official API references: [CodeMirror lifecycle/configuration](https://codemirror.net/docs/ref/),
+[unified](https://github.com/unifiedjs/unified), [rehype-sanitize](https://github.com/rehypejs/rehype-sanitize),
+[KaTeX options](https://katex.org/docs/options), [Mermaid configuration](https://mermaid.js.org/config/configuration.html),
+[DOMPurify](https://github.com/cure53/DOMPurify).

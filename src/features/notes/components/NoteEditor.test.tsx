@@ -1,9 +1,14 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import { NoteEditor } from "./NoteEditor";
 import { ApiError } from "../../../lib/api/client";
 import type { NotesApi } from "../api";
+vi.mock("next/dynamic", () => ({default: () => function PreviewFixture({content}:{content:string}) {if(content === "broken preview") throw new Error("Preview chunk/render failure"); return <p>{content}</p>;}}));
+vi.mock("../../editor/components/CodeMirrorEditor", () => ({
+  CodeMirrorEditor: ({value,onChange}:{value:string;onChange:(value:string)=>void}) => <textarea aria-label="Markdown content" value={value} onChange={event=>onChange(event.target.value)} />,
+}));
+beforeEach(() => vi.spyOn(window, "confirm").mockReturnValue(true));
 const note = {
   id: "33333333-3333-4333-8333-333333333333",
   userId: "11111111-1111-4111-8111-111111111111",
@@ -101,7 +106,7 @@ it("retries uncertain create with the original operation key and frozen payload"
   await user.type(screen.getByLabelText("Markdown content"), "Draft");
   await user.click(screen.getByRole("button", { name: "Save note" }));
   await user.click(
-    await screen.findByRole("button", { name: "Retry same create" }),
+    await screen.findByRole("button", { name: "Retry save" }),
   );
   await waitFor(() => expect(calls).toHaveLength(2));
   expect(calls[1]).toEqual(calls[0]);
@@ -128,7 +133,7 @@ it("retains the original create draft when idempotent replay returns a concurren
   await user.type(screen.getByLabelText("Markdown content"), "Original draft");
   await user.click(screen.getByRole("button", { name: "Save note" }));
   await user.click(
-    await screen.findByRole("button", { name: "Retry same create" }),
+    await screen.findByRole("button", { name: "Retry save" }),
   );
   await screen.findByRole("button", {
     name: "Keep draft with latest revision",
@@ -178,4 +183,50 @@ it("retains a dirty draft but disables writes when the note is confirmed unavail
   expect(screen.getByLabelText("Markdown content")).toHaveValue("Body retain");
   expect(screen.getByRole("button", { name: "Save note" })).toBeDisabled();
   expect(screen.getByText("Note no longer available")).toBeInTheDocument();
+});
+it("allows editing while a save is in flight and never labels a newer draft saved", async () => {
+  const user = userEvent.setup();
+  let finish!: (value: typeof note) => void;
+  render(<NoteEditor note={note} api={api({update: () => new Promise(resolve => {finish = resolve;})})} onSaved={vi.fn()} onDeleted={vi.fn()} onDirty={vi.fn()} />);
+  await user.type(screen.getByLabelText("Markdown content"), " first");
+  await user.click(screen.getByRole("button", {name: "Save note"}));
+  expect(screen.getByLabelText("Markdown content")).not.toBeDisabled();
+  await user.type(screen.getByLabelText("Markdown content"), " newer");
+  finish({...note, content: "Body first", revision: 2});
+  await waitFor(() => expect(screen.getByLabelText("Markdown content")).toHaveValue("Body first newer"));
+  expect(screen.queryByText("Saved to server")).not.toBeInTheDocument();
+});
+it("does not autosave an unfinished title composition", async () => {
+  vi.useFakeTimers();
+  const update=vi.fn(async()=>({...note,title:"Composed title",revision:2}));
+  const {fireEvent,act}=await import("@testing-library/react");
+  render(<NoteEditor note={note} api={api({update})} onSaved={vi.fn()} onDeleted={vi.fn()} onDirty={vi.fn()}/>);
+  fireEvent.compositionStart(screen.getByLabelText("Title"));
+  fireEvent.change(screen.getByLabelText("Title"),{target:{value:"Composed title"}});
+  await act(()=>vi.advanceTimersByTimeAsync(2000));
+  expect(update).not.toHaveBeenCalled();
+  fireEvent.compositionEnd(screen.getByLabelText("Title"));
+  await act(()=>vi.advanceTimersByTimeAsync(1500));
+  expect(update).toHaveBeenCalledTimes(1);
+  vi.useRealTimers();
+});
+it("shows the remaining rate-limit cooldown instead of leaving a disabled save unexplained", async()=>{
+ const user=userEvent.setup();
+ render(<NoteEditor note={note} api={api({update:async()=>{throw new ApiError("rate_limited",429,undefined,5);}})} onSaved={vi.fn()} onDeleted={vi.fn()} onDirty={vi.fn()}/>);
+ await user.type(screen.getByLabelText("Title")," changed");await user.click(screen.getByRole("button",{name:"Save note"}));
+ expect(await screen.findByText(/Retry available in 5 seconds/)).toBeInTheDocument();
+});
+
+it("a rejected preview preserves title, source, dirty state and save functionality", async()=>{
+ const user=userEvent.setup();const saved=vi.fn();const dirty=vi.fn();
+ const error=vi.spyOn(console,"error").mockImplementation(()=>{});
+ render(<NoteEditor note={note} api={api({update:async (_id,input)=>({...note,title:input.title??note.title,content:input.content??note.content,revision:2})})} onSaved={saved} onDeleted={vi.fn()} onDirty={dirty}/>);
+ await user.clear(screen.getByLabelText("Markdown content"));await user.type(screen.getByLabelText("Markdown content"),"broken preview");
+ await user.click(screen.getByRole("button",{name:"Preview"}));
+ expect(screen.getByText(/Preview unavailable/)).toBeInTheDocument();
+ await user.click(screen.getByRole("button",{name:"Edit"}));
+ expect(screen.getByLabelText("Markdown content")).toHaveValue("broken preview");expect(screen.getByLabelText("Title")).toHaveValue("Title");expect(dirty).toHaveBeenLastCalledWith(true);
+ await user.click(screen.getByRole("button",{name:"Save note"}));await waitFor(()=>expect(saved).toHaveBeenCalledWith(expect.objectContaining({content:"broken preview"})));
+ expect(screen.getByText("Saved to server")).toBeInTheDocument();
+ error.mockRestore();
 });

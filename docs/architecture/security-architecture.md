@@ -1,8 +1,8 @@
 # Security Boundaries and Acceptance
 
-**Current inspection:** 2026-10-05, through 1E. Auth/cookie validation, server-only configuration,
+**Current inspection:** 2026-10-05, through Phase 2 implementation; complete Phase 2 local acceptance passed. Auth/cookie validation, server-only configuration,
 scoped SQL controls and HTTP/Pino/Redis admission are implemented. Private UI/cache lifecycle and revision-safe note APIs are implemented.
-Rendering/files/jobs and deployment controls remain planned. This is
+Bounded Markdown/math/diagram rendering and workspace CSP are implemented; files/jobs and deployment controls remain planned. This is
 not a complete security certification. Exact historical checks live in the [phase record](../phases/phase-01-foundation.md).
 
 ## Assets, threat model and trust
@@ -65,14 +65,14 @@ cannot; local secret-file protection is a separate boundary from SQL transaction
 | Foreign note access in scoped query | USING/WITH CHECK owner policy, constrained role and column grants | RLS trusts supplied claims; admins bypass; repository also filters owner/active rows |
 | Cross-request claim leakage | Clean initial role/settings check and LOCAL role/claims | Rejects observed dirty state; not universal session-setting audit |
 | Orphan/invalid SQL records | Foreign keys and length/revision/time checks | Atomic revisions/keyed create replay implemented; UI drafts/conflicts and generation-scoped cleanup implemented |
-| Private SQL error serialization | Fixed DatabaseFailure and safe reason, raw cause omitted | Business exceptions also wrapped; future HTTP mapping not implemented |
+| Private SQL error serialization | Fixed DatabaseFailure and safe reason, raw cause omitted | Business exceptions are mapped to fixed HTTP outcomes; raw SQL causes are not exposed |
 | Credential loss on setup failure | Private fsynced pending file, transactional role/grant, atomic publication | Manual recovery, race/power-loss/backup limits remain |
 | Server imports in browser | server-only compiler guard + fixture/output tests | Explicit serialization and framework/deployment logs need independent review |
 
 Exact rules and error cleanup are owned by the [auth guide](../integrations/supabase-auth.md)
 and [database guide](../integrations/supabase-database.md), not duplicated here. Note bounds
 are owned by the [model contract](../features/note-model.md). Validation is not permission
-and does not sanitize Markdown. Current shared schemas are not yet a note API/form pipeline.
+and does not sanitize Markdown. The note API and editor controller use the shared schemas; renderer sanitization is a separate boundary.
 
 ## Failure and availability posture
 
@@ -80,7 +80,7 @@ Authentication rejects unavailable identity verification; it does not authorize 
 old browser projection. Cookie cleanup depends on branch/guard order—early config/Origin
 rejection is different from provider failure inside logout. The SQL wrapper refuses unsafe
 roles/pooled state and rejects transaction failures without exposing private values. It does
-not automatically retry mutations; uncertain commit outcomes need future reconciliation.
+not automatically retry mutations; current client reconciliation reads uncertain persisted outcomes before another update/delete.
 Credential setup retains pending secrets rather than overwriting/rotating blindly.
 
 Current auth handlers use bounded HTTP input, Redis admission and an allowlisted Pino facade.
@@ -89,8 +89,8 @@ framework/access-log scrubber exists. In particular,
 callback URLs contain code/state and logging exposure must be assessed in future deployment/
 HTTP work. Auth SDK per-fetch and DB per-statement limits are not total-operation deadlines.
 
-No permanent private page renders notes or holds an account cache yet. Existing public
-showcase stores only memory samples. Future private data in browser memory/DOM is still
+The protected workspace renders private notes with memory-only query/draft/preview state.
+The public showcase stores only samples. Private data in browser memory/DOM remains
 exposed to XSS/device compromise even without IndexedDB. No forensic memory-erasure,
 DDoS immunity or provider-compromise protection is promised.
 
@@ -110,7 +110,7 @@ These are the current IDs; historical vault-specific SEC checks are superseded.
 | SEC-07 | Rate limits/Retry-After, trusted IP handling and outage policy | 1D auth/default-forwarding/outage and local real Redis count/TTL/recovery verified; basic fallback helper tested; 1E note basic caller/degraded header verified; hosted ingress/TLS/quota evidence remains open |
 | SEC-08 | Concurrent revisions cannot silently overwrite; uncertain writes/drafts reconcile | 1E multi-connection atomic revision/delete races and lost-response create reconciliation verified; UI conflicts/uncertainty implemented in 1G; browser evidence in active plan |
 | SEC-09 | Owner-scoped private files/jobs/results, retries/outbox and safe payloads | Planned Phase 4; no Storage/BullMQ runtime |
-| SEC-10 | Sanitized rendering/plugin permissions/provider consent | Planned with editor/AI/plugins; no renderer/BYOK integration |
+| SEC-10 | Sanitized rendering/plugin permissions/provider consent | Rendering portion implemented in Phase 2 with bounded AST, controlled URLs/images, trusted bounded math, SVG sanitation/scriptless sandbox and nonce CSP; complete-phase local browser evidence passed on 2026-10-05; see the Phase 2 record. AI consent/BYOK/plugins remain planned |
 
 Passing 1E does not complete SEC-01–08 or authorize production deployment. Local HTTP and
 loopback PostgreSQL TLS exceptions are deliberate; production evidence must be real.
@@ -137,8 +137,8 @@ SEC-01–08 or production gate. External framework/proxy logs remain to be contr
   fails closed on limiter outage; basic API fallback must keep unchanged authentication/ownership.
 - Storage URLs and worker references need independent authorization, bounded expiry/input,
   revision/deletion rechecks, idempotency and durable reconciliation.
-- Markdown/HTML/link/plugin rendering needs explicit controls before rendering arrives.
-  Cloud AI needs explicit consent; saved BYOK needs a separate approved secret-management design.
+- Markdown rendering now follows the implemented boundary below. Future plugin execution needs independent permissions;
+  cloud AI requires explicit consent, and saved BYOK a separate approved secret-management design.
 
 [Architecture](../../ARCHITECTURE.md) · [State](state-management.md) ·
 [ADR-018](../decisions/ADR-018-full-stack-server-storage.md) ·
@@ -180,10 +180,65 @@ Logout and confirmed identity changes clear memory and unmount drafts; transient
 failures keep existing same-tab drafts while new operations must reverify online.
 No persister, service-worker private cache or mutation replay queue is installed.
 
-Note input uses shared Zod validation; Markdown remains textarea/plain React text and is
-not rendered as HTML. Revision conflicts and uncertain acknowledgements cannot silently
+Note input uses shared Zod validation; stored Markdown remains unchanged and the Phase 2
+renderer independently sanitizes its derived preview. Revision conflicts and uncertain acknowledgements cannot silently
 overwrite. The API console is production-disabled by default and rejects foreign origins
 and OAuth redirect requests, including trailing-slash forms. Its actual configuration
 disables remote validation and saved authorization. Generated examples contain placeholders,
 not credentials or real private note records. Actual runtime tests and remaining hosting
 evidence are recorded in the [active plan](../../.agent/active/phase-01-foundation.md).
+
+
+## Rich-content and workspace CSP boundary — Phase 2
+
+Treat every fetched/current Markdown draft as untrusted, including owner-authored notes.
+Zod controls save shape/size; it does not establish execution safety. Parse/GFM/math →
+remark-rehype without raw HTML → explicit rehype-sanitize → controlled React components.
+Raw HTML is omitted. Code fences remain text. Link/image adapters independently reject
+unsafe/obfuscated schemes, controls, protocol-relative and credential-bearing URLs.
+Permitted external navigation uses noopener/noreferrer and no-referrer. Images never
+become resource-loading `img` elements; only an explicit permitted HTTPS source action exists.
+
+Preview admits at most 256 KiB UTF-8, 2,000 markup delimiters and 5,000 lines before parsing,
+then at most 20,000 AST nodes. Dense-markup admission was added after the adversarial AST
+fixture exceeded a unit timeout during concurrent service startup. These are preview-only
+bounds: note saves retain the existing 1 MiB capacity. They reduce input work but do not
+preempt parser CPU or establish a hard deadline.
+
+KaTeX is lazy and local, capped at 4 KiB/expression with trust disabled, maxExpand100 and
+maxSize10. Its trusted generated HTML/MathML is the sole audited HTML sink; arbitrary note
+HTML/styles never reach it. CSS/fonts ship locally. Errors show escaped source/fixed copy,
+without logging expression or renderer exceptions.
+
+Mermaid starts only on explicit action, with fixed strict config, HTML labels disabled,
+10 KiB/200-edge limits and three admitted attempts per preview generation. Note init,
+frontmatter, custom style, click/HTML/resource/icon/image input is rejected before connecting
+a measurement subtree. Its generated stylesheet receives the workspace nonce through
+subtree-only insertion hooks. Instance-only serialization omits styles from a clone before Mermaid’s internal sanitizer reparses nonce-hidden HTML; live CSS remains for sizing. No global DOM override or binding callbacks are used.
+DOMPurify's SVG profile plus explicit stripping removes scripts/events/foreignObject,
+styles, animation/images, external URLs and active hrefs. Only marker-start/mid/end's
+canonical local fragment references to an existing marker are retained for arrow direction.
+Fixed geometry/text presentation attributes replace custom diagram CSS.
+
+The sanitized SVG enters an empty-permissions sandbox iframe with no same-origin access.
+Its separate policy denies default resources, scripts, connections, images/fonts, objects,
+base and forms; only fixed inline layout styles are used. Source changes/unmount remove old
+rich output and connected measurement DOM immediately; generation checks discard late results.
+The Mermaid measurement adapter is tied to installed renderer behavior and requires actual
+browser checks on upgrades. No raw source/SVG/error object is logged or permanently cached.
+
+Workspace Proxy overwrites incoming nonce/CSP headers with a fresh nonce, passes the policy
+to Next and sets response CSP plus private no-store. Async workspace headers make that
+shell dynamic; no private note data is server-fetched/embedded merely by nonce propagation.
+Production script policy has nonce/strict-dynamic without unsafe-inline/eval. Stylesheets
+use self/nonce and style attributes have the explicit unsafe-inline compatibility allowance
+for locally generated UI/KaTeX layout; Markdown styles remain forbidden. Development-only
+eval is absent in production. Native OAuth redirect chains permit form-action only to self, the configured Supabase origin and Google accounts. Same-origin Referrer-Policy preserves the native POST Origin required by the unchanged exact-Origin guard; external preview links and diagram frames use no-referrer. Public routes and opt-in Swagger retain their own boundaries.
+
+Sanitization, CSP and sandbox limit rendering capability; they do not replace backend
+session/Origin/owner/RLS checks or protect against every same-origin XSS/device compromise.
+Complete browser CSP/network/identity acceptance is tracked in the
+[Phase 2 plan](../../.agent/active/phase-02-editor.md), separate from historical Phase 1,
+live Google and hosted/production evidence. Files/jobs SEC-09 and AI/plugin portions of
+SEC-10 remain outside this implementation. [Editor](../features/editor.md) and
+[ADR-027](../decisions/ADR-027-editor-autosave-and-safe-rendering.md) own behavior/decisions.

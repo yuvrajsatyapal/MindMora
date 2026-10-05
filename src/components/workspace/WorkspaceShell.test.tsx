@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { NuqsTestingAdapter } from "nuqs/adapters/testing";
@@ -245,3 +246,5 @@ it.each([false, true])(
     }
   },
 );
+
+vi.mock("../../features/editor/components/CodeMirrorEditor", () => ({CodeMirrorEditor: ({value,onChange}: ComponentProps<typeof import("../../features/editor/components/CodeMirrorEditor").CodeMirrorEditor>) => <textarea aria-label="Markdown content" value={value} onChange={event=>onChange(event.target.value)}/> }));

@@ -17,7 +17,7 @@ type Lease = {
   generation: number;
   controller: AbortController;
 };
-export function WorkspaceShell() {
+export function WorkspaceShell({ nonce }: { nonce?: string } = {}) {
   const [query] = useState(
     () =>
       new QueryClient({
@@ -182,6 +182,7 @@ export function WorkspaceShell() {
           <NotesWorkspace
             key={`${scope.ownerId}:${scope.generation}`}
             scope={scope}
+            nonce={nonce}
             dirtyRef={dirtyRef}
           />
         </QueryClientProvider>
