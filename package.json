@@ -24,12 +24,14 @@
     "api:generate": "node --experimental-strip-types scripts/generate-api-docs.mjs",
     "api:check": "node --experimental-strip-types scripts/generate-api-docs.mjs --check",
     "test:contract": "node --experimental-strip-types scripts/test-api-contract.mjs",
-    "test:api-collection": "node --experimental-strip-types scripts/test-api-collection.mjs"
+    "test:api-collection": "node --experimental-strip-types scripts/test-api-collection.mjs",
+    "db:backfill:knowledge": "node --env-file=.env --conditions=react-server --experimental-strip-types scripts/backfill-knowledge.mjs"
   },
   "engines": {
     "node": ">=22.15.0"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "6.20.3",
     "@codemirror/commands": "6.11.1",
     "@codemirror/lang-markdown": "6.5.2",
     "@codemirror/language": "6.12.4",

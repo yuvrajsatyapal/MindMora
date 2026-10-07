@@ -3,12 +3,12 @@
 MindMora is a personal knowledge workspace in development. The product roadmap includes
 Markdown notes, linked ideas, graph/canvas, tasks and optional AI with server-authoritative
 storage. Today the protected workspace supports Google sign-in, CodeMirror Markdown editing,
-safe rich preview, server-confirmed autosave and revision-conflict recovery. The shared UI showcase remains sample-only.
+safe rich preview, server-confirmed autosave, revision-conflict recovery, wiki links, backlinks, inline tags and complete-corpus keyword search. The shared UI showcase remains sample-only.
 
-**Current:** ✅ Phase 1 foundation and Phase 2 editor locally accepted: Node runtime, backend Google sessions,
+**Current:** ✅ Phases 1–3 locally accepted: Node runtime, backend Google sessions,
 owner-scoped PostgreSQL/RLS note APIs, Redis admission/Pino, protected `/workspace/`,
 memory-only state, revision-safe autosave/Save/conflict recovery and generated API tooling.
-Production hosting/security evidence is separate; see the [Phase 2 record](docs/phases/phase-02-editor.md).
+Knowledge reads/UI remain default-off until migration/backfill verification. Production hosting/security evidence is separate; see the [Phase 3 record](docs/phases/phase-03-knowledge.md).
 
 ## Run locally
 
@@ -151,3 +151,23 @@ a fresh live Google or production deployment acceptance.
 CodeMirror provides Markdown source, formatting and Edit/Preview/Split views. Valid changed drafts autosave after 1.5 seconds idle, with at least 5 seconds between automatic write starts. Save note or the primary-modifier+S shortcut flushes the same controller. Typing during a save is retained; Saved to server means the current draft matches an acknowledged PostgreSQL record. Conflicts, throttling and uncertain writes pause for explicit recovery. Drafts remain in memory only; refresh/close can lose unsaved text.
 
 Preview sanitizes Markdown, renders bounded local math and explicitly requested Mermaid diagrams, and never automatically fetches external images. Large/complex previews show a source-safe fallback; the existing 1 MiB save limit is unchanged. Workspace CSP uses request nonces; public pages remain prerendered. See [editor behavior and limitations](docs/features/editor.md), [design](docs/design/phase-02-editor.md), and [Phase 2 execution/evidence](.agent/active/phase-02-editor.md).
+
+## Phase 3 knowledge features
+
+The protected workspace now includes wiki-title completion/navigation, explicit missing-note
+creation, committed backlinks, inline tags and server-corpus keyword search. Phase 3's
+[execution record](.agent/active/phase-03-knowledge.md) owns local acceptance evidence and
+remaining hosted verification; [knowledge guide](docs/features/knowledge.md) explains behavior.
+
+The Phase 3 migration (`npm run db:migrate`) is required before running this code against
+an existing database, **even with knowledge reads/UI disabled**: canonical note operations
+already use the new schema and privilege inventory. Missing `0002_knowledge_features` can
+make `/api/notes/` return 503. Hosted application requires separate authorization.
+
+Knowledge reads/UI default off. After separately authorized migration/backfill verification,
+set `KNOWLEDGE_FEATURES_ENABLED=true`. The privileged repair command is
+`npm run db:backfill:knowledge`; it writes to the database configured in `.env`, preserves
+canonical note revisions/content and must not be run against hosted data casually.
+See [database rollout](docs/integrations/supabase-database.md) for the maintenance sequence.
+Normal saves under the new code maintain derived records transactionally. No workers,
+attachment storage, private browser persistence or AI services are needed for Phase 3.

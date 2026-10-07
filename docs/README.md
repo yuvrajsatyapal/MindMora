@@ -1,8 +1,8 @@
 # MindMora Documentation
 
-**Updated:** 2026-10-05. ✅ Phase 1 foundation and Phase 2 editor locally accepted.
+**Updated:** 2026-10-07. ✅ Phases 1–3 locally accepted.
 Local/browser acceptance and outstanding hosted/production evidence are recorded separately
-in the [Phase 2 record](phases/phase-02-editor.md).
+in the [Phase 3 record](phases/phase-03-knowledge.md).
 
 | Document | Job |
 |---|---|
@@ -54,3 +54,9 @@ Historical static build/test evidence applies to the earlier UI milestone. Miles
 [Local-first history](architecture/local-first-architecture.md), [ADR-001](decisions/ADR-001-static-export.md), [ADR-002](decisions/ADR-002-indexeddb-source-of-truth.md), [ADR-003](decisions/ADR-003-dexie.md) and [ADR-017](decisions/ADR-017-client-side-encryption.md) are ❌ superseded, not current instructions.
 
 ✅ Implemented / 🚧 In progress / 📋 Planned / ❌ Removed (or superseded with history). Implemented and validated are distinct; evidence is dated and identifies its test/provider boundary. An accepted ADR is not implemented behavior. Keep active execution checklists in `.agent/active/`; phase records report actual outcomes. Create later feature/AI/phase docs when their work begins, following spec §19.3; avoid speculative implementation claims.
+
+## Phase 3 integration — 2026-10-07
+
+[Phase 3 knowledge guide](features/knowledge.md) · [Phase 3 design](design/phase-03-knowledge.md) · [Phase 3 active acceptance](../.agent/active/phase-03-knowledge.md) · [ADR-028](decisions/ADR-028-knowledge-derivation-and-title-resolution.md).
+
+[Dated Phase 3 outcomes and validation](phases/phase-03-knowledge.md).

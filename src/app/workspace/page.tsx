@@ -1,3 +1,4 @@
+import {isKnowledgeEnabled} from "../../server/config";
 import "katex/dist/katex.min.css";
 import { headers } from "next/headers";
 import { Suspense } from "react";
@@ -8,7 +9,7 @@ export default async function WorkspacePage() {
   return (
     <Suspense fallback={<p role="status">Loading workspace…</p>}>
       <NuqsAdapter>
-        <WorkspaceShell nonce={nonce} />
+        <WorkspaceShell nonce={nonce} knowledgeEnabled={isKnowledgeEnabled()} />
       </NuqsAdapter>
     </Suspense>
   );

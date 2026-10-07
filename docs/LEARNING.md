@@ -1,6 +1,6 @@
 # Learning MindMora
 
-**Source inspected:** 2026-10-05, through Phase 2 editor implementation; complete Phase 2 local acceptance passed. Study the system that exists first: public UI,
+**Source inspected:** 2026-10-07, through Phase 3 knowledge implementation; see its execution record for local validation. Study the system that exists first: public UI,
 backend auth, shared contracts, scoped PostgreSQL note APIs, HTTP/admission/logging and startup probes. Protected workspace/editor and API tooling are implemented. [Architecture](../ARCHITECTURE.md) owns the system overview,
 [FILE_MAP](FILE_MAP.md) owns navigation, and subsystem guides own exact operating rules.
 
@@ -881,3 +881,74 @@ backend authorization; they do not replace it or establish exhaustive production
 Read [security](architecture/security-architecture.md#rich-content-and-workspace-csp-boundary--phase-2)
 for the exact trust boundary, [FILE_MAP](FILE_MAP.md#editor-source-autosave-and-safe-preview--phase-2)
 for callers and [active plan](../.agent/active/phase-02-editor.md) for fresh acceptance.
+
+## Phase 3: connecting knowledge without changing save authority
+
+### Canonical source and derived indexes
+
+A wiki link or tag is syntax inside Markdown, not a separate editable authority. The
+source is portable; extracted associations let SQL answer backlink/tag queries without
+loading/reparsing the library. `syntax.ts` parses Markdown regions and source positions,
+so a code example containing `[[Note]]` does not become a real reference. Sanitized preview
+is a different boundary: extracting a target does not grant permission to navigate to it.
+Read [syntax](../src/features/knowledge/syntax.ts), then
+[derivation](../src/server/knowledge/derivation.ts).
+
+### One commit versus two independently successful writes
+
+Saving a note and later writing its tags would let a failed second write leave search
+behind the saved source. The [note repository](../src/server/notes/repository.ts) uses the
+same transaction for both. It derives from the merged final content, protects any
+pre-read with expectedRevision compare-and-swap, and only publishes success after commit.
+A stale device loses the comparison and changes neither side. A missing PATCH content
+field means preserve existing content, not erase derived tags. `knowledge_revision` records
+which source revision the associations describe; it is not another editing version.
+
+### UUID identity versus a portable title reference
+
+The note's UUID persists through rename. `[[Title]]` instead asks for a currently unique
+owned title. Zero matches is missing and two matches are ambiguous. Dynamic resolution
+avoids silently attaching the same text to a permanent UUID or rewriting the user's
+source. This costs visible rename breakage. Inspect `resolve`/`backlinks` in the
+[knowledge repository](../src/server/knowledge/repository.ts). Self-links count; repeated
+references contribute an occurrence count, not multiple incoming-source rows.
+
+### Indexing versus semantic understanding
+
+PostgreSQL builds a weighted `simple` tsvector from title/content and a GIN index for
+keyword matching. Exact tag membership is a separate scoped join. This searches notes
+outside the loaded sidebar without a private browser corpus. It is not fuzzy/AI search
+or a universal language segmenter. Ranked cursor pages use the same numeric precision and
+query fingerprint, but are live pages, not a snapshot under concurrent editing.
+
+### Identity scope versus stale UI work
+
+The [knowledge client](../src/features/knowledge/api.ts) checks the current NoteScope before
+and after a request; [hooks](../src/features/knowledge/hooks.ts) put owner/generation in
+query keys. Logout/account change clears and aborts these reads. Abort cannot undo a
+committed SQL save; it prevents an obsolete response entering a new user's screen.
+[Wiki navigation](../src/features/knowledge/components/WikiLink.tsx) re-resolves before an
+explicit create, retains one original create key/input for uncertain retry and uses the
+existing source-discard guard for navigation. A new target can exist even if navigation
+is declined; the source must remain dirty.
+
+### Trust and compatibility
+
+HTTP authentication establishes who is requesting. Repository filters and SQL RLS then
+limit which notes/associations/counts are visible. A missing-title lookup and a tag count
+are private data too. Internal wiki buttons are not arbitrary raw hrefs, and snippets
+remain escaped text. New association RLS checks source ownership/revision; canonical
+hard DELETE remains forbidden. The privileged backfill is a distinct administrative
+boundary, never a runtime endpoint. It repairs old rows before the read gate is enabled
+and does not increment canonical revisions. Read [ADR-028](decisions/ADR-028-knowledge-derivation-and-title-resolution.md)
+and [rollout](integrations/supabase-database.md#phase-3-knowledge-rollout--implementation-hosted-application-separate).
+
+```text
+Markdown snapshot -> eligible syntax -> atomic canonical/derived commit
+ -> owner-scoped query -> plain projection -> memory-only result
+ -> dirty-guarded UUID selection -> existing editor/autosave
+```
+
+Exact Phase 3 evidence/limits: [active plan](../.agent/active/phase-03-knowledge.md).
+
+A stored search vector is a derived acceleration structure, not the note itself. A valid large note can exceed PostgreSQL's vector limit. Read the two SQL functions in [migration 0002](../supabase/migrations/0002_knowledge_features.sql): the ordinary path stores weighted tokens; the overflow path computes only query-relevant tokens from the full source. This preserves saves/search coverage at the cost of slower exceptional reads. SQL timeouts still apply.

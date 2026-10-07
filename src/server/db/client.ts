@@ -43,6 +43,8 @@ export function createDatabase(config: DatabaseConfig) {
        pg_has_role(session_user, 'mindmora_request', 'MEMBER') AS member,
        (has_table_privilege(session_user, 'public.notes', 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') OR has_any_column_privilege(session_user, 'public.notes', 'SELECT,INSERT,UPDATE,REFERENCES')) AS direct_notes,
        (has_table_privilege(session_user, 'public.profiles', 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') OR has_any_column_privilege(session_user, 'public.profiles', 'SELECT,INSERT,UPDATE,REFERENCES')) AS direct_profiles,
+       (has_table_privilege(session_user, 'public.note_links', 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') OR has_any_column_privilege(session_user, 'public.note_links', 'SELECT,INSERT,UPDATE,REFERENCES')) AS direct_links,
+       (has_table_privilege(session_user, 'public.note_tags', 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') OR has_any_column_privilege(session_user, 'public.note_tags', 'SELECT,INSERT,UPDATE,REFERENCES')) AS direct_tags,
        current_user = session_user AS clean_role,
        nullif(current_setting('request.jwt.claim.sub', true),'') IS NULL AND nullif(current_setting('request.jwt.claims', true),'') IS NULL AS clean_claims
        FROM pg_roles WHERE rolname = session_user`);
@@ -73,7 +75,9 @@ export function createDatabase(config: DatabaseConfig) {
             role.rolreplication ||
             !role.member ||
             role.direct_notes ||
-            role.direct_profiles
+            role.direct_profiles ||
+            role.direct_links ||
+            role.direct_tags
           )
             throw new DatabaseFailure("runtime-role");
           if (!role.clean_role || !role.clean_claims)

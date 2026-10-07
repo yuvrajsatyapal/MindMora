@@ -90,3 +90,7 @@ Logout/switch -> invalidate lease -> abort/clear/unmount source and preview
 [note API](notes-api.md) owns protocol; [API tooling](../integrations/api-tooling.md) owns
 Swagger/Postman generation. Server-readable notes, same-tab failure retention and refresh
 loss remain explicit product limits.
+
+## Phase 3 integration — 2026-10-07
+
+Phase 3 adds transient sidebar search/tag filters, committed backlinks and wiki completion/navigation when the default-off server capability is enabled. Search runs across owned active PostgreSQL notes rather than loaded sidebar pages. All result/wiki/backlink selection reaches the existing discard guard. Target creation acknowledgement invalidates knowledge state without marking the source draft clean. [Knowledge guide](knowledge.md) owns details.

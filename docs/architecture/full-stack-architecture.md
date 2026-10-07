@@ -1,7 +1,7 @@
 # Data Flows: Current Foundation and Planned Features
 
 **Current:** Phase 1 runtime/auth/scoped SQL, HTTP/admission/logging, protected note UI/cache
-and generated API tooling, plus Phase 2 snapshot-safe editor/autosave and local sanitized preview. **Planned below:** file storage and jobs. [ARCHITECTURE](../../ARCHITECTURE.md) is the primary
+and generated API tooling, plus Phase 2 snapshot-safe editor/autosave and local sanitized preview, and Phase 3 transactional knowledge reads/indexes. **Planned below:** file storage and jobs. [ARCHITECTURE](../../ARCHITECTURE.md) is the primary
 current system architecture; this companion owns future data-flow constraints and failure
 scenarios. [Model](../features/note-model.md), [database](../integrations/supabase-database.md)
 and [state](state-management.md) own existing model/SQL/state details.
@@ -92,3 +92,7 @@ and production cache/transport controls must be verified with actual provider co
 Editing now creates immutable operation snapshots through the memory-only controller. An acknowledged save advances its base revision but leaves newer local typing intact; dirty state clears only when current normalized draft matches that confirmed base. Automatic writes are serialized/debounced/spaced; failures pause instead of replaying on reconnect. Uncertain mutation recovery first observes owned persisted state. New-note ID binding retains the existing controller. The original note HTTP/SQL flow above is unchanged.
 
 Rich preview derives from unsaved source independently of persistence and is bounded/sanitized before controlled rendering. Math stays local; explicit Mermaid SVG is sanitized into a scriptless sandbox. Preview failures cannot unmount the editor/controller. Workspace-only nonce CSP makes that shell dynamic without changing public prerendering or fetching notes on the server. [Editor guide](../features/editor.md) owns exact render/save limits and failure behavior.
+
+## Phase 3 integration — 2026-10-07
+
+Phase 3 adds synchronous Markdown-derived links/tags/search fields and owned private reads to the canonical save transaction. This supplies current backlinks/tags/basic keyword search after acknowledgement, without BullMQ or a second persistence authority. [Current architecture](../../ARCHITECTURE.md#phase-3-knowledge-boundary--code-present-acceptance-recorded-separately) and [knowledge flow](../features/knowledge.md) own details. The file/job diagrams above remain future Phase 4, not Phase 3 implementation.

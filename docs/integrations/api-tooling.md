@@ -77,3 +77,7 @@ Shared Zod schemas + reviewed operation metadata
 
 See [auth/session integration](supabase-auth.md), [note API](../features/notes-api.md) and
 [security architecture](../architecture/security-architecture.md) for runtime boundaries.
+
+## Phase 3 integration — 2026-10-07
+
+Phase 3 expands the real adapter inventory from six to ten paths with thirteen supported operations. Shared knowledge request/response schemas join generated OpenAPI/Postman and runtime collection checks. Wiki-target/search terms use bounded same-origin POST bodies, and all examples are disposable placeholders. [Knowledge API](../features/knowledge.md) owns endpoint behavior.

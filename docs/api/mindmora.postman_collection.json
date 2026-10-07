@@ -1,6 +1,6 @@
 {
   "info": {
-    "name": "MindMora Phase 1",
+    "name": "MindMora auth, notes and knowledge",
     "description": "Disposable data only. Establish Google sign-in in the app. Keep cookies solely in a local Postman cookie jar; never export credentials. Callback placeholders are informational and cannot start a reusable session.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
@@ -309,6 +309,140 @@
             "type": "text/javascript",
             "exec": [
               "pm.test(\"documented response status\", () => pm.expect([200,400,401,403,404,405,409,413,415,429,500,503]).to.include(pm.response.code));",
+              "pm.test(\"private response is not cached\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "wikiTargets",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{baseUrl}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/knowledge/wiki-targets/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"kind\": \"resolve\",\n  \"targets\": [\n    \"Disposable API smoke\"\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"documented response status\", () => pm.expect([200,400,401,403,404,405,413,415,429,500,503]).to.include(pm.response.code));",
+              "pm.test(\"private response is not cached\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "noteBacklinks",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/notes/{{noteId}}/backlinks/"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"documented response status\", () => pm.expect([200,400,401,403,404,405,413,415,429,500,503]).to.include(pm.response.code));",
+              "pm.test(\"private response is not cached\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "listTags",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/tags/"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"documented response status\", () => pm.expect([200,400,401,403,404,405,413,415,429,500,503]).to.include(pm.response.code));",
+              "pm.test(\"private response is not cached\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "searchNotes",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{baseUrl}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/search/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"Disposable\",\n  \"limit\": 20\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"documented response status\", () => pm.expect([200,400,401,403,404,405,413,415,429,500,503]).to.include(pm.response.code));",
               "pm.test(\"private response is not cached\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\"));"
             ]
           }

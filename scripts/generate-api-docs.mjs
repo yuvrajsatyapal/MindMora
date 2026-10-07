@@ -25,8 +25,18 @@ const input = JSON.parse(
 );
 const validation = await import("../src/features/notes/validation.ts");
 const types = await import("../src/features/notes/types.ts");
+const knowledgeTypes = await import("../src/features/knowledge/types.ts");
+const knowledgeValidation = await import("../src/features/knowledge/validation.ts");
 const account = await import("../src/features/account/types.ts");
 const generatedSchemas = {
+  WikiTargets: knowledgeValidation.wikiTargetsSchema,
+  SearchInput: knowledgeValidation.searchInputSchema,
+  TargetSummary: knowledgeTypes.targetSummarySchema,
+  TargetPage: knowledgeTypes.targetPageSchema,
+  ResolutionPage: knowledgeTypes.resolutionPageSchema,
+  BacklinksPage: knowledgeTypes.backlinksPageSchema,
+  TagPage: knowledgeTypes.tagPageSchema,
+  SearchPage: knowledgeTypes.searchPageSchema,
   SessionProjection: account.sessionProjectionSchema,
   Note: types.noteSchema,
   NoteSummary: types.noteSummarySchema,
@@ -45,6 +55,7 @@ const notesSource = await readFile(
   resolve(root, "src/server/notes/routes.ts"),
   "utf8",
 );
+const knowledgeSource = await readFile(resolve(root, "src/server/knowledge/routes.ts"), "utf8");
 const expected = {
   "/api/auth/start": ["post"],
   "/api/auth/callback": ["get"],
@@ -52,8 +63,14 @@ const expected = {
   "/api/auth/logout": ["post"],
   "/api/notes": ["get", "post"],
   "/api/notes/{id}": ["get", "patch", "delete"],
+  "/api/knowledge/wiki-targets": ["post"],
+  "/api/notes/{id}/backlinks": ["get"],
+  "/api/tags": ["get"],
+  "/api/search": ["post"],
 };
 export function validateContract(document) {
+  if (!knowledgeSource.replace(/\s/g, "").includes('action==="search"||action==="targets"?"POST":"GET"'))
+    throw new Error("Real knowledge method admission changed: review contract route map.");
   if (
     !authSource.includes('action === "start" || action === "logout"') ||
     !authSource.includes('mutation ? "POST" : "GET"') ||
@@ -74,6 +91,12 @@ export function validateContract(document) {
     )
       throw new Error(`Contract method mismatch: ${path}`);
   }
+  for (const operations of Object.values(document.paths))
+    for (const operation of Object.values(operations))
+      for (const alternative of operation.security ?? [])
+        for (const scheme of Object.keys(alternative))
+          if (!document.components.securitySchemes[scheme])
+            throw new Error(`Unknown security scheme: ${scheme}`);
   function walk(value) {
     if (!value || typeof value !== "object") return;
     if (value.$ref) {
@@ -150,10 +173,14 @@ export async function generateDocuments() {
       let body;
       if (operation.requestBody) {
         header.push({ key: "Content-Type", value: "application/json" });
-        if (method === "post")
+        if (operation.operationId === "createNote")
           header.push({ key: "Idempotency-Key", value: "{{createKey}}" });
         const payload =
-          method === "post"
+          operation.operationId === "wikiTargets"
+            ? { kind: "resolve", targets: ["Disposable API smoke"] }
+            : operation.operationId === "searchNotes"
+              ? { query: "Disposable", limit: 20 }
+            : method === "post"
             ? { title: "Disposable API smoke", content: "" }
             : method === "patch"
               ? { title: "Disposable API smoke updated", expectedRevision: 1 }
@@ -191,7 +218,7 @@ export async function generateDocuments() {
     }
   const collection = {
     info: {
-      name: "MindMora Phase 1",
+      name: "MindMora auth, notes and knowledge",
       description:
         "Disposable data only. Establish Google sign-in in the app. Keep cookies solely in a local Postman cookie jar; never export credentials. Callback placeholders are informational and cannot start a reusable session.",
       schema:

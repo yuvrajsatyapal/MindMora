@@ -496,3 +496,24 @@ textarea.mm-input {
 .mm-image-placeholder { padding: var(--space-3); border: var(--border-width) dashed var(--border-control); }
 .mm-diagram-frame { width: 100%; height: var(--document-min-height); border: var(--border-width) solid var(--border); background: var(--surface); }
 @media (max-width: 767px) { .mm-editor-panes[data-mode="split"] { grid-template-columns: minmax(0, 1fr); } }
+
+/* Knowledge panels share document tokens and wrap within the narrow sidebar. */
+.mm-wiki-link { color: var(--accent-text); background: transparent; border: 0; padding: 0; font: inherit; text-decoration: underline; cursor: pointer; overflow-wrap: anywhere; }
+.mm-wiki-link:focus-visible, .mm-backlinks summary:focus-visible { outline: var(--focus-width) solid var(--accent); outline-offset: var(--space-1); }
+.mm-wiki-status:empty { display: none; }
+.mm-tag-list { display: flex; flex-wrap: wrap; gap: var(--space-2); list-style: none; padding: 0; margin: 0; }
+.mm-tag-list .mm-button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-text); }
+.mm-search-results, .mm-backlink-list { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--space-3); }
+.mm-search-results li, .mm-backlink-list li { min-width: 0; border-bottom: var(--border-width) solid var(--border); padding-bottom: var(--space-3); overflow-wrap: anywhere; }
+.mm-search-results .mm-button, .mm-backlink-list .mm-button { white-space: normal; text-align: left; max-width: 100%; }
+.mm-search-results p, .mm-backlink-list p { font-size: var(--text-sm); color: var(--text-muted); }
+.mm-backlinks { padding: var(--space-4); border: var(--border-width) solid var(--border); border-radius: var(--radius-md); min-width: 0; }
+.mm-backlinks summary { cursor: pointer; font-weight: var(--weight-strong); }
+.mm-draft-tags { display: grid; gap: var(--space-2); overflow-wrap: anywhere; }
+.mm-code-editor .cm-tooltip-autocomplete { background: var(--surface); color: var(--text); border: var(--border-width) solid var(--border-control); }
+.mm-code-editor .cm-tooltip-autocomplete > ul > li[aria-selected] { background: var(--accent-soft); color: var(--accent-text); }
+
+.mm-tag-list li { min-width: 0; max-width: 100%; }
+.mm-tag-list .mm-button { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.mm-code-editor .cm-tooltip-autocomplete { max-width: 100%; }
+.mm-code-editor .cm-tooltip-autocomplete > ul > li { white-space: normal; overflow-wrap: anywhere; }

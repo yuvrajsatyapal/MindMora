@@ -10,10 +10,14 @@ import { MathBlock } from './MathBlock';
 import { MermaidBlock } from './MermaidBlock';
 function text(node:Element):string { return node.children.map(child=>child.type==='text'?child.value:child.type==='element'?text(child):'').join(''); }
 function classes(node?:Element):string[] { const value=node?.properties.className; return Array.isArray(value)?value.map(String):[]; }
-function PreviewTree({tree,nonce}:{tree:Root;nonce?:string}) {
+function PreviewTree({tree,nonce,onWikiLink}:{tree:Root;nonce?:string;onWikiLink?:(target:string)=>void}) {
  const count=useRef(0);
  const claimRender=()=>{if(count.current>=3)return false;count.current++;return true;};
  return toJsxRuntime(tree,{Fragment,jsx,jsxs,passNode:true,components:{
+  span:({node,children}:{node?:Element;children?:ReactNode})=>{
+   const target=node?.properties.dataWikiTarget;
+   return typeof target==='string'&&onWikiLink?<button type='button' className='mm-wiki-link' onClick={()=>onWikiLink(target)}>{children}</button>:<span>{children}</span>;
+  },
   a:({href,children}:ComponentProps<'a'>)=>{
    const safe=typeof href==='string'?safeMarkdownUrl(href):undefined;
    return safe?<a href={safe} rel='noopener noreferrer' referrerPolicy='no-referrer' target={/^https:/i.test(safe)?'_blank':undefined}>{children}</a>:<span>{children}</span>;
@@ -36,16 +40,17 @@ function PreviewTree({tree,nonce}:{tree:Root;nonce?:string}) {
  }}) as ReactNode;
 }
 /** Disposable derived preview. A source change immediately hides the previous render generation. */
-export function MarkdownPreview({content,nonce}:{content:string;nonce?:string}) {
+export function MarkdownPreview({content,nonce,onWikiLink}:{content:string;nonce?:string;onWikiLink?:(target:string)=>void}) {
+ const wikiEnabled=Boolean(onWikiLink);
  const [result,setResult]=useState<{source:string;preview:PreviewResult|null}|null>(null);
  useEffect(()=>{
   const timer=setTimeout(()=>{
-   try{setResult({source:content,preview:parseMarkdown(content)});}catch{setResult({source:content,preview:null});}
+   try{setResult({source:content,preview:parseMarkdown(content,wikiEnabled)});}catch{setResult({source:content,preview:null});}
   },250);
   return ()=>clearTimeout(timer);
- },[content]);
+ },[content,wikiEnabled]);
  const current=result?.source===content?result.preview:undefined;
  return <div className='mm-markdown-preview'>
-  {current===undefined?<p role='status'>Updating preview…</p>:current===null?<p role='status'>Preview could not be rendered; source editing and saving remain available.</p>:current.limited?<p role='status'>Preview limit reached; source editing and saving remain available.</p>:<PreviewTree key={content} tree={current.tree} nonce={nonce}/>}
+  {current===undefined?<p role='status'>Updating preview…</p>:current===null?<p role='status'>Preview could not be rendered; source editing and saving remain available.</p>:current.limited?<p role='status'>Preview limit reached; source editing and saving remain available.</p>:<PreviewTree key={content} tree={current.tree} nonce={nonce} onWikiLink={onWikiLink}/>}
  </div>;
 }

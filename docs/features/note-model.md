@@ -70,3 +70,7 @@ never returned in note JSON or list summaries and are not authentication credent
 The unsalted digest is internal data, not an anonymity guarantee.
 See [migration](../../supabase/migrations/0001_note_create_idempotency.sql),
 [API](notes-api.md) and [ADR-024](../decisions/ADR-024-note-write-concurrency-and-reconciliation.md).
+
+## Phase 3 integration — 2026-10-07
+
+Phase 3 adds internal title_key, knowledge_revision and generated search_vector fields plus note_links/note_tags associations. The public Note schema remains unchanged. Derived revision tracks canonical revision; it is not a second edit version. Canonical/derived mutations commit together, and physical association replacement does not grant canonical hard deletion. [Knowledge model](knowledge.md) and migration0002 own details.

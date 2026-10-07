@@ -173,3 +173,7 @@ Useful follow-up questions: Why do local sequence and server revision solve diff
 problems? Why does aborting fetch not roll back a commit? Why is create idempotency different
 from update reconciliation? Why are sanitization and CSP complementary? Why does preview
 have smaller bounds than storage?
+
+## Phase 3 integration — 2026-10-07
+
+Phase 3 composes shared wiki grammar, safe internal preview actions and CodeMirror completion into this editor without changing autosave/recovery authority. Wiki navigation uses the existing dirty guard. Source labels stay plain text and the sanitizer allowlist remains unchanged. [Knowledge behavior](knowledge.md) owns resolution, tags/backlinks and explicit missing-target creation.

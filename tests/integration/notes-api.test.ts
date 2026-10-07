@@ -97,6 +97,8 @@ beforeAll(async () => {
 });
 afterAll(async () => {
   await database.close();
+  await admin`DELETE FROM note_links WHERE user_id IN (${ids[0]},${ids[1]})`;
+  await admin`DELETE FROM note_tags WHERE user_id IN (${ids[0]},${ids[1]})`;
   await admin`DELETE FROM auth.users WHERE id IN (${ids[0]},${ids[1]})`;
   await admin.end();
 });

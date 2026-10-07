@@ -1,6 +1,6 @@
 # Security Boundaries and Acceptance
 
-**Current inspection:** 2026-10-05, through Phase 2 implementation; complete Phase 2 local acceptance passed. Auth/cookie validation, server-only configuration,
+**Current inspection:** 2026-10-07, through Phase 3 implementation; local acceptance evidence lives in the Phase 3 execution plan. Auth/cookie validation, server-only configuration,
 scoped SQL controls and HTTP/Pino/Redis admission are implemented. Private UI/cache lifecycle and revision-safe note APIs are implemented.
 Bounded Markdown/math/diagram rendering and workspace CSP are implemented; files/jobs and deployment controls remain planned. This is
 not a complete security certification. Exact historical checks live in the [phase record](../phases/phase-01-foundation.md).
@@ -242,3 +242,7 @@ Complete browser CSP/network/identity acceptance is tracked in the
 live Google and hosted/production evidence. Files/jobs SEC-09 and AI/plugin portions of
 SEC-10 remain outside this implementation. [Editor](../features/editor.md) and
 [ADR-027](../decisions/ADR-027-editor-autosave-and-safe-rendering.md) own behavior/decisions.
+
+## Phase 3 integration — 2026-10-07
+
+Phase 3 extends existing SEC-01–08 ownership/session/validation/cache/logging boundaries and SEC-10 rendering controls to wiki resolution, backlinks, tag catalogs and search. Title existence, counts and source context are private. New derived-table forced RLS checks source owner/current revision on writes, while explicit read joins restrict active/current records. Runtime-login grant checks include both tables. Internal wiki actions resolve to owned UUIDs and use escaped labels, not arbitrary hrefs. Read-only POST remains Origin-protected. The privileged backfill/read-rollout gate is separate from request code. [Knowledge boundaries](../features/knowledge.md) and [ADR-028](../decisions/ADR-028-knowledge-derivation-and-title-resolution.md) own details.

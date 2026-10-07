@@ -1,0 +1,575 @@
+{
+  "id": "4a365e0f-41d9-49f6-b93b-ab248b3879a9",
+  "prevId": "0b889bca-147d-4b75-9444-5089b160a531",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.note_links": {
+      "name": "note_links",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_note_id": {
+          "name": "source_note_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "target_key": {
+          "name": "target_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "target_title": {
+          "name": "target_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_revision": {
+          "name": "source_revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "occurrence_count": {
+          "name": "occurrence_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "context": {
+          "name": "context",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "target_hash": {
+          "name": "target_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "generated": {
+            "as": "public.mindmora_key_hash(target_key)",
+            "type": "stored"
+          }
+        }
+      },
+      "indexes": {
+        "note_links_owner_target": {
+          "name": "note_links_owner_target",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "target_hash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "source_note_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "note_links_user_id_source_note_id_target_hash_pk": {
+          "name": "note_links_user_id_source_note_id_target_hash_pk",
+          "columns": [
+            "user_id",
+            "source_note_id",
+            "target_hash"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {
+        "note_links_owner": {
+          "name": "note_links_owner",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "mindmora_request"
+          ],
+          "using": "auth.uid() = user_id AND EXISTS (SELECT 1 FROM public.notes n WHERE n.id = note_links.source_note_id AND n.user_id = auth.uid())",
+          "withCheck": "auth.uid() = user_id AND EXISTS (SELECT 1 FROM public.notes n WHERE n.id = note_links.source_note_id AND n.user_id = auth.uid() AND n.deleted_at IS NULL AND n.revision = note_links.source_revision)"
+        }
+      },
+      "checkConstraints": {
+        "note_links_bounds": {
+          "name": "note_links_bounds",
+          "value": "char_length(\"note_links\".\"target_key\") BETWEEN 1 AND 3600 AND char_length(\"note_links\".\"target_title\") BETWEEN 1 AND 200 AND char_length(\"note_links\".\"context\") <= 240 AND \"note_links\".\"source_revision\">0 AND \"note_links\".\"occurrence_count\">0"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.note_tags": {
+      "name": "note_tags",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "note_id": {
+          "name": "note_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tag_key": {
+          "name": "tag_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_revision": {
+          "name": "source_revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "tag_hash": {
+          "name": "tag_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "generated": {
+            "as": "public.mindmora_key_hash(tag_key)",
+            "type": "stored"
+          }
+        }
+      },
+      "indexes": {
+        "note_tags_owner_key": {
+          "name": "note_tags_owner_key",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "tag_hash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "note_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "note_tags_user_id_note_id_tag_hash_pk": {
+          "name": "note_tags_user_id_note_id_tag_hash_pk",
+          "columns": [
+            "user_id",
+            "note_id",
+            "tag_hash"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {
+        "note_tags_owner": {
+          "name": "note_tags_owner",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "mindmora_request"
+          ],
+          "using": "auth.uid() = user_id AND EXISTS (SELECT 1 FROM public.notes n WHERE n.id = note_tags.note_id AND n.user_id = auth.uid())",
+          "withCheck": "auth.uid() = user_id AND EXISTS (SELECT 1 FROM public.notes n WHERE n.id = note_tags.note_id AND n.user_id = auth.uid() AND n.deleted_at IS NULL AND n.revision = note_tags.source_revision)"
+        }
+      },
+      "checkConstraints": {
+        "note_tags_bounds": {
+          "name": "note_tags_bounds",
+          "value": "char_length(\"note_tags\".\"tag_key\") BETWEEN 1 AND 1152 AND char_length(\"note_tags\".\"display_name\") BETWEEN 1 AND 64 AND \"note_tags\".\"source_revision\">0"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.notes": {
+      "name": "notes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "create_operation_id": {
+          "name": "create_operation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "create_request_hash": {
+          "name": "create_request_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content": {
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title_key": {
+          "name": "title_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "knowledge_revision": {
+          "name": "knowledge_revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "search_vector": {
+          "name": "search_vector",
+          "type": "tsvector",
+          "primaryKey": false,
+          "notNull": false,
+          "generated": {
+            "as": "public.mindmora_search_vector(title, content)",
+            "type": "stored"
+          }
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "notes_owner_title_key": {
+          "name": "notes_owner_title_key",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "md5(\"notes\".\"title_key\")",
+              "isExpression": true,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"notes\".\"deleted_at\" IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "notes_search_vector": {
+          "name": "notes_search_vector",
+          "columns": [
+            {
+              "expression": "search_vector",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"notes\".\"deleted_at\" IS NULL",
+          "concurrently": false,
+          "method": "gin",
+          "with": {}
+        },
+        "notes_owner_create_operation": {
+          "name": "notes_owner_create_operation",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "create_operation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"notes\".\"create_operation_id\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "notes_owner_active_cursor": {
+          "name": "notes_owner_active_cursor",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "updated_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"notes\".\"deleted_at\" IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "notes_user_id_profiles_user_id_fk": {
+          "name": "notes_user_id_profiles_user_id_fk",
+          "tableFrom": "notes",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "user_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "notes_owner": {
+          "name": "notes_owner",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "mindmora_request"
+          ],
+          "using": "auth.uid() = user_id",
+          "withCheck": "auth.uid() = user_id"
+        }
+      },
+      "checkConstraints": {
+        "notes_knowledge_revision": {
+          "name": "notes_knowledge_revision",
+          "value": "\"notes\".\"knowledge_revision\" IS NULL OR \"notes\".\"knowledge_revision\" > 0 AND \"notes\".\"knowledge_revision\" <= \"notes\".\"revision\""
+        },
+        "notes_create_identity": {
+          "name": "notes_create_identity",
+          "value": "(\"notes\".\"create_operation_id\" IS NULL AND \"notes\".\"create_request_hash\" IS NULL) OR (\"notes\".\"create_operation_id\" IS NOT NULL AND \"notes\".\"create_request_hash\" IS NOT NULL AND \"notes\".\"create_request_hash\" ~ '^[0-9a-f]{64}$')"
+        },
+        "notes_title_bound": {
+          "name": "notes_title_bound",
+          "value": "char_length(\"notes\".\"title\") BETWEEN 1 AND 200 AND \"notes\".\"title\" = btrim(\"notes\".\"title\")"
+        },
+        "notes_content_bound": {
+          "name": "notes_content_bound",
+          "value": "octet_length(\"notes\".\"content\") <= 1048576"
+        },
+        "notes_revision_positive": {
+          "name": "notes_revision_positive",
+          "value": "\"notes\".\"revision\" > 0"
+        },
+        "notes_time_order": {
+          "name": "notes_time_order",
+          "value": "\"notes\".\"updated_at\" >= \"notes\".\"created_at\" AND (\"notes\".\"deleted_at\" IS NULL OR \"notes\".\"deleted_at\" >= \"notes\".\"created_at\")"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.profiles": {
+      "name": "profiles",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "profiles_user_id_users_id_fk": {
+          "name": "profiles_user_id_users_id_fk",
+          "tableFrom": "profiles",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "profiles_owner": {
+          "name": "profiles_owner",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "mindmora_request"
+          ],
+          "using": "auth.uid() = user_id",
+          "withCheck": "auth.uid() = user_id"
+        }
+      },
+      "checkConstraints": {
+        "profiles_display_name_bound": {
+          "name": "profiles_display_name_bound",
+          "value": "\"profiles\".\"display_name\" IS NULL OR char_length(\"profiles\".\"display_name\") <= 200"
+        },
+        "profiles_time_order": {
+          "name": "profiles_time_order",
+          "value": "\"profiles\".\"updated_at\" >= \"profiles\".\"created_at\""
+        }
+      },
+      "isRLSEnabled": true
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

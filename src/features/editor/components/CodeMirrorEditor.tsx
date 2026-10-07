@@ -1,10 +1,13 @@
 "use client";
-import { useEffect, useRef, type RefObject } from "react";
-import { Annotation, EditorState } from "@codemirror/state";
+import { useEffect, useRef, useState, type RefObject } from "react";
+import { Annotation, EditorState, Compartment } from "@codemirror/state";
 import { EditorView, keymap, highlightActiveLine } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
+import {autocompletion} from "@codemirror/autocomplete";
+import {wikiCompletion} from "../../knowledge/wiki-completion";
+import type {KnowledgeApi} from "../../knowledge/api";
 import { tags } from "@lezer/highlight";
 export type FormatAction = "heading" | "bold" | "italic" | "list" | "checklist" | "quote" | "link" | "code";
 export type EditorHandle = { format: (action: FormatAction) => void; focus: () => void };
@@ -22,11 +25,13 @@ const wrappers: Record<FormatAction, [string, string, string]> = {
   checklist: ["- [ ] ", "", "Task"], quote: ["> ", "", "Quote"],
   link: ["[", "](https://example.com)", "link text"], code: ["```\n", "\n```", "code"],
 };
-export function CodeMirrorEditor({ value, onChange, nonce, onSave, onComposing, handle: handleRef }: {
+export function CodeMirrorEditor({ value, onChange, nonce, onSave, onComposing, handle: handleRef, knowledgeApi }: {
   value: string; onChange: (value: string) => void; nonce?: string;
   onSave: () => void; onComposing?: (value: boolean) => void;
   handle?: RefObject<EditorHandle | null>;
+  knowledgeApi?:KnowledgeApi;
 }) {
+  const [completion]=useState(()=>new Compartment());
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const callbacks = useRef({onChange, onSave, onComposing});
@@ -35,7 +40,7 @@ export function CodeMirrorEditor({ value, onChange, nonce, onSave, onComposing, 
     if (!host.current) return;
     const editor = new EditorView({ parent: host.current, state: EditorState.create({
       doc: value,
-      extensions: [markdown(), history(), highlightActiveLine(), EditorView.lineWrapping,
+      extensions: [completion.of(knowledgeApi?autocompletion({override:[wikiCompletion(knowledgeApi)]}):[]),markdown(), history(), highlightActiveLine(), EditorView.lineWrapping,
         syntaxHighlighting(syntax), EditorView.cspNonce.of(nonce ?? ""),
         EditorView.contentAttributes.of({ "aria-label": "Markdown content", "aria-multiline": "true", role: "textbox" }),
         keymap.of([{key: "Mod-s", preventDefault: true, run: () => {callbacks.current.onSave(); return true;}}, ...defaultKeymap, ...historyKeymap]),
@@ -65,6 +70,7 @@ export function CodeMirrorEditor({ value, onChange, nonce, onSave, onComposing, 
     // A view belongs to one mounted editor lease, not each draft render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nonce, handleRef]);
+  useEffect(()=>{view.current?.dispatch({effects:completion.reconfigure(knowledgeApi?autocompletion({override:[wikiCompletion(knowledgeApi)]}):[])});},[knowledgeApi,completion]);
   useEffect(() => {
     const editor = view.current;
     if (editor && value !== editor.state.doc.toString()) editor.dispatch({

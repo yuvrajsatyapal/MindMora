@@ -42,6 +42,10 @@ export async function runCollectionSmoke(
     "listNotes",
     "createNote",
     "readNote",
+    "wikiTargets",
+    "noteBacklinks",
+    "listTags",
+    "searchNotes",
     "updateNote",
     "softDeleteNote",
     ...(authenticated ? [] : ["authCallback", "authStart", "authLogout"]),
@@ -81,7 +85,7 @@ export async function runCollectionSmoke(
     );
     if (
       authenticated &&
-      ["authSession", "listNotes", "readNote", "updateNote"].includes(name)
+      ["authSession", "listNotes", "readNote", "wikiTargets", "noteBacklinks", "listTags", "searchNotes", "updateNote"].includes(name)
     )
       assert.equal(response.status, 200, `${name} authenticated success`);
     if (authenticated && name === "createNote") {

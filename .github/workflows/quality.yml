@@ -19,7 +19,8 @@ jobs:
       - run: npm run api:check
       - run: npm run test:contract
       - run: npm run test:rate-limit
-      - run: npm run test:notes
+      - name: Real PostgreSQL and Redis note and knowledge API acceptance
+        run: npm run test:notes
       - run: npm run test:db
       - run: npm run test:boundary
       - run: npm run build
@@ -29,4 +30,5 @@ jobs:
       - run: npm run test:startup
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
-      - run: npm run test:auth
+      - name: Authenticated browser and generated collection acceptance
+        run: npm run test:auth

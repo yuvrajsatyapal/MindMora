@@ -12,6 +12,10 @@ import { createNotesApi, type NoteScope } from "../api";
 import { noteKeys, useNote, useNotes } from "../hooks";
 import { useNoteSelection } from "../use-note-selection";
 import { NoteList } from "./NoteList";
+import {createKnowledgeApi} from "../../knowledge/api";
+import {knowledgeKeys} from "../../knowledge/hooks";
+import {KnowledgeSearch} from "../../knowledge/components/KnowledgeSearch";
+import {KnowledgeNoteEditor} from "../../knowledge/components/KnowledgeNoteEditor";
 import { NoteEditor } from "./NoteEditor";
 import type { Note } from "../types";
 import { ApiError } from "../../../lib/api/client";
@@ -19,12 +23,15 @@ export function NotesWorkspace({
   scope,
   dirtyRef,
   nonce,
+  knowledgeEnabled=false,
 }: {
   scope: NoteScope;
   dirtyRef: React.RefObject<boolean>;
   nonce?: string;
+  knowledgeEnabled?:boolean;
 }) {
   const api = useMemo(() => createNotesApi(scope), [scope]);
+  const knowledgeApi=useMemo(()=>createKnowledgeApi(scope),[scope]);
   const query = useQueryClient();
   const selection = useNoteSelection();
   const {
@@ -67,11 +74,13 @@ export function NotesWorkspace({
     query.setQueryData<Note>([...noteKeys(scope), "detail", note.id], previous =>
       previous && previous.revision > note.revision ? previous : note);
     void query.invalidateQueries({ queryKey: [...noteKeys(scope), "list"] });
+    void query.invalidateQueries({queryKey:knowledgeKeys(scope)});
     if (!editorSelection.id) {
       setEditorSelection({id:note.id,invalid:false});
       void selection.select(note.id);
     }
   };
+  const onCreated=(note:Note)=>{scope.assertActive();query.setQueryData([...noteKeys(scope),"detail",note.id],note);void query.invalidateQueries({queryKey:[...noteKeys(scope),"list"]});void query.invalidateQueries({queryKey:knowledgeKeys(scope)});};
   const onDeleted = () => {
     scope.assertActive();
     dirtyRef.current = false;
@@ -80,6 +89,7 @@ export function NotesWorkspace({
       queryKey: [...noteKeys(scope), "detail", selection.id],
     });
     void query.invalidateQueries({ queryKey: [...noteKeys(scope), "list"] });
+    void query.invalidateQueries({queryKey:knowledgeKeys(scope)});
     void selection.select(null);
   };
   useEffect(() => {
@@ -133,6 +143,7 @@ export function NotesWorkspace({
           variant="secondary"
           onClick={() => {
             void list.refetch();
+            void query.invalidateQueries({queryKey:knowledgeKeys(scope)});
             if (editorSelection.id) void detail.refetch();
           }}
         >
@@ -151,7 +162,7 @@ export function NotesWorkspace({
       <div className="mm-workspace-grid" data-sidebar={sidebarOpen}>
         {sidebarOpen && (
           <aside id="workspace-note-list" className="mm-notes-sidebar" aria-label="Notes">
-              <div className="mm-stack">
+              {knowledgeEnabled?<KnowledgeSearch scope={scope} api={knowledgeApi} onSelect={id=>void select(id)}/>:<div className="mm-stack">
                 <h2>Your notes</h2>
                 {list.isPending ? (
                   <Skeleton label="Loading notes" />
@@ -181,7 +192,7 @@ export function NotesWorkspace({
                     Load more notes
                   </Button>
                 )}
-              </div>
+              </div>}
           </aside>
         )}
         <div className="mm-document-surface">
@@ -199,7 +210,11 @@ export function NotesWorkspace({
               access it.
             </Alert>
           ) : (
-            <NoteEditor
+            knowledgeEnabled?(<KnowledgeNoteEditor
+              scope={scope}
+              knowledgeApi={knowledgeApi}
+              onSelect={(id:string)=>void select(id)}
+              onCreated={onCreated}
               key={editorKey}
               note={editorSelection.id ? (detail.data ?? null) : null}
               unavailable={unavailable}
@@ -208,7 +223,16 @@ export function NotesWorkspace({
               onSaved={onSaved}
               onDeleted={onDeleted}
               onDirty={onDirty}
-            />
+            />):(<NoteEditor
+              key={editorKey}
+              note={editorSelection.id ? (detail.data ?? null) : null}
+              unavailable={unavailable}
+              api={api}
+              nonce={nonce}
+              onSaved={onSaved}
+              onDeleted={onDeleted}
+              onDirty={onDirty}
+            />)
           )}
         </div>
       </div>

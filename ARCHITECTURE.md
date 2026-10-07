@@ -1,6 +1,6 @@
 # MindMora Architecture
 
-**Inspected:** 2026-10-05, current source through Phase 2 editor implementation; complete-phase local acceptance passed on 2026-10-05; hosted/production acceptance remains separate. This document owns the technical
+**Inspected:** 2026-10-07, current source through Phase 3 knowledge implementation; local Phase 3 validation is recorded in its execution plan; hosted/production acceptance remains separate. This document owns the technical
 system overview. Detailed operating rules live in the linked integration/security guides;
 validation evidence lives in the [phase record](docs/phases/phase-01-foundation.md).
 
@@ -303,4 +303,51 @@ Workspace proxy -> fresh CSP nonce -> dynamic shell -> trusted generated styles
 Mermaid source -> fixed local renderer -> sanitized SVG -> scriptless sandbox
 ```
 
-See [editor guide](docs/features/editor.md), [editor ADR](docs/decisions/ADR-027-editor-autosave-and-safe-rendering.md), and [active Phase 2 evidence](.agent/active/phase-02-editor.md). Phase 3 knowledge features and Phase 4 files/jobs remain unstarted.
+See [editor guide](docs/features/editor.md), [editor ADR](docs/decisions/ADR-027-editor-autosave-and-safe-rendering.md), and [active Phase 2 evidence](.agent/active/phase-02-editor.md). Phase 3 adds the knowledge boundary below. Phase 4 files/jobs remain unstarted.
+
+## Phase 3 knowledge boundary — code present, acceptance recorded separately
+
+The knowledge feature adds four Node/dynamic private route adapters for wiki targets,
+backlinks, tags and search. They retain existing bounds/Origin/online-session/basic
+admission/cookie/error/logging policy and then call the knowledge service/repository.
+The default-off server rollout flag is exposed only as a boolean workspace capability.
+Migration/backfill verification precedes enabling reads; no HTTP request runs privileged
+schema changes or a corpus repair.
+
+Canonical notes now have internal title/index revision and generated weighted search
+vector fields. Two owner/source-scoped derived association tables supply links and tags.
+The note repository parses a final snapshot outside the write transaction, then atomically
+compares its expected revision and writes canonical data plus association replacement in
+one checked transaction. Derived failures roll back the save. Direct database-login grants
+are checked across the new tables; effective source/owner RLS supplements explicit query
+predicates. No queue/worker/Storage boundary participates.
+
+Read-time title resolution is deliberately distinct from note UUID identity. Duplicate
+titles remain legal and produce ambiguity. Rename/delete changes resolution, without
+rewriting any source. Current-revision joins prevent stale association rows from appearing
+as current backlinks/tag membership. Search uses PostgreSQL keyword ranking plus exact
+owned tags; snippet data is plain text, not trusted highlight HTML.
+
+Client API calls retain the existing NoteScope generation/abort verification. Knowledge
+query keys are owner/generation scoped and in memory only. Search and tag filters are
+transient; UUID note selection stays in nuqs. CodeMirror completion and wiki preview
+controls use the shared source grammar; all navigation reaches the existing dirty-draft
+guard. Autosave alone owns saved/dirty/conflict state. A created target acknowledgement
+invalidates knowledge queries but cannot mark the source draft clean.
+
+```text
+Draft -> note API -> source derivation -> checked SQL transaction
+  [canonical note + derived links/tags + generated search vector]
+  -> commit -> revision acknowledgement -> scoped query invalidation
+
+Private knowledge read -> session/admission/schema -> service -> owned SQL/RLS
+  -> plain safe response -> scoped memory -> guarded UUID navigation
+```
+
+[Knowledge behavior and failures](docs/features/knowledge.md) ·
+[ADR-028](docs/decisions/ADR-028-knowledge-derivation-and-title-resolution.md) ·
+[Phase 3 acceptance](.agent/active/phase-03-knowledge.md).
+
+### Maximum-size keyword search
+
+PostgreSQL limits a native tsvector's size. The generated `mindmora_search_vector` catches only `program_limit_exceeded` and returns NULL for those documents, preserving the canonical 1 MiB save contract. Search then calls `mindmora_query_vector`: it scans the full token stream but retains only query lexemes and native bounded positions. It does not truncate source content. Ordinary documents retain their stored weighted vector and GIN index; the current CASE/lateral query can limit GIN planner use. Oversized documents require more CPU per query and remain subject to the existing five-second SQL timeout. This is keyword retrieval, not a chunk/vector/semantic index.

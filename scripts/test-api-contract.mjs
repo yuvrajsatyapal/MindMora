@@ -35,7 +35,18 @@ assert.deepEqual(openapi.components.schemas.UpdateNote.anyOf, [
   { required: ["title"] },
   { required: ["content"] },
 ]);
-assert.equal(collection.item.length, 9);
+assert.equal(Object.keys(openapi.paths).length, 10);
+assert.ok(openapi.paths["/api/search"]?.post, "Full corpus search must be in the contract");
+assert.equal(collection.item.length, 13);
+assert.equal(openapi.components.schemas.SearchInput.additionalProperties, false);
+assert.equal(openapi.components.schemas.SearchPage.properties.items.maxItems, 100);
+assert.equal(openapi.components.schemas.TargetPage.properties.items.maxItems, 50);
+const knowledgeMissing = structuredClone(openapi);
+delete knowledgeMissing.paths["/api/notes/{id}/backlinks"];
+assert.throws(() => validateContract(knowledgeMissing), /paths/i);
+const invalidSecurity = structuredClone(openapi);
+invalidSecurity.paths["/api/search"].post.security = [{ MissingScheme: [] }];
+assert.throws(() => validateContract(invalidSecurity), /security scheme/i);
 assert.ok(
   collection.item.every(
     (item) =>
@@ -61,7 +72,7 @@ const results = await runCollectionSmoke(
     const payload = options.body && JSON.parse(options.body);
     let status = 200;
     let data = {};
-    if (options.method === "POST") {
+    if (options.method === "POST" && url.endsWith("/api/notes/")) {
       status = 201;
       createdId = "00000000-0000-4000-8000-000000000003";
       data = { id: createdId, revision };
@@ -92,9 +103,11 @@ const results = await runCollectionSmoke(
   },
   true,
 );
-assert.equal(results.length, 6);
+assert.equal(results.length, 10);
+assert.deepEqual(results.map(result=>result.operation), ["authSession","listNotes","createNote","readNote","wikiTargets","noteBacklinks","listTags","searchNotes","updateNote","softDeleteNote"]);
+assert.equal(requests.filter(request => Object.keys(request.options.headers).some(key => key.toLowerCase() === "idempotency-key")).length, 1);
 assert.ok(
-  requests.slice(3).every((request) => request.url.endsWith(`${createdId}/`)),
+  requests.filter((request) => ["GET", "PATCH", "DELETE"].includes(request.options.method) && request.url.includes(createdId)).every((request) => request.url.includes(`${createdId}/`)),
 );
 assert.equal(revision, 3);
 console.log(

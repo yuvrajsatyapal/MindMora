@@ -1,6 +1,6 @@
 # MindMora File Map
 
-**Inspected:** 2026-10-05, through Phase 2 source/editor/CSP implementation; full Phase 2 local acceptance passed.
+**Inspected:** 2026-10-07, through Phase 3 knowledge source/API/persistence implementation; local evidence lives in the Phase 3 plan.
 Each row separates where code lives, why it exists, its exports, callers, dependencies
 and the next runtime step. Only implemented files appear here. Some implemented libraries
 have test callers but no product caller; those gaps are explicitly identified.
@@ -145,7 +145,7 @@ Public auth fails closed on Redis outage. The implemented basic fallback require
 |---|---|---|---|---|---|
 | [src/features/notes/validation.ts](../src/features/notes/validation.ts) | Define strict bounded note mutation/list inputs. | createNoteSchema; updateNoteSchema; deleteNoteSchema; listNotesSchema; noteCursorSchema | Note handler; notes/types.ts; validation tests | Zod; byte/revision limits | Candidate input → schema check → typed input or rejection; not a save operation. |
 | [src/features/notes/types.ts](../src/features/notes/types.ts) | Define validated note/profile projections and shared types. | noteSchema; noteSummarySchema; notePageSchema; profileSchema; Note; NoteSummary; NotePage; Profile; input types | Note service/repository/handler; tests | Zod; notes/validation.ts | Row/input data → validated note/page projections → HTTP response. |
-| [src/server/db/schema.ts](../src/server/db/schema.ts) | Describe implemented PostgreSQL tables and constraints. | profiles; notes | Note repository; DB client; Drizzle generator; integration tests | Drizzle pg-core; Auth table definition | Schema → typed query construction or migration generation → PostgreSQL structure. |
+| [src/server/db/schema.ts](../src/server/db/schema.ts) | Describe implemented PostgreSQL tables and constraints. | profiles; notes; noteLinks; noteTags | Note repository; DB client; Drizzle generator; integration tests | Drizzle pg-core; Auth table definition | Schema → typed query construction or migration generation → PostgreSQL structure. |
 | [src/server/db/config.ts](../src/server/db/config.ts) | Separate checked runtime and privileged database settings. | getDatabaseConfig; getMigrationConfig; DatabaseConfig | DB client; CLI common module; startup probe; tests | Zod; Node fs; optional CA file | Selected URL/role/pool/CA → checked TLS config → dedicated client or pool. |
 | [src/server/db/user-context.ts](../src/server/db/user-context.ts) | Issue and recognize actual verified owner objects. | verifyDatabaseSession; assertVerifiedOwner; VerifiedOwner | Note handler; integration tests; DB client/limiter assertions | Auth config; provider; session; WeakSet | Request cookie → verify/refresh identity → issued owner → dispose provider → SQL/fallback permission check. |
 | [src/server/db/client.ts](../src/server/db/client.ts) | Scope SQL transactions to checked roles and verified ownership. | createDatabase; getDatabase; DatabaseFailure; returned run/close | Note repository uses singleton; integration tests use factory | DB config/schema/context; postgres-js; Drizzle | Issued owner → BEGIN/check role → LOCAL role/claims → callback query → commit/rollback → caller. |
@@ -311,7 +311,7 @@ Browser: npm test:e2e / test:auth -> services/provider fixtures
 
 Tests/configuration define checks, not proof that hosted CI or production passed. [Phase record](phases/phase-01-foundation.md) owns dated outcomes; [startup execution record](../.agent/active/startup-health.md) owns its exact evidence.
 
-[Documentation index](README.md) maps document responsibilities. The [active Phase 2 plan](../.agent/active/phase-02-editor.md) owns current live progress; Phase 1 evidence stays historical. No proposed repositories, caches, workers or routes are listed as implemented files.
+[Documentation index](README.md) maps document responsibilities. The [active Phase 3 plan](../.agent/active/phase-03-knowledge.md) owns current live progress; Phase 1 evidence stays historical. No proposed repositories, caches, workers or routes are listed as implemented files.
 
 ## Protected workspace and API tooling — Phase 1F–1H
 
@@ -406,3 +406,119 @@ Current draft -> MarkdownPreview -> admission/parser -> sanitize -> controlled R
   -> explicit MermaidBlock -> nonce measurement -> sanitized SVG -> scriptless sandbox
 Source change/logout -> retire render generation -> remove measurement/output
 ```
+
+## Phase 3 knowledge subsystem
+
+The following files are implemented source; verification/status is owned by the
+[Phase 3 plan](../.agent/active/phase-03-knowledge.md).
+
+### Shared grammar and contracts
+
+**File:** [syntax.ts](../src/features/knowledge/syntax.ts)
+**Purpose:** Extract real wiki references/tags from eligible source regions without rewriting Markdown.
+**Important exports:** normalizeTitleKey, normalizeTagKey, eligibleProseRanges, wikiOccurrences, extractKnowledge, validWikiTarget; derived/occurrence types.
+**Called by:** server derivation/repository; editor preview; completion; knowledge client/hooks; tests.
+**Important dependencies:** installed unified/remark parse/GFM/math and source positions.
+**Runtime flow:** source → eligible AST regions → normalized identities/aggregate context → server indexing or safe preview/completion.
+
+**File:** [validation.ts](../src/features/knowledge/validation.ts)
+**Purpose:** Define strict bounded request/cursor shapes independently of database modules.
+**Important exports:** wikiTargetsSchema, targetCompleteSchema, targetResolveSchema, searchInputSchema, backlinksInputSchema, tagsInputSchema and cursor schemas/types.
+**Called by:** HTTP routes, client facade, API generator and tests.
+**Important dependencies:** Zod.
+**Runtime flow:** untrusted request/local input → bounded parsing → service/repository inputs.
+
+**File:** [types.ts](../src/features/knowledge/types.ts)
+**Purpose:** Define safe runtime-validated response projections.
+**Important exports:** targetPageSchema, resolutionPageSchema, backlinksPageSchema, tagPageSchema, searchPageSchema and corresponding types.
+**Called by:** repository/service, client, API generator and tests.
+**Important dependencies:** Zod; shared knowledge validation and existing note summary projection.
+**Runtime flow:** SQL/JSON result → validation → summary-only client data.
+
+```text
+Source -> syntax -> derived records / safe preview
+External JSON -> validation/types -> bounded request / safe response
+```
+
+### Server persistence and reads
+
+**File:** [derivation.ts](../src/server/knowledge/derivation.ts)
+**Purpose:** Replace trusted source associations on an already-open canonical transaction.
+**Important exports:** deriveKnowledge, replaceKnowledge, KnowledgeDerivation.
+**Called by:** note repository and privileged backfill; integration tests.
+**Important dependencies:** shared grammar, Drizzle, noteLinks/noteTags schema and transaction type.
+**Runtime flow:** final snapshot → normalized derivation → owned association delete/batched insert → enclosing commit/rollback.
+
+**File:** [repository.ts](../src/server/knowledge/repository.ts)
+**Purpose:** Read owned active current-revision search/tag/link data through the checked SQL boundary.
+**Important exports:** createKnowledgeRepository, KnowledgeRepository, searchQueryKey, escapePrefix.
+**Called by:** knowledge service/handler; integration tests.
+**Important dependencies:** checked database.run, VerifiedOwner, parameterized Drizzle SQL, shared normalization/projections, node crypto.
+**Runtime flow:** verified owner + parsed query → scoped transaction/query → live resolution/count/page → service.
+
+**File:** [service.ts](../src/server/knowledge/service.ts)
+**Purpose:** Validate knowledge response boundaries and expose the repository's domain operations.
+**Important exports:** createKnowledgeService.
+**Called by:** knowledge HTTP handler.
+**Important dependencies:** knowledge repository and Zod response schemas; safe HTTP errors.
+**Runtime flow:** trusted operation inputs → repository → safe output projection → handler JSON.
+
+**File:** [routes.ts](../src/server/knowledge/routes.ts)
+**Purpose:** Enforce private HTTP policy before knowledge reads.
+**Important exports:** handleKnowledge, KnowledgeAction, KnowledgeDependencies.
+**Called by:** four App Router adapters; unit/API fixture tests.
+**Important dependencies:** session/owner verification, configuration/read gate, CSRF, bounds/body, Redis basic admission, safe cookies/responses/Pino, service/repository.
+**Runtime flow:** request → bounds/method/Origin/identity/admission/gate/schema → service → no-store JSON and refreshed cookie/metadata.
+
+**File:** [backfill-knowledge.mjs](../scripts/backfill-knowledge.mjs)
+**Purpose:** Repair/verify preexisting derived knowledge without modifying canonical edit history.
+**Important exports:** backfillKnowledge.
+**Called by:** explicit privileged CLI and integration tests; no HTTP/startup caller.
+**Important dependencies:** adminConnection, Drizzle, shared derivation, Node module loader.
+**Runtime flow:** privileged connection → UUID batches/revision locks → association repair → consistency check/connection close.
+
+```text
+Note repository -> derivation -> same checked SQL transaction -> commit
+Private read adapters -> handleKnowledge -> service -> repository -> SQL/RLS
+Explicit admin CLI -> revision-safe backfill -> verify before enabling reads
+```
+
+### Client and workspace integration
+
+**File:** [api.ts](../src/features/knowledge/api.ts)
+**Purpose:** Read knowledge through the current account lease with validated JSON.
+**Important exports:** createKnowledgeApi, KnowledgeApi.
+**Called by:** NotesWorkspace, hooks, completion and wiki navigation; tests.
+**Important dependencies:** apiRequest/ApiError, NoteScope, Zod schemas and title normalization.
+**Runtime flow:** assert/verify lease → no-store abortable fetch → shape/owner validation → assert current generation → caller.
+
+**File:** [hooks.ts](../src/features/knowledge/hooks.ts)
+**Purpose:** Keep bounded search/tag/backlink pages in scoped memory-only query state.
+**Important exports:** knowledgeKeys, useKnowledgeSearch, useTags, useBacklinks.
+**Called by:** search/tag/backlink components and workspace invalidation.
+**Important dependencies:** TanStack Query, NoteScope, KnowledgeApi, response cursor types and tag normalization.
+**Runtime flow:** owner/generation + transient query → API page → memory result → acknowledgement invalidation/refetch.
+
+**File:** [wiki-completion.ts](../src/features/knowledge/wiki-completion.ts)
+**Purpose:** Offer owned title completion only in eligible wiki syntax.
+**Important exports:** wikiCompletion.
+**Called by:** CodeMirrorEditor and completion tests.
+**Important dependencies:** installed CodeMirror autocomplete, KnowledgeApi, shared source grammar.
+**Runtime flow:** cursor/source eligibility → abortable completion fetch → current options → composing-aware editor insertion transaction.
+
+**File:** [WikiLink.tsx](../src/features/knowledge/components/WikiLink.tsx)
+**Purpose:** Coordinate live resolution and explicit idempotent missing-target creation.
+**Important exports:** useWikiNavigation.
+**Called by:** NotesWorkspace and controller tests.
+**Important dependencies:** KnowledgeApi, existing NotesApi/NoteScope, shared Button/Alert and browser confirmation.
+**Runtime flow:** target action → re-resolve → missing/ambiguous state or guarded selection → frozen create/reconcile → invalidate/re-resolve → guarded selection.
+
+```text
+Workspace lease -> API/hooks -> search/tags/backlinks -> guarded selection
+CodeMirror cursor -> completion API -> editor transaction
+Preview wiki action -> resolve/create controller -> dirty guard -> UUID editor
+```
+
+| File | Purpose | Important exports | Called by | Dependencies | Runtime flow |
+|---|---|---|---|---|---|
+| [supabase/migrations/0002_knowledge_features.sql](../supabase/migrations/0002_knowledge_features.sql) | Install derived knowledge tables, policies and bounded search helpers. | mindmora_search_vector; mindmora_query_vector; mindmora_key_hash (SQL functions) | Migrator; note generated column; knowledge repository | PostgreSQL simple tokenizer; notes; auth.uid | Migration → generated vector/hash and RLS → committed writes/private reads. |

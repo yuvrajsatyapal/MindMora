@@ -17,7 +17,7 @@ type Lease = {
   generation: number;
   controller: AbortController;
 };
-export function WorkspaceShell({ nonce }: { nonce?: string } = {}) {
+export function WorkspaceShell({ nonce,knowledgeEnabled=false }: { nonce?: string;knowledgeEnabled?:boolean } = {}) {
   const [query] = useState(
     () =>
       new QueryClient({
@@ -183,6 +183,7 @@ export function WorkspaceShell({ nonce }: { nonce?: string } = {}) {
             key={`${scope.ownerId}:${scope.generation}`}
             scope={scope}
             nonce={nonce}
+            knowledgeEnabled={knowledgeEnabled}
             dirtyRef={dirtyRef}
           />
         </QueryClientProvider>

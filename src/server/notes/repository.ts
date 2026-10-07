@@ -3,6 +3,7 @@ import { and, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import { getDatabase } from "../db/client";
 import { notes, profiles } from "../db/schema";
+import { deriveKnowledge, replaceKnowledge } from "../knowledge/derivation";
 import type { VerifiedOwner } from "../db/user-context";
 import type {
   CreateNoteInput,
@@ -45,6 +46,7 @@ export function createNoteRepository(database: NoteDatabase = getDatabase()) {
       input: CreateNoteInput,
       operationId: string,
     ): Promise<NoteOutcome> {
+      const derivation = deriveKnowledge(input.title, input.content);
       const hash = createHash("sha256")
         .update(JSON.stringify([input.title, input.content]))
         .digest("hex");
@@ -54,6 +56,8 @@ export function createNoteRepository(database: NoteDatabase = getDatabase()) {
           .values({
             userId: owner.userId,
             ...input,
+            titleKey: derivation.titleKey,
+            knowledgeRevision: 1,
             createOperationId: operationId,
             createRequestHash: hash,
           })
@@ -62,7 +66,10 @@ export function createNoteRepository(database: NoteDatabase = getDatabase()) {
             where: sql`${notes.createOperationId} IS NOT NULL`,
           })
           .returning();
-        if (inserted) return { kind: "note", row: inserted, created: true };
+        if (inserted) {
+          await replaceKnowledge(tx, inserted, derivation);
+          return { kind: "note", row: inserted, created: true };
+        }
         const [existing] = await tx
           .select()
           .from(notes)
@@ -139,12 +146,22 @@ export function createNoteRepository(database: NoteDatabase = getDatabase()) {
       id: string,
       input: UpdateNoteInput,
     ): Promise<NoteOutcome> {
+      // Read before parsing; the write still compares exactly the expected revision.
+      const base = await database.run(owner, async (tx) => {
+        const [row] = await tx.select().from(notes).where(active(owner, id)).limit(1);
+        return row;
+      });
+      if (!base) return { kind: "not_found" };
+      if (base.revision !== input.expectedRevision) return { kind: "revision_conflict" };
+      const derivation = deriveKnowledge(input.title ?? base.title, input.content ?? base.content);
       return run(owner, displayName, async (tx) => {
         const [row] = await tx
           .update(notes)
           .set({
             ...(input.title !== undefined ? { title: input.title } : {}),
             ...(input.content !== undefined ? { content: input.content } : {}),
+            titleKey: derivation.titleKey,
+            knowledgeRevision: input.expectedRevision + 1,
             revision: sql`${notes.revision}+1`,
             updatedAt: time,
           })
@@ -152,7 +169,7 @@ export function createNoteRepository(database: NoteDatabase = getDatabase()) {
             and(active(owner, id), eq(notes.revision, input.expectedRevision)),
           )
           .returning();
-        if (row) return { kind: "note", row };
+        if (row) { await replaceKnowledge(tx, row, derivation); return { kind: "note", row }; }
         const [existing] = await tx
           .select({ id: notes.id })
           .from(notes)
@@ -173,13 +190,14 @@ export function createNoteRepository(database: NoteDatabase = getDatabase()) {
           .set({
             deletedAt: time,
             updatedAt: time,
+            knowledgeRevision: input.expectedRevision + 1,
             revision: sql`${notes.revision}+1`,
           })
           .where(
             and(active(owner, id), eq(notes.revision, input.expectedRevision)),
           )
           .returning();
-        if (row) return { kind: "note", row };
+        if (row) { await replaceKnowledge(tx, row, null); return { kind: "note", row }; }
         const [existing] = await tx
           .select({ id: notes.id })
           .from(notes)

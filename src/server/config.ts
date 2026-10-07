@@ -100,3 +100,11 @@ export function getRateLimitConfig(
     trustedClientIpHeader: result.data.TRUSTED_CLIENT_IP_HEADER,
   });
 }
+
+/** Default-off rollout until additive migration and backfill are verified. */
+export function isKnowledgeEnabled(env:Record<string,string|undefined> = process.env):boolean {
+  const value=env.KNOWLEDGE_FEATURES_ENABLED;
+  if (value === undefined || value === "false") return false;
+  if (value === "true") return true;
+  throw new Error("Invalid server configuration: knowledge rollout.");
+}

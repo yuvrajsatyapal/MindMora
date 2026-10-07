@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "MindMora auth and notes API",
-    "version": "0.1.0",
-    "description": "Phase 1 auth and notes API. Online verified protected cookies, owner-scoped SQL/RLS, optimistic revisions and create-operation keys. Generated shared schemas; reviewed operation and security metadata. Production readiness and provider acceptance evidence are documented separately."
+    "version": "0.3.0",
+    "description": "Auth, notes and opt-in Phase 3 knowledge API. Online verified protected cookies, owner-scoped SQL/RLS, synchronous Markdown derivation, bounded corpus search and revision-safe writes. Local fixture evidence is separate from hosted readiness."
   },
   "paths": {
     "/api/auth/start": {
@@ -1757,6 +1757,466 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/DeleteNote"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/knowledge/wiki-targets": {
+      "post": {
+        "operationId": "wikiTargets",
+        "summary": "Complete or resolve owner-scoped wiki titles",
+        "description": "Requires enabled knowledge features and a verified session. Private terms travel in POST bodies; queries reject unknown/repeated parameters. Title resolution never chooses among duplicates. Disabled rollout returns 503.",
+        "security": [
+          {
+            "AppSession": []
+          },
+          {
+            "LocalSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "Exact APP_ORIGIN. GET may omit Origin but rejects a supplied foreign Origin."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owned bounded projection; private, no-store.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-store"
+                }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              },
+              "Set-Cookie": {
+                "description": "Optional refreshed protected session or invalid-session clearing cookie; HttpOnly/host-only/SameSite=Lax, Secure over HTTPS. No credential examples.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Degraded": {
+                "description": "Present with true when basic admission used bounded process-local fallback.",
+                "schema": {
+                  "type": "string",
+                  "const": "true"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/TargetPage"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ResolutionPage"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NoteError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/NoteError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/NoteError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/NoteError404"
+          },
+          "405": {
+            "description": "Unsupported method; Allow identifies admitted methods."
+          },
+          "413": {
+            "$ref": "#/components/responses/NoteError413"
+          },
+          "415": {
+            "$ref": "#/components/responses/NoteError415"
+          },
+          "429": {
+            "$ref": "#/components/responses/NoteError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/NoteError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/NoteError503"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WikiTargets"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notes/{id}/backlinks": {
+      "get": {
+        "operationId": "noteBacklinks",
+        "summary": "Read committed incoming references",
+        "description": "Requires enabled knowledge features and a verified session. Private terms travel in POST bodies; queries reject unknown/repeated parameters. Title resolution never chooses among duplicates. Disabled rollout returns 503.",
+        "security": [
+          {
+            "AppSession": []
+          },
+          {
+            "LocalSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "description": "JSON-encoded bounded keyset cursor from the preceding response.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owned bounded projection; private, no-store.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-store"
+                }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              },
+              "Set-Cookie": {
+                "description": "Optional refreshed protected session or invalid-session clearing cookie; HttpOnly/host-only/SameSite=Lax, Secure over HTTPS. No credential examples.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Degraded": {
+                "description": "Present with true when basic admission used bounded process-local fallback.",
+                "schema": {
+                  "type": "string",
+                  "const": "true"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BacklinksPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NoteError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/NoteError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/NoteError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/NoteError404"
+          },
+          "405": {
+            "description": "Unsupported method; Allow identifies admitted methods."
+          },
+          "413": {
+            "$ref": "#/components/responses/NoteError413"
+          },
+          "415": {
+            "$ref": "#/components/responses/NoteError415"
+          },
+          "429": {
+            "$ref": "#/components/responses/NoteError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/NoteError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/NoteError503"
+          }
+        }
+      }
+    },
+    "/api/tags": {
+      "get": {
+        "operationId": "listTags",
+        "summary": "List owned inline tags with active-note counts",
+        "description": "Requires enabled knowledge features and a verified session. Private terms travel in POST bodies; queries reject unknown/repeated parameters. Title resolution never chooses among duplicates. Disabled rollout returns 503.",
+        "security": [
+          {
+            "AppSession": []
+          },
+          {
+            "LocalSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "description": "JSON-encoded bounded keyset cursor from the preceding response.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owned bounded projection; private, no-store.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-store"
+                }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              },
+              "Set-Cookie": {
+                "description": "Optional refreshed protected session or invalid-session clearing cookie; HttpOnly/host-only/SameSite=Lax, Secure over HTTPS. No credential examples.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Degraded": {
+                "description": "Present with true when basic admission used bounded process-local fallback.",
+                "schema": {
+                  "type": "string",
+                  "const": "true"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TagPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NoteError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/NoteError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/NoteError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/NoteError404"
+          },
+          "405": {
+            "description": "Unsupported method; Allow identifies admitted methods."
+          },
+          "413": {
+            "$ref": "#/components/responses/NoteError413"
+          },
+          "415": {
+            "$ref": "#/components/responses/NoteError415"
+          },
+          "429": {
+            "$ref": "#/components/responses/NoteError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/NoteError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/NoteError503"
+          }
+        }
+      }
+    },
+    "/api/search": {
+      "post": {
+        "operationId": "searchNotes",
+        "summary": "Search the complete owned active corpus",
+        "description": "Requires enabled knowledge features and a verified session. Private terms travel in POST bodies; queries reject unknown/repeated parameters. Title resolution never chooses among duplicates. Disabled rollout returns 503.",
+        "security": [
+          {
+            "AppSession": []
+          },
+          {
+            "LocalSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "Exact APP_ORIGIN. GET may omit Origin but rejects a supplied foreign Origin."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owned bounded projection; private, no-store.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-store"
+                }
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/CorrelationId"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              },
+              "Set-Cookie": {
+                "description": "Optional refreshed protected session or invalid-session clearing cookie; HttpOnly/host-only/SameSite=Lax, Secure over HTTPS. No credential examples.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Degraded": {
+                "description": "Present with true when basic admission used bounded process-local fallback.",
+                "schema": {
+                  "type": "string",
+                  "const": "true"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/NoteError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/NoteError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/NoteError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/NoteError404"
+          },
+          "405": {
+            "description": "Unsupported method; Allow identifies admitted methods."
+          },
+          "413": {
+            "$ref": "#/components/responses/NoteError413"
+          },
+          "415": {
+            "$ref": "#/components/responses/NoteError415"
+          },
+          "429": {
+            "$ref": "#/components/responses/NoteError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/NoteError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/NoteError503"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchInput"
               }
             }
           }

@@ -3,8 +3,8 @@
 > **Your knowledge. Your files. Your control.**
 
 **Target reader:** Codex and human contributors.
-**Updated:** 2026-10-05 — implementation-status synchronization through Phase 2; v3 requirements remain unchanged.
-**Implementation status:** ✅ Phase 1 code includes the shared UI, Next Node runtime, backend-owned Google/Supabase sessions, scoped PostgreSQL/RLS note CRUD, Redis admission/Pino/startup health, protected workspace with memory-only query/UI/URL state, generated OpenAPI/Postman plus opt-in Swagger. ✅ Phase 2 adds CodeMirror source/formatting, Edit/Preview/Split, safe local Markdown/math/Mermaid and revision-safe serialized autosave/recovery. Private Storage and jobs/workers remain later phases. Hosted migration/application and production readiness remain separate from local fixture verification. [Current architecture](ARCHITECTURE.md) and [dated Phase 2 evidence](docs/phases/phase-02-editor.md) distinguish implementation from provider/production acceptance.
+**Updated:** 2026-10-07 — implementation-status synchronization through Phase 3; v3 requirements remain unchanged.
+**Implementation status:** ✅ Phase 1 code includes the shared UI, Next Node runtime, backend-owned Google/Supabase sessions, scoped PostgreSQL/RLS note CRUD, Redis admission/Pino/startup health, protected workspace with memory-only query/UI/URL state, generated OpenAPI/Postman plus opt-in Swagger. ✅ Phase 2 adds CodeMirror source/formatting, Edit/Preview/Split, safe local Markdown/math/Mermaid and revision-safe serialized autosave/recovery. ✅ Phase 3 adds portable wiki links/completion, guarded missing-note creation, committed backlinks, inline tags and owner-scoped keyword search with transactional derivation and revision-safe backfill. Knowledge reads/UI remain gated until operator migration/backfill verification. Private Storage and jobs/workers remain later phases. Hosted migration/application and production readiness remain separate from local fixture verification. [Current architecture](ARCHITECTURE.md) and [dated Phase 3 evidence](docs/phases/phase-03-knowledge.md) distinguish implementation from provider/production acceptance.
 **Budget:** Target free tiers for approximately 3–4 daily users. Free software does not include free hosting, unlimited storage, uninterrupted availability or unlimited worker compute. Verify current limits before introducing services; no paid infrastructure or paid AI dependency without explicit user approval. Optional BYOK usage is paid by the user.
 
 ## Revision summary
@@ -440,7 +440,7 @@ Use `server-only` boundaries so client code cannot import database credentials, 
 
 ## 17. Development Phases
 
-Keep the 14-phase roadmap, with revised scopes and dependencies. Detailed plans for later phases are created as those phases begin; Phase 1 and Phase 2 execution records are complete locally; Phase 3 is unstarted.
+Keep the 14-phase roadmap, with revised scopes and dependencies. Detailed plans for later phases are created as those phases begin; Phase 1, Phase 2 and Phase 3 execution records are complete locally; Phase 4 is unstarted.
 
 | Phase | Scope |
 |---|---|

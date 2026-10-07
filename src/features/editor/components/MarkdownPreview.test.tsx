@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MarkdownPreview } from './MarkdownPreview';
 afterEach(()=>vi.useRealTimers());
@@ -47,4 +47,24 @@ describe('controlled rich preview',()=>{
  expect(screen.getByRole('button',{name:'Render diagram'})).toBeInTheDocument();
  expect(view.container.querySelector('iframe')).toBeNull();
  });
+});
+
+it('activates eligible wiki references as buttons while excluded syntax stays inert',async()=>{
+ vi.useFakeTimers(); const activate=vi.fn();
+ render(<MarkdownPreview content={'[[Target|Read target]] `[[Code]]` \\[[Escaped]] ![[Embed]]'} onWikiLink={activate}/>);
+ await act(async()=>vi.advanceTimersByTime(250));
+ const button=screen.getByRole('button',{name:'Read target'});
+ fireEvent.click(button); expect(activate).toHaveBeenCalledWith('Target');
+ expect(screen.getAllByRole('button')).toHaveLength(1);
+});
+
+it('preserves surrounding text and spaces around wiki controls',async()=>{
+ vi.useFakeTimers();const view=render(<MarkdownPreview content='Before [[Target]] after' onWikiLink={vi.fn()}/>);await act(async()=>vi.advanceTimersByTime(250));expect(view.container.textContent).toBe('Before Target after');
+});
+it('keeps wiki syntax as ordinary text when knowledge rollout is disabled',async()=>{
+ vi.useFakeTimers();render(<MarkdownPreview content='[[Target]]'/>);await act(async()=>vi.advanceTimersByTime(250));expect(screen.getByText('[[Target]]')).toBeInTheDocument();expect(screen.queryByRole('button')).toBeNull();
+});
+
+it('renders source-spanning wiki tokens with labels as plain text',async()=>{
+ vi.useFakeTimers();render(<MarkdownPreview content='[[Under_score_title|**literal label**]]' onWikiLink={vi.fn()}/>);await act(async()=>vi.advanceTimersByTime(250));expect(screen.getByRole('button',{name:'**literal label**'})).toBeInTheDocument();expect(screen.queryByText('literal label',{selector:'strong'})).toBeNull();
 });

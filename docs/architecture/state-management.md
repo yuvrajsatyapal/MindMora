@@ -104,3 +104,7 @@ Logout/switch -> invalidate lease -> cancel/clear queries -> unmount source/prev
 [Auth](../integrations/supabase-auth.md), [database](../integrations/supabase-database.md)
 and [security](security-architecture.md) distinguish local fixtures, effective RLS checks,
 live-provider and production evidence. Exact runs belong to dated execution records.
+
+## Phase 3 integration — 2026-10-07
+
+Phase 3 knowledge query keys include owner/generation plus operation/filter/cursor data, using the same memory-only QueryClient and NoteScope lifecycle. Search input/tag filter are transient React state, not URL knowledge. Wiki create operation identity/input stay in the mounted source controller until confirmed/reconciled; source draft/save state still belongs to autosave. Confirmed save/delete/reconciliation invalidates scoped knowledge reads. Logout clears/aborts them with notes. [Knowledge flow](../features/knowledge.md) owns behavior.

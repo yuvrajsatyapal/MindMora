@@ -92,6 +92,7 @@ try {
               SUPABASE_PUBLISHABLE_KEY: "sb_publishable_fixture",
               AUTH_TEST_PROVIDER_URL: providerUrl,
               API_DOCS_ENABLED: "true",
+              KNOWLEDGE_FEATURES_ENABLED: "true",
             },
           },
         );

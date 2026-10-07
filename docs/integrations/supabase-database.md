@@ -228,3 +228,29 @@ provisioning to apply a schema migration.
 transactions overlap. The existing `test:db` suite keeps pool size one to verify socket
 reuse and claim cleanup. Both use the actual driver/roles and emulated local auth.uid;
 neither establishes production policy, hosted migration or live Google acceptance.
+
+## Phase 3 knowledge rollout — implementation, hosted application separate
+
+Apply additive migration 0002 before serving the new writer. Keep `KNOWLEDGE_FEATURES_ENABLED=false` during maintenance/backfill. The normal request login has no direct knowledge-table grants; it uses the checked request role and verified claims. Both derived tables have forced owner/source RLS; physical deletion is granted only on regenerable associations. The generated vector/title/revision columns are internal and never added to the public Note projection.
+
+The one-off privileged CLI uses existing migration configuration and closes its connection. It preserves canonical revisions/timestamps and can be rerun after interruption:
+
+```bash
+node --env-file=.env --conditions=react-server --experimental-strip-types scripts/backfill-knowledge.mjs
+```
+
+This command writes to the configured database. Hosted execution requires separate operator authorization; local acceptance uses disposable PostgreSQL. Enable knowledge reads only after the CLI consistency check succeeds. A rollback to old writers requires disabling reads and running repair before enabling again. New associations have no foreign keys; privileged account/fixture cleanup must remove orphan derived rows, and the backfill explicitly cleans them. Request deletes remain soft deletion plus transactional association cleanup.
+
+[Knowledge behavior](../features/knowledge.md) · [ADR-028](../decisions/ADR-028-knowledge-derivation-and-title-resolution.md).
+
+## Phase 3 startup prerequisites and 503 diagnosis
+
+Apply the reviewed `0002_knowledge_features.sql` through `npm run db:migrate` before serving the Phase 3 code against an existing database. The feature flag gates knowledge reads/UI; it is not schema backward compatibility. Even listing notes checks runtime privileges on `note_links` and `note_tags`, and canonical writers maintain derivations. Missing tables make privilege lookup fail with PostgreSQL `42P01`, safely surfaced as `service_unavailable`/503. Do not skip the security inventory or grant direct runtime access to work around this.
+
+After authorized migration, run `npm run db:backfill:knowledge` and verify consistency before enabling reads. Hosted application requires separate authorization. Neither command provisions or rotates runtime roles.
+
+`APP_ORIGIN` must also match the actual browser origin and port. If Next chooses 3001 because 3000 is occupied, a 3000 origin setting rejects writes with 403. Either free the intended port through its owner or update local origin and provider callback configuration for 3001, then restart MindMora. Do not stop an unrelated project automatically.
+
+**Hosted development repair, 2026-10-07:** after explicit user authorization, migration 0002 and knowledge backfill were applied successfully to configured Supabase (4 records; 0 concurrent-change retries). Read-only schema/revision/association/runtime-role and owned-list checks passed. The flag was not enabled. The earlier missing-schema 503 is distinct from the local APP_ORIGIN/port mismatch; no hosted production certification is implied. [Dated follow-up](../phases/phase-03-knowledge.md#authorized-hosted-migrationbackfill-follow-up--2026-10-07).
+
+**Local Origin repair, 2026-10-07:** ignored `.env` now uses `http://localhost:3001`, matching the running MindMora server. Next dev reloaded it; matching-origin requests reach auth (401 without credentials) while old/foreign origins remain 403. Keep an unsaved draft open and use Retry save after correcting the setting; page reload is unnecessary. OAuth redirect allowlisting must match this origin for future sign-in. No provider setting was changed.

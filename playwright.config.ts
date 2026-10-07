@@ -1,7 +1,7 @@
 import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests/e2e",
-  testIgnore: ["auth.spec.ts", "foundation.spec.ts", "contracts.spec.ts", "editor.spec.ts"],
+  testIgnore: ["auth.spec.ts", "foundation.spec.ts", "contracts.spec.ts", "editor.spec.ts", "knowledge.spec.ts"],
   fullyParallel: true,
   use: { baseURL: "http://127.0.0.1:4173", trace: "retain-on-failure" },
   webServer: {

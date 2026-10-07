@@ -35,3 +35,8 @@ it("retains operational metadata and removes arbitrary nested private markers", 
   });
   expect(output).not.toContain("private-");
 });
+it("logs knowledge operation metadata while excluding terms, tags and snippets", () => {
+ let output="";const log=createRequestLogger({write:chunk=>{output+=chunk;}});
+ log({correlationId:"11111111-1111-4111-8111-111111111111",operation:"knowledge.search",status:200,durationMs:1,query:"private-query",tag:"private-tag",snippet:"private-snippet",targets:["private-title"]});
+ expect(JSON.parse(output).operation).toBe("knowledge.search");expect(output).not.toContain("private-");
+});

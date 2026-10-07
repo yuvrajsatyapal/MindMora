@@ -139,3 +139,7 @@ response is normalized after commit; no queue or browser database owns the recor
 
 Be ready to explain why authentication differs from RLS, why read-then-write is unsafe,
 why failure does not always mean rollback, and why keyed retries need the original input.
+
+## Phase 3 integration — 2026-10-07
+
+Phase 3 keeps these canonical Note/create/update/delete response contracts unchanged. The repository now writes current title/index revision and derived link/tag associations inside the same checked canonical transaction. Partial updates derive from merged content; uncertain creates replay the original key/input and preserve current derivations. [Knowledge API](knowledge.md) owns the four new private read routes.
